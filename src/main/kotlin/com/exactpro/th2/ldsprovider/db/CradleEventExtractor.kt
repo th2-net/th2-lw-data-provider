@@ -1,0 +1,142 @@
+/*******************************************************************************
+ * Copyright 2021-2021 Exactpro (Exactpro Systems Limited)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ ******************************************************************************/
+
+package com.exactpro.th2.ldsprovider.db
+
+import com.exactpro.cradle.CradleManager
+import com.exactpro.cradle.cassandra.CassandraCradleStorage
+import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.cradle.testevents.StoredTestEventWrapper
+import com.exactpro.th2.ldsprovider.EventRequestContext
+import com.exactpro.th2.ldsprovider.entities.internal.ProviderEventId
+import com.exactpro.th2.ldsprovider.entities.requests.SseEventSearchRequest
+import com.exactpro.th2.ldsprovider.producers.EventProducer
+import mu.KotlinLogging
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.temporal.ChronoUnit
+import java.util.Collections
+import java.util.stream.Collectors
+
+
+class CradleEventExtractor (private val cradleManager: CradleManager) {
+
+    private val storage = cradleManager.storage
+
+    companion object {
+        private val logger = KotlinLogging.logger { }
+    }
+
+    fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
+        var dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
+        if (filter.parentEvent == null) {
+            getEventByDates(dates, requestContext)
+        } else {
+            getEventByIds(filter.parentEvent, dates, requestContext)
+        }
+        requestContext.finishStream()
+        
+    }
+
+    private fun toLocal(timestamp: Instant?): LocalDateTime {
+        return LocalDateTime.ofInstant(timestamp, CassandraCradleStorage.TIMEZONE_OFFSET)
+    }
+
+    private fun toInstant(timestamp: LocalDateTime): Instant {
+        return timestamp.toInstant(CassandraCradleStorage.TIMEZONE_OFFSET)
+    }
+
+
+    private fun splitByDates(from: Instant?, to: Instant?): Collection<Pair<Instant, Instant>> {
+        checkNotNull(from)
+        checkNotNull(to)
+        require(!from.isAfter(to)) { "Lower boundary should specify timestamp before upper boundary, but got $from > $to" }
+        var localFrom: LocalDateTime = toLocal(from)
+        val localTo: LocalDateTime = toLocal(to)
+        val result: MutableCollection<Pair<Instant, Instant>> = ArrayList()
+        do {
+            if (localFrom.toLocalDate() == localTo.toLocalDate()) {
+                result.add(toInstant(localFrom) to toInstant(localTo))
+                return result
+            }
+            val eod = localFrom.toLocalDate().atTime(LocalTime.MAX)
+            result.add(toInstant(localFrom) to toInstant(eod))
+            localFrom = eod.plus(1, ChronoUnit.NANOS)
+        } while (true)
+    }
+
+    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+        for (splitByDate in dates) {
+            val counter = LongCounter()
+            val startTime = System.currentTimeMillis()
+            val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
+            processEvents(testEvents, requestContext, counter)
+            logger.info { "Events from ${splitByDate.first} to ${splitByDate.second} processed. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
+        }
+    }
+
+    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+        for (splitByDate in dates) {
+            val counter = LongCounter()
+            val startTime = System.currentTimeMillis()
+            val testEvents = storage.getTestEvents(id.eventId, splitByDate.first, splitByDate.second)
+            processEvents(testEvents, requestContext, counter)
+            logger.info { "Events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
+        }
+    }
+    
+    private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
+        return if (messageIds != null) {
+            messageIds.stream().map { t -> t.toString() }.collect(Collectors.toSet())
+        } else {
+            Collections.emptySet()
+        }
+    }
+    
+    private fun processEvents(
+        testEvents: Iterable<StoredTestEventWrapper>,
+        requestContext: EventRequestContext, count: LongCounter
+    ) {
+        for (testEvent in testEvents) {
+            if (testEvent.isSingle) {
+                val singleEv = testEvent.asSingle()
+                val event = EventProducer.fromSingleEvent(singleEv)
+                event.body = String(singleEv.content)
+                event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
+                count.value++
+                requestContext.processEvent(event.convertToEvent())
+            } else if (testEvent.isBatch) {
+                for (batchEvent in testEvent.asBatch().testEvents) {
+                    val batchEventBody = EventProducer.fromBatchEvent(batchEvent)
+                    batchEventBody.body = String(batchEvent.content)
+                    batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
+
+                    requestContext.processEvent(batchEventBody.convertToEvent())
+                    count.value++
+                }
+            }
+        }
+    }
+}
+
+class LongCounter {
+    var value: Long = 0;
+    
+    override fun toString(): String {
+        return value.toString()
+    }
+}
