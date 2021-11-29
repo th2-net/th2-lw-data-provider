@@ -21,6 +21,7 @@ import com.exactpro.cradle.testevents.StoredTestEventMetadata
 import com.exactpro.cradle.testevents.StoredTestEventWrapper
 import com.exactpro.th2.ldsprovider.entities.internal.ProviderEventId
 import com.fasterxml.jackson.annotation.JsonRawValue
+import com.google.gson.Gson
 import java.time.Instant
 
 data class BaseEventEntity(
@@ -41,6 +42,25 @@ data class BaseEventEntity(
 
     @JsonRawValue
     var body: String? = null
+    
+    companion object {
+        private val gson = Gson()
+        
+        fun checkAndConvertBody(srcBody: String?) : String {
+            return if (srcBody.isNullOrEmpty()) {
+                "{}"
+            } else {
+                val firstChar = srcBody[0]
+                val lastChar = srcBody[srcBody.length - 1]
+                if ((firstChar == '[' || firstChar == '{') && (lastChar == ']' || lastChar == '}')) {
+                    srcBody
+                } else {
+                    gson.toJson(srcBody)
+                }
+            }
+        }
+        
+    }
 
     constructor(
         stored: StoredTestEventMetadata,
@@ -99,7 +119,7 @@ data class BaseEventEntity(
             parentEventId = parentEventId?.toString(),
             successful = successful,
             attachedMessageIds = attachedMessageIds,
-            body = body
+            body = checkAndConvertBody(body)
         )
     }
 }

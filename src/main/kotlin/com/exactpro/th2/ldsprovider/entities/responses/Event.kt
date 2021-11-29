@@ -45,7 +45,7 @@ data class Event(
     val attachedMessageIds: Set<String>,
 
     @JsonRawValue
-    val body: String?
+    val body: String
 ) {
 
     private fun convertMessageIdToProto(attachedMessageIds: Set<String>): List<MessageID> {
@@ -95,7 +95,7 @@ data class Event(
         parentEventId = parentEventId,
         successful = stored.isSuccess,
         attachedMessageIds = messages,
-        body = body
+        body = body ?: "{}"
     )
 
 
