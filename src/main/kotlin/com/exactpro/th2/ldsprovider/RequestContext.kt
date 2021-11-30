@@ -22,7 +22,10 @@ import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.ldsprovider.entities.responses.Event
 import com.exactpro.th2.ldsprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.ldsprovider.producers.MessageProducer53
+import com.google.gson.Gson
+import mu.KotlinLogging
 import java.time.Instant
+import java.util.Collections
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -35,6 +38,10 @@ abstract class RequestContext(
    val channelMessages: ArrayBlockingQueue<SseEvent>,
    val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 ) {
+
+   companion object {
+      private val logger = KotlinLogging.logger { }
+   }
    
    fun finishStream() {
       channelMessages.put(SseEvent(event = EventType.CLOSE))
@@ -44,6 +51,10 @@ abstract class RequestContext(
       channelMessages.put(responseBuilder.build(scannedObjectInfo, counter))
    }
    
+   fun writeErrorMessage(text: String) {
+      logger.info { "Message with id $text not found"}
+      channelMessages.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+   }
 }
 
 class MessageRequestContext (

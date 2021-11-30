@@ -51,6 +51,16 @@ class HttpServer(private val context: Context) {
             GetMessagesServlet(configuration, jacksonMapper, keepAliveHandler,
             searchMessagesHandler)
         ), "/search/sse/messages")
+
+        servletHandler.addServletWithMapping(ServletHolder(
+            GetMessageById(configuration, jacksonMapper, keepAliveHandler,
+                searchMessagesHandler)
+        ), "/message/*")
+
+        servletHandler.addServletWithMapping(ServletHolder(
+            GetOneEvent(configuration, jacksonMapper, keepAliveHandler,
+                this.context.searchEventsHandler)
+        ), "/event/*")
         
         servletHandler.addServletWithMapping(ServletHolder(
             GetTestSpeedServlet()

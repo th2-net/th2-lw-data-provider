@@ -18,6 +18,7 @@ package com.exactpro.th2.ldsprovider.handlers
 
 import com.exactpro.th2.ldsprovider.*
 import com.exactpro.th2.ldsprovider.db.CradleEventExtractor
+import com.exactpro.th2.ldsprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.ldsprovider.entities.requests.SseEventSearchRequest
 import mu.KotlinLogging
 import java.util.concurrent.ThreadPoolExecutor
@@ -35,6 +36,18 @@ class SearchEventsHandler(
         threadPool.execute {
             try {
                 cradle.getEvents(request, requestContext)
+            } catch (e: Exception) {
+                requestContext.channelMessages.put(SseEvent("{ \"message\": \"${e.message}\" }", EventType.ERROR))
+                requestContext.channelMessages.put(SseEvent(event = EventType.CLOSE))
+            }
+        }
+    }
+
+    fun loadOneEvent(request: GetEventRequest, requestContext: EventRequestContext) {
+
+        threadPool.execute {
+            try {
+                cradle.getSingleEvents(request, requestContext)
             } catch (e: Exception) {
                 requestContext.channelMessages.put(SseEvent("{ \"message\": \"${e.message}\" }", EventType.ERROR))
                 requestContext.channelMessages.put(SseEvent(event = EventType.CLOSE))
