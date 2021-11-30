@@ -21,6 +21,7 @@ import com.exactpro.cradle.TimeRelation.AFTER
 import com.exactpro.cradle.messages.*
 import com.exactpro.th2.ldsprovider.*
 import com.exactpro.th2.ldsprovider.db.CradleMessageExtractor
+import com.exactpro.th2.ldsprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.ldsprovider.entities.requests.SseMessageSearchRequest
 import io.prometheus.client.Counter
 import mu.KotlinLogging
@@ -71,6 +72,23 @@ class SearchMessagesHandler(
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
                     }
                 }
+                requestContext.allDataLoadedFromCradle()
+                if (requestContext.requestedMessages.isEmpty()) {
+                    requestContext.finishStream()
+                }
+            } catch (e: Exception) {
+                logger.error("Error getting messages", e)
+                requestContext.channelMessages.put(SseEvent("{ \"message\": \"${e.message}\" }", EventType.ERROR))
+                requestContext.channelMessages.put(SseEvent(event = EventType.CLOSE))
+            }
+        }
+    }
+
+    fun loadOneMessage(request: GetMessageRequest, requestContext: MessageRequestContext) {
+
+        threadPool.execute {
+            try {
+                cradleMsgExtractor.getMessage(StoredMessageId.fromString(request.msgId), request.onlyRaw, requestContext);
                 requestContext.allDataLoadedFromCradle()
                 if (requestContext.requestedMessages.isEmpty()) {
                     requestContext.finishStream()

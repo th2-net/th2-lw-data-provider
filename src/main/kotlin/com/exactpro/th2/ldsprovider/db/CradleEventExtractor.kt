@@ -19,9 +19,11 @@ package com.exactpro.th2.ldsprovider.db
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.cassandra.CassandraCradleStorage
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventWrapper
 import com.exactpro.th2.ldsprovider.EventRequestContext
 import com.exactpro.th2.ldsprovider.entities.internal.ProviderEventId
+import com.exactpro.th2.ldsprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.ldsprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.ldsprovider.producers.EventProducer
 import mu.KotlinLogging
@@ -49,7 +51,50 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
             getEventByIds(filter.parentEvent, dates, requestContext)
         }
         requestContext.finishStream()
-        
+    }
+
+    fun getSingleEvents(filter: GetEventRequest, requestContext: EventRequestContext) {
+        val batchId = filter.batchId
+        val eventId = StoredTestEventId(filter.eventId)
+        if (batchId != null) {
+            val testBatch = storage.getTestEvent(StoredTestEventId(batchId))
+            if (testBatch == null) {
+                requestContext.writeErrorMessage("Event batch is not found with id: $batchId")
+                requestContext.finishStream()
+                return
+            }
+            if (testBatch.isSingle) {
+                requestContext.writeErrorMessage("Event with id: $batchId is not a batch. (single event)")
+                requestContext.finishStream()
+                return
+            }
+            val batch = testBatch.asBatch()
+            val testEvent = batch.getTestEvent(eventId)
+            if (testEvent == null) {
+                requestContext.writeErrorMessage("Event with id: $eventId is not found in batch $batchId")
+                requestContext.finishStream()
+                return
+            }
+            val batchEventBody = EventProducer.fromBatchEvent(testEvent, batch)
+            batchEventBody.body = String(testEvent.content)
+            batchEventBody.attachedMessageIds = loadAttachedMessages(testEvent.messageIds)
+
+            requestContext.processEvent(batchEventBody.convertToEvent())
+        } else {
+            val testBatch = storage.getTestEvent(eventId)
+            if (testBatch == null) {
+                requestContext.writeErrorMessage("Event is not found with id: $eventId")
+                requestContext.finishStream()
+                return
+            }
+            if (testBatch.isBatch) {
+                requestContext.writeErrorMessage("Event with id: $batchId is a batch. (not single event)")
+                requestContext.finishStream()
+                return
+            }
+            processEvents(Collections.singleton(testBatch), requestContext, LongCounter())
+        }
+        requestContext.finishStream()
     }
 
     private fun toLocal(timestamp: Instant?): LocalDateTime {
@@ -120,8 +165,9 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 count.value++
                 requestContext.processEvent(event.convertToEvent())
             } else if (testEvent.isBatch) {
-                for (batchEvent in testEvent.asBatch().testEvents) {
-                    val batchEventBody = EventProducer.fromBatchEvent(batchEvent)
+                val batch = testEvent.asBatch()
+                for (batchEvent in batch.testEvents) {
+                    val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
                     batchEventBody.body = String(batchEvent.content)
                     batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
 

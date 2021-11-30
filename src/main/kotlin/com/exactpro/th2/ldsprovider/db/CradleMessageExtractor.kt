@@ -18,6 +18,7 @@ package com.exactpro.th2.ldsprovider.db
 
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.messages.StoredMessageFilter
+import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.RawMessageBatch
 import com.exactpro.th2.ldsprovider.MessageRequestContext
@@ -108,6 +109,37 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
 
         logger.info { "Loaded $msgCount messages from DB $time ms"}
+
+    }
+
+    fun getMessage(msgId: StoredMessageId, onlyRaw: Boolean, requestContext: MessageRequestContext) {
+        
+        val time = measureTimeMillis {
+            logger.info { "Extracting message: $msgId" }
+            val message = storage.getMessage(msgId);
+            
+            if (message == null) {
+                requestContext.writeErrorMessage("Message with id $msgId not found")
+                requestContext.finishStream()
+                return
+            }
+
+            val time = System.currentTimeMillis()
+            val tmp = RequestedMessageDetails(message.id.toString(), time, message, requestContext)
+            tmp.rawMessage = RawMessage.parseFrom(message.content)
+            
+            if (onlyRaw) {
+                tmp.responseMessage53()
+            } else {
+                val msgBatch = RawMessageBatch.newBuilder().addMessages(tmp.rawMessage).build()
+                decoder.registerMessage(tmp)
+                requestContext.registerMessage(tmp)
+                decoder.sendBatchMessage(msgBatch, message.streamName)
+            }
+            
+        }
+
+        logger.info { "Loaded 1 messages with id $msgId from DB $time ms"}
 
     }
 }

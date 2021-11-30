@@ -61,7 +61,7 @@ class GetMessagesServlet (
         keepAliveHandler.addKeepAliveData(reqContext)
         searchMessagesHandler.loadMessages(request, reqContext)
 
-        val sendingTime = this.waitAndWrite(queue, resp)
+        this.waitAndWrite(queue, resp)
         keepAliveHandler.removeKeepAliveData(reqContext)
         logger.info { "Processing search sse messages request finished" }
     }
