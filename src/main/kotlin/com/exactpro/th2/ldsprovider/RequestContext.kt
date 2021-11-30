@@ -52,7 +52,7 @@ abstract class RequestContext(
    }
    
    fun writeErrorMessage(text: String) {
-      logger.info { "Message with id $text not found"}
+      logger.info { text }
       channelMessages.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
    }
 }

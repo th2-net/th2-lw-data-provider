@@ -53,7 +53,7 @@ class GetMessageById (
         checkNotNull(req)
         checkNotNull(resp)
 
-        val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<SseEvent>(2)
         var msgId = req.pathInfo
         if (msgId.startsWith('/'))
             msgId = msgId.substring(1)

@@ -68,13 +68,14 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 requestContext.finishStream()
                 return
             }
-            val testEvent = testBatch.asBatch().getTestEvent(eventId)
+            val batch = testBatch.asBatch()
+            val testEvent = batch.getTestEvent(eventId)
             if (testEvent == null) {
                 requestContext.writeErrorMessage("Event with id: $eventId is not found in batch $batchId")
                 requestContext.finishStream()
                 return
             }
-            val batchEventBody = EventProducer.fromBatchEvent(testEvent)
+            val batchEventBody = EventProducer.fromBatchEvent(testEvent, batch)
             batchEventBody.body = String(testEvent.content)
             batchEventBody.attachedMessageIds = loadAttachedMessages(testEvent.messageIds)
 
@@ -83,6 +84,11 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
             val testBatch = storage.getTestEvent(eventId)
             if (testBatch == null) {
                 requestContext.writeErrorMessage("Event is not found with id: $eventId")
+                requestContext.finishStream()
+                return
+            }
+            if (testBatch.isBatch) {
+                requestContext.writeErrorMessage("Event with id: $batchId is a batch. (not single event)")
                 requestContext.finishStream()
                 return
             }
@@ -159,8 +165,9 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 count.value++
                 requestContext.processEvent(event.convertToEvent())
             } else if (testEvent.isBatch) {
-                for (batchEvent in testEvent.asBatch().testEvents) {
-                    val batchEventBody = EventProducer.fromBatchEvent(batchEvent)
+                val batch = testEvent.asBatch()
+                for (batchEvent in batch.testEvents) {
+                    val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
                     batchEventBody.body = String(batchEvent.content)
                     batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
 

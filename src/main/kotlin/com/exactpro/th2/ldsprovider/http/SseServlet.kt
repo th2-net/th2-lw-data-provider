@@ -16,9 +16,8 @@
 
 package com.exactpro.th2.ldsprovider.http
 
-import com.exactpro.th2.ldsprovider.EventType
+import com.exactpro.th2.ldsprovider.NoSseResponseWriter
 import com.exactpro.th2.ldsprovider.SseEvent
-import com.exactpro.th2.ldsprovider.SseResponseWriter
 import io.ktor.http.HttpHeaders
 import org.eclipse.jetty.http.HttpStatus
 import java.util.concurrent.BlockingQueue
@@ -29,22 +28,14 @@ import javax.servlet.http.HttpServletResponse
 open class SseServlet : HttpServlet() {
     
     protected open fun waitAndWrite(queue: BlockingQueue<SseEvent>, resp: HttpServletResponse) {
-        resp.contentType = "text/event-stream"
+        resp.contentType = "application/json"
         resp.status = HttpStatus.OK_200
         resp.addHeader(HttpHeaders.CacheControl, "no-cache, no-store")
         
-        val writer = SseResponseWriter(resp.writer)
-
-        var inProcess = true
-        while (inProcess) {
-            val event = queue.take()
-            if (event.event == EventType.CLOSE) {
-                writer.closeWriter()
-                inProcess = false
-            } else {
-                writer.writeEvent(event)
-            }
-        }        
+        val writer = NoSseResponseWriter(resp.writer)
+        val event = queue.take()
+        writer.writeEvent(event)
+        writer.closeWriter()    
     }
 
     protected fun getParameters(req: HttpServletRequest): Map<String, List<String>> {

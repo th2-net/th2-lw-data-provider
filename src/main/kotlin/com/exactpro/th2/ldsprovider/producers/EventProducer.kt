@@ -44,7 +44,7 @@ class EventProducer() {
                 "event",
                 ProviderEventId(null, storedEvent.id),
                 null,
-                true,
+                false,
                 storedEvent.name ?: "",
                 storedEvent.type ?: "",
                 storedEvent.endTimestamp,
@@ -56,7 +56,7 @@ class EventProducer() {
         }
 
         fun fromBatchEvent(
-            storedEvent: BatchedStoredTestEvent
+            storedEvent: BatchedStoredTestEvent, batch: StoredTestEventBatch
         ): BaseEventEntity {
             return BaseEventEntity(
                 "event",
@@ -67,7 +67,9 @@ class EventProducer() {
                 storedEvent.type ?: "",
                 storedEvent.endTimestamp,
                 storedEvent.startTimestamp,
-                ProviderEventId(null, storedEvent.parentId),
+                storedEvent.parentId?.let { ProviderEventId(
+                    batch.getTestEvent(storedEvent.parentId)?.let { batch.id },
+                    storedEvent.parentId) },
                 storedEvent.isSuccess
             )
         }
