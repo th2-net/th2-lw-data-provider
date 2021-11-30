@@ -37,7 +37,7 @@ class GetOneEvent
      private val keepAliveHandler: KeepAliveHandler,
      private val searchEventsHandler: SearchEventsHandler
      )
-    : SseServlet() {
+    : NoSseServlet() {
     
     companion object {
         private val logger = KotlinLogging.logger { }

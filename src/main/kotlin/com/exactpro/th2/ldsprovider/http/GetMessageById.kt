@@ -39,7 +39,7 @@ class GetMessageById (
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler
 )
-    : SseServlet() {
+    : NoSseServlet() {
 
     private val customJsonFormatter = CustomJsonFormatter()
 
