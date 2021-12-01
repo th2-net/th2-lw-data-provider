@@ -121,7 +121,7 @@ compileKotlin {
 }
 
 application {
-    mainClassName = "com.exactpro.th2.ldsprovider.MainKt"
+    mainClassName = "com.exactpro.th2.lwdataprovider.MainKt"
 }
 
 configurations.all {
