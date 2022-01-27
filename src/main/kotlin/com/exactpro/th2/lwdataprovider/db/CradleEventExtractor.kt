@@ -16,23 +16,22 @@
 
 package com.exactpro.th2.lwdataprovider.db
 
+/*
+ * INFO: Event processing are disabled in cradle-api 2.+ version
+ * Event processing is in 3+ version
+ */
+
+
 import com.exactpro.cradle.CradleManager
-import com.exactpro.cradle.cassandra.CassandraCradleStorage
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventWrapper
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.http.SseEventRequestContext
-import com.exactpro.th2.lwdataprovider.producers.EventProducer
 import mu.KotlinLogging
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.LocalTime
-import java.time.temporal.ChronoUnit
-import java.util.Collections
-import java.util.stream.Collectors
 
 
 class CradleEventExtractor (private val cradleManager: CradleManager) {
@@ -44,144 +43,49 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     }
 
     fun getEvents(filter: SseEventSearchRequest, requestContext: SseEventRequestContext) {
-        var dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
-        if (filter.parentEvent == null) {
-            getEventByDates(dates, requestContext)
-        } else {
-            getEventByIds(filter.parentEvent, dates, requestContext)
-        }
-        requestContext.finishStream()
+        TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
 
     fun getSingleEvents(filter: GetEventRequest, requestContext: SseEventRequestContext) {
-        val batchId = filter.batchId
-        val eventId = StoredTestEventId(filter.eventId)
-        if (batchId != null) {
-            val testBatch = storage.getTestEvent(StoredTestEventId(batchId))
-            if (testBatch == null) {
-                requestContext.writeErrorMessage("Event batch is not found with id: $batchId")
-                requestContext.finishStream()
-                return
-            }
-            if (testBatch.isSingle) {
-                requestContext.writeErrorMessage("Event with id: $batchId is not a batch. (single event)")
-                requestContext.finishStream()
-                return
-            }
-            val batch = testBatch.asBatch()
-            val testEvent = batch.getTestEvent(eventId)
-            if (testEvent == null) {
-                requestContext.writeErrorMessage("Event with id: $eventId is not found in batch $batchId")
-                requestContext.finishStream()
-                return
-            }
-            val batchEventBody = EventProducer.fromBatchEvent(testEvent, batch)
-            batchEventBody.body = String(testEvent.content)
-            batchEventBody.attachedMessageIds = loadAttachedMessages(testEvent.messageIds)
-
-            requestContext.processEvent(batchEventBody.convertToEvent())
-        } else {
-            val testBatch = storage.getTestEvent(eventId)
-            if (testBatch == null) {
-                requestContext.writeErrorMessage("Event is not found with id: $eventId")
-                requestContext.finishStream()
-                return
-            }
-            if (testBatch.isBatch) {
-                requestContext.writeErrorMessage("Event with id: $eventId is a batch. (not single event)")
-                requestContext.finishStream()
-                return
-            }
-            processEvents(Collections.singleton(testBatch), requestContext, LongCounter())
-        }
-        requestContext.finishStream()
+        TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
 
     private fun toLocal(timestamp: Instant?): LocalDateTime {
-        return LocalDateTime.ofInstant(timestamp, CassandraCradleStorage.TIMEZONE_OFFSET)
+        TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
 
     private fun toInstant(timestamp: LocalDateTime): Instant {
-        return timestamp.toInstant(CassandraCradleStorage.TIMEZONE_OFFSET)
+        TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
 
 
     private fun splitByDates(from: Instant?, to: Instant?): Collection<Pair<Instant, Instant>> {
-        checkNotNull(from)
-        checkNotNull(to)
-        require(!from.isAfter(to)) { "Lower boundary should specify timestamp before upper boundary, but got $from > $to" }
-        var localFrom: LocalDateTime = toLocal(from)
-        val localTo: LocalDateTime = toLocal(to)
-        val result: MutableCollection<Pair<Instant, Instant>> = ArrayList()
-        do {
-            if (localFrom.toLocalDate() == localTo.toLocalDate()) {
-                result.add(toInstant(localFrom) to toInstant(localTo))
-                return result
-            }
-            val eod = localFrom.toLocalDate().atTime(LocalTime.MAX)
-            result.add(toInstant(localFrom) to toInstant(eod))
-            localFrom = eod.plus(1, ChronoUnit.NANOS)
-        } while (true)
+        TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
 
     private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: SseEventRequestContext) {
-        for (splitByDate in dates) {
-            val counter = LongCounter()
-            val startTime = System.currentTimeMillis()
-            val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
-            processEvents(testEvents, requestContext, counter)
-            logger.info { "Events from ${splitByDate.first} to ${splitByDate.second} processed. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
-        }
+        TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
 
     private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: SseEventRequestContext) {
-        for (splitByDate in dates) {
-            val counter = LongCounter()
-            val startTime = System.currentTimeMillis()
-            val testEvents = storage.getTestEvents(id.eventId, splitByDate.first, splitByDate.second)
-            processEvents(testEvents, requestContext, counter)
-            logger.info { "Events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
-        }
+        TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
-    
+
     private fun loadAttachedMessages(messageIds: Collection<StoredMessageId>?): Set<String> {
-        return if (messageIds != null) {
-            messageIds.stream().map { t -> t.toString() }.collect(Collectors.toSet())
-        } else {
-            Collections.emptySet()
-        }
+        TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
-    
+
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
         requestContext: SseEventRequestContext, count: LongCounter
     ) {
-        for (testEvent in testEvents) {
-            if (testEvent.isSingle) {
-                val singleEv = testEvent.asSingle()
-                val event = EventProducer.fromSingleEvent(singleEv)
-                event.body = String(singleEv.content)
-                event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
-                count.value++
-                requestContext.processEvent(event.convertToEvent())
-            } else if (testEvent.isBatch) {
-                val batch = testEvent.asBatch()
-                for (batchEvent in batch.testEvents) {
-                    val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
-                    batchEventBody.body = String(batchEvent.content)
-                    batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
-
-                    requestContext.processEvent(batchEventBody.convertToEvent())
-                    count.value++
-                }
-            }
-        }
+        TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
 }
 
 class LongCounter {
     var value: Long = 0;
-    
+
     override fun toString(): String {
         return value.toString()
     }
