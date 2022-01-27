@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.EventRequestContext
+import com.exactpro.th2.lwdataprovider.SseResponseHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
@@ -69,8 +69,8 @@ class GetEventsServlet
         request.checkRequest()
         
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
-        val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
-        val reqContext = EventRequestContext(sseResponseBuilder, queryParametersMap, channelMessages = queue)
+        val sseResponseBuilder = SseResponseHandler(queue, SseResponseBuilder(jacksonMapper))
+        val reqContext = SseEventRequestContext(sseResponseBuilder, queryParametersMap)
         keepAliveHandler.addKeepAliveData(reqContext)
         searchEventsHandler.loadEvents(request, reqContext)
 

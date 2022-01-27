@@ -55,7 +55,7 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
                         val list = decodeBuffer.removeById(entry.key)
                         list?.forEach {
                             it.parsedMessage = null
-                            it.responseMessage53()
+                            it.responseMessage()
                             it.notifyMessage()
                         }
                         if (list != null && list.isNotEmpty()) {

@@ -21,7 +21,11 @@ import com.exactpro.th2.common.metrics.readiness
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
+import com.exactpro.th2.lwdataprovider.configuration.Mode
+import com.exactpro.th2.lwdataprovider.grpc.GrpcDataProviderBackPressure
+import com.exactpro.th2.lwdataprovider.grpc.GrpcDataProviderImpl
 import com.exactpro.th2.lwdataprovider.http.HttpServer
+import io.grpc.BindableService
 import io.ktor.server.engine.*
 import io.ktor.util.*
 import kotlinx.atomicfu.locks.ReentrantLock
@@ -98,8 +102,23 @@ class Main {
         
         context.keepAliveHandler.start()
         context.timeoutHandler.start()
+
+        when (context.configuration.mode) {
+            Mode.HTTP ->  {
+                HttpServer(context).run()
+            }
+            Mode.GRPC -> {
+                val grpcRouter = this.configurationFactory.grpcRouter
+                val bindableService: BindableService = if (context.configuration.grpcBackPressure) {
+                    GrpcDataProviderBackPressure(context.configuration, this.context.searchMessagesHandler)
+                } else {
+                    GrpcDataProviderImpl(context.configuration, this.context.searchMessagesHandler)
+                }
+                grpcRouter.startServer(bindableService)
+            }
+        }
         
-        HttpServer(context).run()
+
     }
 
     private fun configureShutdownHook(resources: Deque<AutoCloseable>, lock: ReentrantLock, condition: Condition) {

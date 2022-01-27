@@ -52,7 +52,7 @@ class CodecMessageListener(
 
                 msgIdQueue.forEach {
                     it.parsedMessage = messages
-                    it.responseMessage53()
+                    it.responseMessage()
                     it.notifyMessage()
                 }
             } else {

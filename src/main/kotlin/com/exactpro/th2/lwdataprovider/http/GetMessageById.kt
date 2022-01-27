@@ -17,11 +17,7 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.Direction
-import com.exactpro.th2.lwdataprovider.CustomJsonFormatter
-import com.exactpro.th2.lwdataprovider.EventType
-import com.exactpro.th2.lwdataprovider.MessageRequestContext
-import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.*
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
@@ -67,8 +63,8 @@ class GetMessageById (
             val request = GetMessageRequest(newMsgId, queryParametersMap)
 
             val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
-            reqContext = MessageRequestContext(sseResponseBuilder, queryParametersMap, channelMessages = queue,
-                jsonFormatter = customJsonFormatter)
+            val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
+            reqContext = MessageSseRequestContext(sseResponse, queryParametersMap)
             keepAliveHandler.addKeepAliveData(reqContext)
             searchMessagesHandler.loadOneMessage(request, reqContext)
         }

@@ -29,11 +29,11 @@ class KeepAliveHandler(private val configuration: Configuration) {
     private val timeout = configuration.keepAliveTimeout
     private var thread: Thread? = null
     
-    fun addKeepAliveData(requestContext: RequestContext) {
+    @Synchronized fun addKeepAliveData(requestContext: RequestContext) {
         data.add(requestContext)
     }
 
-    fun removeKeepAliveData(requestContext: RequestContext) {
+    @Synchronized fun removeKeepAliveData(requestContext: RequestContext) {
         data.remove(requestContext)
     }
     

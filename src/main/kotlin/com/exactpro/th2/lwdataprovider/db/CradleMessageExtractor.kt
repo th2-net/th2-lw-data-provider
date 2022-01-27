@@ -37,6 +37,8 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     companion object {
         private val logger = KotlinLogging.logger { }
     }
+
+    fun getStreams(): Collection<String> = storage.streams
     
     fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
 
@@ -52,7 +54,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             for (storedMessageBatch in iterable) {
                 
                 val id = storedMessageBatch.id.toString()
-                val tmp = RequestedMessageDetails(id, 0, storedMessageBatch, requestContext)
+                val tmp = requestContext.createMessageDetails(id, 0, storedMessageBatch)
                 messageBuffer.add(tmp)
                 ++msgBufferCount
                 tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
@@ -101,9 +103,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             val time = System.currentTimeMillis()
             for (storedMessageBatch in iterable) {
                 val id = storedMessageBatch.id.toString()
-                val tmp = RequestedMessageDetails(id, time, storedMessageBatch, requestContext)
+                val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch)
                 tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
-                tmp.responseMessage53()
+                tmp.responseMessage()
                 msgCount++
             }
         }
@@ -125,11 +127,11 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             }
 
             val time = System.currentTimeMillis()
-            val tmp = RequestedMessageDetails(message.id.toString(), time, message, requestContext)
+            val tmp = requestContext.createMessageDetails(message.id.toString(), time, message)
             tmp.rawMessage = RawMessage.parseFrom(message.content)
             
             if (onlyRaw) {
-                tmp.responseMessage53()
+                tmp.responseMessage()
             } else {
                 val msgBatch = RawMessageBatch.newBuilder().addMessages(tmp.rawMessage).build()
                 decoder.registerMessage(tmp)

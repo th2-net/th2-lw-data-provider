@@ -21,10 +21,10 @@ import com.exactpro.cradle.cassandra.CassandraCradleStorage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventWrapper
-import com.exactpro.th2.lwdataprovider.EventRequestContext
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
+import com.exactpro.th2.lwdataprovider.http.SseEventRequestContext
 import com.exactpro.th2.lwdataprovider.producers.EventProducer
 import mu.KotlinLogging
 import java.time.Instant
@@ -43,7 +43,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         private val logger = KotlinLogging.logger { }
     }
 
-    fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
+    fun getEvents(filter: SseEventSearchRequest, requestContext: SseEventRequestContext) {
         var dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
         if (filter.parentEvent == null) {
             getEventByDates(dates, requestContext)
@@ -53,7 +53,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         requestContext.finishStream()
     }
 
-    fun getSingleEvents(filter: GetEventRequest, requestContext: EventRequestContext) {
+    fun getSingleEvents(filter: GetEventRequest, requestContext: SseEventRequestContext) {
         val batchId = filter.batchId
         val eventId = StoredTestEventId(filter.eventId)
         if (batchId != null) {
@@ -88,7 +88,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 return
             }
             if (testBatch.isBatch) {
-                requestContext.writeErrorMessage("Event with id: $batchId is a batch. (not single event)")
+                requestContext.writeErrorMessage("Event with id: $eventId is a batch. (not single event)")
                 requestContext.finishStream()
                 return
             }
@@ -124,7 +124,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         } while (true)
     }
 
-    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: SseEventRequestContext) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
@@ -134,7 +134,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         }
     }
 
-    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
+    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: SseEventRequestContext) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
@@ -154,7 +154,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
-        requestContext: EventRequestContext, count: LongCounter
+        requestContext: SseEventRequestContext, count: LongCounter
     ) {
         for (testEvent in testEvents) {
             if (testEvent.isSingle) {

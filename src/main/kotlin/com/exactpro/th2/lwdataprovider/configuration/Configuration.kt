@@ -26,6 +26,8 @@ class CustomConfigurationClass {
     val responseQueueSize: Int? = null
     val execThreadPoolSize: Int? = null
     val batchSize: Int? = null
+    val mode: String? = null
+    val grpcBackPressure : Boolean? = null
 }
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -38,4 +40,11 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val responseQueueSize: Int = VariableBuilder.getVariable("responseQueueSize", customConfiguration.responseQueueSize, 1000)
     val execThreadPoolSize: Int = VariableBuilder.getVariable("execThreadPoolSize", customConfiguration.execThreadPoolSize, 10)
     val batchSize: Int = VariableBuilder.getVariable("batchSize", customConfiguration.batchSize, 100)
+    val mode: Mode = VariableBuilder.getVariable("mode",
+        customConfiguration.mode?.let { Mode.valueOf(it.toUpperCase()) }, Mode.HTTP)
+    val grpcBackPressure: Boolean = VariableBuilder.getVariable("grpcBackPressure", customConfiguration.grpcBackPressure, false)
+}
+
+enum class Mode {
+    HTTP, GRPC
 }

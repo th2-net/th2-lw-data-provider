@@ -19,23 +19,17 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
-import com.exactpro.th2.lwdataprovider.producers.MessageProducer53
-import com.google.gson.Gson
 import mu.KotlinLogging
 import java.time.Instant
-import java.util.Collections
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 abstract class RequestContext(
-   val responseBuilder: SseResponseBuilder,
+   open val channelMessages: ResponseHandler,
    val requestParameters: Map<String, Any> = emptyMap(),
    val counter: AtomicLong = AtomicLong(0L),
-   val channelMessages: ArrayBlockingQueue<SseEvent>,
    val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 ) {
 
@@ -44,68 +38,49 @@ abstract class RequestContext(
    }
    
    fun finishStream() {
-      channelMessages.put(SseEvent(event = EventType.CLOSE))
+      channelMessages.finishStream()
    }
-   
-   fun keepAliveEvent() {
-      channelMessages.put(responseBuilder.build(scannedObjectInfo, counter))
-   }
-   
+
    fun writeErrorMessage(text: String) {
       logger.info { text }
-      channelMessages.put(SseEvent(Gson().toJson(Collections.singletonMap("message", text)), EventType.ERROR))
+      channelMessages.writeErrorMessage(text)
+   }
+
+   fun keepAliveEvent() {
+      channelMessages.keepAliveEvent(scannedObjectInfo, counter);
    }
 }
 
-class MessageRequestContext (
-   responseBuilder: SseResponseBuilder,
+abstract class MessageRequestContext (
+   channelMessages: ResponseHandler,
    requestParameters: Map<String, Any> = emptyMap(),
    counter: AtomicLong = AtomicLong(0L),
-   channelMessages: ArrayBlockingQueue<SseEvent>,
    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
-   val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
-   val allMessagesRequested: AtomicBoolean = AtomicBoolean(false),
-   val jsonFormatter: CustomJsonFormatter = CustomJsonFormatter()
-) : RequestContext(responseBuilder, requestParameters, counter, channelMessages, scannedObjectInfo) {
+   val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap()
+) : RequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+
+   val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
 
    fun registerMessage(message: RequestedMessageDetails) {
       requestedMessages[message.id] = message
    }
 
    fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
+
+   abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage): RequestedMessageDetails;
    
 }
 
-class EventRequestContext (
-   responseBuilder: SseResponseBuilder,
-   requestParameters: Map<String, Any> = emptyMap(),
-   counter: AtomicLong = AtomicLong(0L),
-   channelMessages: ArrayBlockingQueue<SseEvent>,
-   scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
-) : RequestContext(responseBuilder, requestParameters, counter, channelMessages, scannedObjectInfo) {
-
-   fun processEvent(event: Event) {
-      val sseEvent = responseBuilder.build(event, counter)
-      channelMessages.put(sseEvent)
-      scannedObjectInfo.update(event.eventId, System.currentTimeMillis(), counter)
-   }
-
-}
-
-class RequestedMessageDetails (
+abstract class RequestedMessageDetails (
    val id: String,
    @Volatile var time: Long,
    val storedMessage: StoredMessage,
-   private val context: MessageRequestContext,
+   protected open val context: MessageRequestContext,
    var parsedMessage: List<Message>? = null,
    var rawMessage: RawMessage? = null
 ) {
 
-   fun responseMessage53() {
-      val msg = MessageProducer53.createMessage(this, context.jsonFormatter)
-      val event = context.responseBuilder.build(msg, this.context.counter)
-      context.channelMessages.put(event)
-   }
+   abstract fun responseMessage();
    
    fun notifyMessage() {
       context.apply { 

@@ -38,48 +38,77 @@ class SearchMessagesHandler(
             "processed_message_count", "Count of processed Message"
         ).register()
     }
+
+    fun extractStreamNames(): Collection<String> {
+        logger.info { "Getting stream names" }
+        return cradleMsgExtractor.getStreams();
+    }
     
     fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageRequestContext) {
         
-        if (request.stream == null) {
+        if (request.stream == null && request.resumeFromIdsList.isNullOrEmpty()) {
             return;
         }
 
         threadPool.execute {
             try {
-                request.stream.forEach { stream ->
 
-                    for (direction in Direction.values()) {
+                if (!request.resumeFromIdsList.isNullOrEmpty()) {
+                    request.resumeFromIdsList.forEach { resumeFromId ->
                         val filter = StoredMessageFilterBuilder().apply {
-                            streamName().isEqualTo(stream)
-                            direction().isEqualTo(direction)
-                            request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-                            request.endTimestamp?.let { timestampTo().isLessThan(it) }
+                            streamName().isEqualTo(resumeFromId.streamName)
+                            direction().isEqualTo(resumeFromId.direction)
+                            if (request.searchDirection == AFTER) {
+                                index().isGreaterThanOrEqualTo(resumeFromId.index)
+                            } else {
+                                index().isLessThanOrEqualTo(resumeFromId.index)
+                            }
+
                             request.resultCountLimit?.let { limit(it) }
 
-                            request.resumeFromIdsList?.get(0)?.let {
-                                if (request.searchDirection == AFTER) {
-                                    index().isGreaterThanOrEqualTo(it.index)
-                                } else {
-                                    index().isLessThanOrEqualTo(it.index)
-                                }
-                            }
                         }.build()
 
                         if (!request.onlyRaw)
                             cradleMsgExtractor.getMessages(filter, requestContext)
-                        else 
+                        else
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
                     }
+                } else {
+                    request.stream?.forEach { stream ->
+
+                        for (direction in Direction.values()) {
+                            val filter = StoredMessageFilterBuilder().apply {
+                                streamName().isEqualTo(stream)
+                                direction().isEqualTo(direction)
+                                request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
+                                request.endTimestamp?.let { timestampTo().isLessThan(it) }
+                                request.resultCountLimit?.let { limit(it) }
+
+                                request.resumeFromIdsList?.get(0)?.let {
+                                    if (request.searchDirection == AFTER) {
+                                        index().isGreaterThanOrEqualTo(it.index)
+                                    } else {
+                                        index().isLessThanOrEqualTo(it.index)
+                                    }
+                                }
+                            }.build()
+
+                            if (!request.onlyRaw)
+                                cradleMsgExtractor.getMessages(filter, requestContext)
+                            else
+                                cradleMsgExtractor.getRawMessages(filter, requestContext)
+                        }
+                    }
                 }
+
                 requestContext.allDataLoadedFromCradle()
                 if (requestContext.requestedMessages.isEmpty()) {
                     requestContext.finishStream()
                 }
             } catch (e: Exception) {
                 logger.error("Error getting messages", e)
-                requestContext.channelMessages.put(SseEvent("{ \"message\": \"${e.message}\" }", EventType.ERROR))
-                requestContext.channelMessages.put(SseEvent(event = EventType.CLOSE))
+                requestContext.writeErrorMessage(e.message?:"")
+                requestContext.finishStream()
             }
         }
     }
@@ -95,8 +124,8 @@ class SearchMessagesHandler(
                 }
             } catch (e: Exception) {
                 logger.error("Error getting messages", e)
-                requestContext.channelMessages.put(SseEvent("{ \"message\": \"${e.message}\" }", EventType.ERROR))
-                requestContext.channelMessages.put(SseEvent(event = EventType.CLOSE))
+                requestContext.writeErrorMessage(e.message?:"")
+                requestContext.finishStream()
             }
         }
     }

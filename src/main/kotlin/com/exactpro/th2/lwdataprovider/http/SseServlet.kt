@@ -44,7 +44,7 @@ open class SseServlet : HttpServlet() {
             } else {
                 writer.writeEvent(event)
             }
-        }        
+        }
     }
 
     protected fun getParameters(req: HttpServletRequest): Map<String, List<String>> {
