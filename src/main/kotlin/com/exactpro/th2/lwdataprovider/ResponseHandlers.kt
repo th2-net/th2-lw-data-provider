@@ -55,10 +55,11 @@ class SseResponseHandler (val buffer: ArrayBlockingQueue<SseEvent>,
 
 class GrpcResponseHandler(val buffer: ArrayBlockingQueue<GrpcEvent>) : ResponseHandler {
 
-    val streamClosed = AtomicBoolean(false)
+    @Volatile var streamClosed = false
 
     override fun finishStream() {
-        buffer.add(GrpcEvent(close = true))
+        if (!streamClosed)
+            buffer.put(GrpcEvent(close = true))
     }
 
     override fun keepAliveEvent(obj: LastScannedObjectInfo, counter: AtomicLong) {
@@ -72,15 +73,18 @@ class GrpcResponseHandler(val buffer: ArrayBlockingQueue<GrpcEvent>) : ResponseH
     }
 
     override fun writeErrorMessage(text: String) {
-        buffer.add(GrpcEvent(error = LwDataProviderException(text)))
+        if (!streamClosed)
+            buffer.put(GrpcEvent(error = LwDataProviderException(text)))
     }
 
     override fun writeErrorMessage(error: Throwable) {
-        buffer.add(GrpcEvent(error = error))
+        if (!streamClosed)
+            buffer.put(GrpcEvent(error = error))
     }
 
     fun addMessage(resp: StreamResponse) {
-        buffer.add(GrpcEvent(resp))
+        if (!streamClosed)
+            buffer.put(GrpcEvent(resp))
     }
 
 }

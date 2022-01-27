@@ -43,7 +43,7 @@ class GrpcMessageProducer {
                 bodyBase64 = rawMessage.rawMessage?.let {
                     Base64.getEncoder().encodeToString(it.body.toByteArray())
                 }
-                message = convertToOneMessage;
+                convertToOneMessage?.let { message = it }
             }.build()
         }
 

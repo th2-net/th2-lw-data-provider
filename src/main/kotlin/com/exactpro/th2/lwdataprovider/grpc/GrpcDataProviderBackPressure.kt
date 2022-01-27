@@ -22,9 +22,14 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
+import mu.KotlinLogging
 
 class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesHandler: SearchMessagesHandler) :
     GrpcDataProviderImpl(configuration, searchMessagesHandler) {
+
+    companion object {
+        private val logger = KotlinLogging.logger { }
+    }
 
     override fun processResponse(
         responseObserver: StreamObserver<StreamResponse>,
@@ -32,7 +37,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
     ) {
         val servCallObs = responseObserver as ServerCallStreamObserver<StreamResponse>
         servCallObs.setOnReadyHandler {
-            if (grpcResponseHandler.streamClosed.get())
+            if (grpcResponseHandler.streamClosed)
                 return@setOnReadyHandler;
             val buffer = grpcResponseHandler.buffer
             var inProcess = true
@@ -41,15 +46,26 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                 if (event.close) {
                     servCallObs.onCompleted()
                     inProcess = false
-                    grpcResponseHandler.streamClosed.set(true)
+                    grpcResponseHandler.streamClosed = true
+                    logger.info { "Executing finished successfully" }
                 } else if (event.error != null) {
                     servCallObs.onError(event.error)
                     inProcess = false
-                    grpcResponseHandler.streamClosed.set(true)
+                    grpcResponseHandler.streamClosed = true
+                    logger.warn(event.error) { "Executing finished with error" }
                 } else if (event.resp != null) {
                     servCallObs.onNext(event.resp)
                 }
             }
         }
+
+        servCallObs.setOnCancelHandler {
+            logger.warn{ "Execution cancelled" }
+            grpcResponseHandler.streamClosed = true
+            val buffer = grpcResponseHandler.buffer
+            while (buffer.poll() != null);
+        }
+
+
     }
 }

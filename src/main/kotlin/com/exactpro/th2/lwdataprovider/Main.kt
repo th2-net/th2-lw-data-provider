@@ -24,6 +24,7 @@ import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.exactpro.th2.lwdataprovider.configuration.Mode
 import com.exactpro.th2.lwdataprovider.grpc.GrpcDataProviderBackPressure
 import com.exactpro.th2.lwdataprovider.grpc.GrpcDataProviderImpl
+import com.exactpro.th2.lwdataprovider.grpc.GrpcServer
 import com.exactpro.th2.lwdataprovider.http.HttpServer
 import io.grpc.BindableService
 import io.ktor.server.engine.*
@@ -108,13 +109,10 @@ class Main {
                 HttpServer(context).run()
             }
             Mode.GRPC -> {
-                val grpcRouter = this.configurationFactory.grpcRouter
-                val bindableService: BindableService = if (context.configuration.grpcBackPressure) {
-                    GrpcDataProviderBackPressure(context.configuration, this.context.searchMessagesHandler)
-                } else {
-                    GrpcDataProviderImpl(context.configuration, this.context.searchMessagesHandler)
-                }
-                grpcRouter.startServer(bindableService)
+                val grpcServer = GrpcServer.createGrpc(context, this.configurationFactory.grpcRouter)
+                resources += AutoCloseable { grpcServer.stop() }
+                resources += AutoCloseable { grpcServer.blockUntilShutdown() }
+
             }
         }
         
