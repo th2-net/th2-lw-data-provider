@@ -63,9 +63,11 @@ open class GrpcDataProviderImpl(
             val event = buffer.take()
             if (event.close) {
                 responseObserver.onCompleted()
+                grpcResponseHandler.streamClosed = true
                 inProcess = false
             } else if (event.error != null) {
                 responseObserver.onError(event.error)
+                grpcResponseHandler.streamClosed = true
                 inProcess = false
             } else if (event.resp != null) {
                 responseObserver.onNext(event.resp)

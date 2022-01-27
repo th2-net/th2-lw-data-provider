@@ -83,14 +83,6 @@ class SearchMessagesHandler(
                                 request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
                                 request.endTimestamp?.let { timestampTo().isLessThan(it) }
                                 request.resultCountLimit?.let { limit(it) }
-
-                                request.resumeFromIdsList?.get(0)?.let {
-                                    if (request.searchDirection == AFTER) {
-                                        index().isGreaterThanOrEqualTo(it.index)
-                                    } else {
-                                        index().isLessThanOrEqualTo(it.index)
-                                    }
-                                }
                             }.build()
 
                             if (!request.onlyRaw)

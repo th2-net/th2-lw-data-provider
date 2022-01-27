@@ -34,6 +34,7 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
     
     private val fullDecodeQueryLock = ReentrantLock()
     private val fullDecodeQueryCond = fullDecodeQueryLock.newCondition()
+    private var locked: Boolean = false
     
     fun add (details: RequestedMessageDetails): Boolean {
         decodeQueue.computeIfAbsent(details.id) { ArrayList(1) }.add(details)
@@ -52,20 +53,23 @@ class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
         return decodeQueue.size
     }
     
+    @Suppress("ConvertTwoComparisonsToRangeCheck")
     fun checkAndWait() {
         val buf = decodeQueue.size
         if (maxDecodeQueueSize > 0 && buf > maxDecodeQueueSize) {
-            fullDecodeQueryLock.withLock { 
+            logger.debug { "Messages in queue is more than buffer size buf and thread will be locked" }
+            fullDecodeQueryLock.withLock {
+                locked = true
                 fullDecodeQueryCond.await()
             }
-            logger.debug { "Messages in queue is more than buffer size buf and thread will be locked" }
         }
     }
 
     fun checkAndUnlock() {
-        if (maxDecodeQueueSize > 0 && decodeQueue.size < maxDecodeQueueSize) {
+        if (locked && maxDecodeQueueSize > 0 && decodeQueue.size < maxDecodeQueueSize) {
             fullDecodeQueryLock.withLock {
                 fullDecodeQueryCond.signalAll()
+                locked = false
             }
             logger.debug { "Awaiting buffer space is unlocked" }
         }
