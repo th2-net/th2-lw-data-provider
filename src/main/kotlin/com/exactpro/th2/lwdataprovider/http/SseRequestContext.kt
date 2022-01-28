@@ -41,6 +41,10 @@ class MessageSseRequestContext (
         return SseRequestedMessageDetails(id, time, storedMessage, this)
     }
 
+    override fun addStreamInfo() {
+
+    }
+
 }
 
 class SseRequestedMessageDetails(

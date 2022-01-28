@@ -30,6 +30,7 @@ import io.grpc.BindableService
 import io.ktor.server.engine.*
 import io.ktor.util.*
 import kotlinx.atomicfu.locks.ReentrantLock
+import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import mu.KotlinLogging
@@ -37,6 +38,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.locks.Condition
 import kotlin.concurrent.thread
+import kotlin.concurrent.withLock
 import kotlin.system.exitProcess
 
 private val logger = KotlinLogging.logger {}
@@ -104,18 +106,25 @@ class Main {
         context.keepAliveHandler.start()
         context.timeoutHandler.start()
 
+        resources += AutoCloseable {  context.keepAliveHandler.stop() }
+        resources += AutoCloseable {  context.timeoutHandler.stop() }
+
+        @Suppress("LiftReturnOrAssignment")
         when (context.configuration.mode) {
             Mode.HTTP ->  {
-                HttpServer(context).run()
+                val httpServer = HttpServer(context)
+                httpServer.run()
+                resources += AutoCloseable { httpServer.stop() }
             }
             Mode.GRPC -> {
                 val grpcServer = GrpcServer.createGrpc(context, this.configurationFactory.grpcRouter)
-                resources += AutoCloseable { grpcServer.stop() }
-                resources += AutoCloseable { grpcServer.blockUntilShutdown() }
-
+                resources += AutoCloseable {
+                    grpcServer.stop()
+                    grpcServer.blockUntilShutdown()
+                }
             }
         }
-        
+
 
     }
 
@@ -126,12 +135,7 @@ class Main {
         ) {
             logger.info { "Shutdown start" }
             readiness = false
-            try {
-                lock.lock()
-                condition.signalAll()
-            } finally {
-                lock.unlock()
-            }
+            lock.withLock { condition.signalAll() }
             resources.descendingIterator().forEachRemaining { resource ->
                 try {
                     resource.close()
@@ -146,13 +150,10 @@ class Main {
 
     @Throws(InterruptedException::class)
     private fun awaitShutdown(lock: ReentrantLock, condition: Condition) {
-        try {
-            lock.lock()
+        lock.withLock {
             logger.info { "Wait shutdown" }
             condition.await()
             logger.info { "App shutdown" }
-        } finally {
-            lock.unlock()
         }
     }
 }

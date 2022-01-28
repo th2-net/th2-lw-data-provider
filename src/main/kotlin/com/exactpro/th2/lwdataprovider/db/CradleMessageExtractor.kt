@@ -42,7 +42,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     
     fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
 
-        var msgCount = 0L
+        var msgCount = 0
         val time = measureTimeMillis { 
             logger.info { "Executing query $filter" }
             val iterable = storage.getMessages(filter);
@@ -51,13 +51,16 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             var builder = RawMessageBatch.newBuilder()
             var msgBufferCount = 0
             val messageBuffer = ArrayList<RequestedMessageDetails>()
-            for (storedMessageBatch in iterable) {
-                
-                val id = storedMessageBatch.id.toString()
-                val tmp = requestContext.createMessageDetails(id, 0, storedMessageBatch)
+
+            var msgId: StoredMessageId? = null
+            for (storedMessage in iterable) {
+
+                msgId = storedMessage.id
+                val id = storedMessage.id.toString()
+                val tmp = requestContext.createMessageDetails(id, 0, storedMessage)
                 messageBuffer.add(tmp)
                 ++msgBufferCount
-                tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
+                tmp.rawMessage = RawMessage.parseFrom(storedMessage.content)
                 builder.addMessages(tmp.rawMessage)
 
                 if (msgBufferCount >= batchSize) {
@@ -68,6 +71,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         requestContext.registerMessage(it)
                     }
                     decoder.sendBatchMessage(builder.build(), sessionName)
+
                     messageBuffer.clear()
                     builder = RawMessageBatch.newBuilder()
                     msgCount += msgBufferCount
@@ -78,6 +82,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             
             if (msgBufferCount > 0) {
                 decoder.sendBatchMessage(builder.build(), sessionName)
+
                 val sendingTime = System.currentTimeMillis()
                 messageBuffer.forEach { 
                     it.time = sendingTime
@@ -86,6 +91,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 }
                 msgCount += msgBufferCount
             }
+
+            requestContext.streamInfo.registerMessage(msgId)
+            requestContext.loadedMessages += msgCount
         }
 
         logger.info { "Loaded $msgCount messages from DB $time ms"}
@@ -95,19 +103,23 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
 
-        var msgCount = 0L
+        var msgCount = 0
         val time = measureTimeMillis {
             logger.info { "Executing query $filter" }
             val iterable = storage.getMessages(filter);
 
             val time = System.currentTimeMillis()
+            var msgId: StoredMessageId? = null
             for (storedMessageBatch in iterable) {
+                msgId = storedMessageBatch.id
                 val id = storedMessageBatch.id.toString()
                 val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch)
                 tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
                 tmp.responseMessage()
                 msgCount++
             }
+            requestContext.streamInfo.registerMessage(msgId)
+            requestContext.loadedMessages += msgCount
         }
 
         logger.info { "Loaded $msgCount messages from DB $time ms"}
@@ -129,6 +141,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             val time = System.currentTimeMillis()
             val tmp = requestContext.createMessageDetails(message.id.toString(), time, message)
             tmp.rawMessage = RawMessage.parseFrom(message.content)
+            requestContext.loadedMessages += 1
             
             if (onlyRaw) {
                 tmp.responseMessage()

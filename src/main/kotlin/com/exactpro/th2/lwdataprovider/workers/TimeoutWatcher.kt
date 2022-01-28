@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import mu.KotlinLogging
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
@@ -27,6 +28,10 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
     private val timeout: Long = configuration.decodingTimeout
     private val running = AtomicBoolean(false)
     private var thread: Thread? = null
+
+    companion object {
+        private val logger = KotlinLogging.logger { }
+    }
     
 
     fun start() {
@@ -39,7 +44,8 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
     }
     
     private fun run() {
-        
+
+        logger.debug { "Timeout watcher started" }
         running.set(true)
         while (running.get()) {
             val currentTime = System.currentTimeMillis()
@@ -69,9 +75,18 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
             }
 
             val sleepTime = timeout - (System.currentTimeMillis() - mintime)
-            if (sleepTime > 0)
-                Thread.sleep(sleepTime)
+            if (sleepTime > 0) {
+                try {
+                    Thread.sleep(sleepTime)
+                } catch (e: InterruptedException) {
+                    if (running.get()) {
+                        running.set(false)
+                        logger.warn(e) { "Someone stopped timeout watcher" }
+                    }
+                }
+            }
         }
+        logger.debug { "Timeout watcher finished" }
        
     }    
 }
