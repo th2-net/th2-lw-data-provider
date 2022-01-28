@@ -43,6 +43,10 @@ class GrpcMessageRequestContext (
         return GrpcRequestedMessageDetails(id, time, storedMessage, this)
     }
 
+    override fun addStreamInfo() {
+        channelMessages.addMessage(StreamResponse.newBuilder().setStreamInfo(this.streamInfo.toGrpc()).build())
+    }
+
 }
 
 class GrpcRequestedMessageDetails(

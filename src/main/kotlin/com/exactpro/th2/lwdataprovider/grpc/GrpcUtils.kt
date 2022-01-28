@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.dataprovider.grpc.TimeRelation
@@ -39,6 +40,21 @@ fun Direction.toCradleDirection(): com.exactpro.cradle.Direction {
         com.exactpro.cradle.Direction.SECOND
 }
 
-fun MessageID.toStoredMessageId(): StoredMessageId  {
+fun com.exactpro.cradle.Direction.toGrpcDirection(): Direction {
+    return if (this == com.exactpro.cradle.Direction.FIRST)
+        Direction.FIRST
+    else
+        Direction.SECOND
+}
+
+fun MessageID.toStoredMessageId(): StoredMessageId {
     return StoredMessageId(this.connectionId.sessionAlias, this.direction.toCradleDirection(), this.sequence)
+}
+
+fun StoredMessageId.toGrpcMessageId(): MessageID {
+    return MessageID.newBuilder().apply {
+        this.connectionId = ConnectionID.newBuilder().setSessionAlias(this@toGrpcMessageId.streamName).build()
+        this.direction = this@toGrpcMessageId.direction.toGrpcDirection()
+        this.sequence = this@toGrpcMessageId.index
+    }.build()
 }

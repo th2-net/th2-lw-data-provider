@@ -38,6 +38,7 @@ class GrpcServer (server: Server) {
                 GrpcDataProviderImpl(context.configuration, context.searchMessagesHandler)
             }
             val server = grpcRouter.startServer(bindableService)
+            logger.info { "grpc server started" }
             return GrpcServer(server)
         }
     }
@@ -52,6 +53,7 @@ class GrpcServer (server: Server) {
 
     @Throws(InterruptedException::class)
     fun stop() {
+        logger.info { "Stopping grpc server" }
         if (server.shutdown().awaitTermination(1, TimeUnit.SECONDS)) {
             logger.warn {"Server isn't stopped gracefully" }
             server.shutdownNow()
@@ -64,6 +66,7 @@ class GrpcServer (server: Server) {
     @Throws(InterruptedException::class)
     fun blockUntilShutdown() {
         server.awaitTermination()
+        logger.info { "Grpc server stopped" }
     }
 
 }

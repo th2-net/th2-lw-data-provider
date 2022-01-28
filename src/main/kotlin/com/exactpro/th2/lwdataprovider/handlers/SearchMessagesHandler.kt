@@ -26,6 +26,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import io.prometheus.client.Counter
 import mu.KotlinLogging
 import java.util.concurrent.ThreadPoolExecutor
+import kotlin.math.max
 
 class SearchMessagesHandler(
     private val cradleMsgExtractor: CradleMessageExtractor,
@@ -53,8 +54,12 @@ class SearchMessagesHandler(
         threadPool.execute {
             try {
 
+                var limitReached = false;
                 if (!request.resumeFromIdsList.isNullOrEmpty()) {
                     request.resumeFromIdsList.forEach { resumeFromId ->
+                        requestContext.streamInfo.registerSession(resumeFromId.streamName, resumeFromId.direction)
+                        if (limitReached)
+                            return@forEach;
                         val filter = StoredMessageFilterBuilder().apply {
                             streamName().isEqualTo(resumeFromId.streamName)
                             direction().isEqualTo(resumeFromId.direction)
@@ -64,7 +69,7 @@ class SearchMessagesHandler(
                                 index().isLessThanOrEqualTo(resumeFromId.index)
                             }
 
-                            request.resultCountLimit?.let { limit(it) }
+                            request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
 
                         }.build()
 
@@ -72,29 +77,37 @@ class SearchMessagesHandler(
                             cradleMsgExtractor.getMessages(filter, requestContext)
                         else
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
+                        limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
                     }
                 } else {
                     request.stream?.forEach { stream ->
-
                         for (direction in Direction.values()) {
+
+                            requestContext.streamInfo.registerSession(stream, direction)
+                            if (limitReached)
+                                continue;
+
                             val filter = StoredMessageFilterBuilder().apply {
                                 streamName().isEqualTo(stream)
                                 direction().isEqualTo(direction)
                                 request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
                                 request.endTimestamp?.let { timestampTo().isLessThan(it) }
-                                request.resultCountLimit?.let { limit(it) }
+                                request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
                             }.build()
 
                             if (!request.onlyRaw)
                                 cradleMsgExtractor.getMessages(filter, requestContext)
                             else
                                 cradleMsgExtractor.getRawMessages(filter, requestContext)
+
+                            limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
                         }
                     }
                 }
 
                 requestContext.allDataLoadedFromCradle()
                 if (requestContext.requestedMessages.isEmpty()) {
+                    requestContext.addStreamInfo()
                     requestContext.finishStream()
                 }
             } catch (e: Exception) {

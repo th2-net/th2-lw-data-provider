@@ -33,6 +33,8 @@ abstract class RequestContext(
    val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 ) {
 
+   val contextAlive: Boolean = true
+
    companion object {
       private val logger = KotlinLogging.logger { }
    }
@@ -56,10 +58,12 @@ abstract class MessageRequestContext (
    requestParameters: Map<String, Any> = emptyMap(),
    counter: AtomicLong = AtomicLong(0L),
    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
-   val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap()
+   val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
+   val streamInfo: ProviderStreamInfo = ProviderStreamInfo()
 ) : RequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
 
    val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
+   var loadedMessages = 0
 
    fun registerMessage(message: RequestedMessageDetails) {
       requestedMessages[message.id] = message
@@ -68,6 +72,7 @@ abstract class MessageRequestContext (
    fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
 
    abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage): RequestedMessageDetails;
+   abstract fun addStreamInfo();
    
 }
 
@@ -87,6 +92,7 @@ abstract class RequestedMessageDetails (
          val reqDetails = requestedMessages.remove(id)
          scannedObjectInfo.update(id, Instant.now(), counter)
          if (requestedMessages.isEmpty() && allMessagesRequested.get()) {
+            addStreamInfo()
             finishStream()
          }
       }
