@@ -34,10 +34,6 @@ class SearchMessagesHandler(
 ) {
     companion object {
         private val logger = KotlinLogging.logger { }
-
-        private val processedMessageCount = Counter.build(
-            "processed_message_count", "Count of processed Message"
-        ).register()
     }
 
     fun extractStreamNames(): Collection<String> {
@@ -60,6 +56,8 @@ class SearchMessagesHandler(
                         requestContext.streamInfo.registerSession(resumeFromId.streamName, resumeFromId.direction)
                         if (limitReached)
                             return@forEach;
+                        if (!requestContext.contextAlive)
+                            return@execute;
                         val filter = StoredMessageFilterBuilder().apply {
                             streamName().isEqualTo(resumeFromId.streamName)
                             direction().isEqualTo(resumeFromId.direction)
@@ -86,6 +84,8 @@ class SearchMessagesHandler(
                             requestContext.streamInfo.registerSession(stream, direction)
                             if (limitReached)
                                 continue;
+                            if (!requestContext.contextAlive)
+                                return@execute;
 
                             val filter = StoredMessageFilterBuilder().apply {
                                 streamName().isEqualTo(stream)

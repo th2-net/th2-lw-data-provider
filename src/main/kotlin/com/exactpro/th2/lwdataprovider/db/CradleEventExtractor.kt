@@ -24,7 +24,7 @@ import com.exactpro.cradle.testevents.StoredTestEventWrapper
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.http.SseEventRequestContext
+import com.exactpro.th2.lwdataprovider.http.EventRequestContext
 import com.exactpro.th2.lwdataprovider.producers.EventProducer
 import mu.KotlinLogging
 import java.time.Instant
@@ -43,8 +43,12 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         private val logger = KotlinLogging.logger { }
     }
 
-    fun getEvents(filter: SseEventSearchRequest, requestContext: SseEventRequestContext) {
+    fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
         var dates = splitByDates(filter.startTimestamp, filter.endTimestamp)
+        if (filter.resultCountLimit != null && filter.resultCountLimit > 0) {
+            requestContext.eventsLimit = filter.resultCountLimit
+        }
+
         if (filter.parentEvent == null) {
             getEventByDates(dates, requestContext)
         } else {
@@ -53,7 +57,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         requestContext.finishStream()
     }
 
-    fun getSingleEvents(filter: GetEventRequest, requestContext: SseEventRequestContext) {
+    fun getSingleEvents(filter: GetEventRequest, requestContext: EventRequestContext) {
         val batchId = filter.batchId
         val eventId = StoredTestEventId(filter.eventId)
         if (batchId != null) {
@@ -124,23 +128,41 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         } while (true)
     }
 
-    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: SseEventRequestContext) {
+    private fun getEventByDates(dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
+            logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} processed."}
             val testEvents = storage.getTestEvents(splitByDate.first, splitByDate.second)
             processEvents(testEvents, requestContext, counter)
-            logger.info { "Events from ${splitByDate.first} to ${splitByDate.second} processed. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
+            logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
+            if (requestContext.isLimitReached()) {
+                logger.info { "Loading events stopped: Reached events limit" }
+                break
+            }
+            if (!requestContext.contextAlive) {
+                logger.info { "Loading events stopped: Context was killed" }
+                break
+            }
         }
     }
 
-    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: SseEventRequestContext) {
+    private fun getEventByIds(id: ProviderEventId, dates: Collection<Pair<Instant, Instant>>, requestContext: EventRequestContext) {
         for (splitByDate in dates) {
             val counter = LongCounter()
             val startTime = System.currentTimeMillis()
+            logger.info { "Extracting events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed."}
             val testEvents = storage.getTestEvents(id.eventId, splitByDate.first, splitByDate.second)
             processEvents(testEvents, requestContext, counter)
-            logger.info { "Events from ${splitByDate.first} to ${splitByDate.second} with parent ${id.eventId} processed. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
+            logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"}
+            if (requestContext.isLimitReached()) {
+                logger.info { "Loading events stopped: Reached events limit" }
+                break
+            }
+            if (!requestContext.contextAlive) {
+                logger.info { "Loading events stopped: Context was killed" }
+                break
+            }
         }
     }
     
@@ -154,7 +176,7 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
     
     private fun processEvents(
         testEvents: Iterable<StoredTestEventWrapper>,
-        requestContext: SseEventRequestContext, count: LongCounter
+        requestContext: EventRequestContext, count: LongCounter
     ) {
         for (testEvent in testEvents) {
             if (testEvent.isSingle) {
@@ -164,9 +186,11 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                 event.attachedMessageIds = loadAttachedMessages(singleEv.messageIds)
                 count.value++
                 requestContext.processEvent(event.convertToEvent())
+                requestContext.addProcessedEvents(1)
             } else if (testEvent.isBatch) {
                 val batch = testEvent.asBatch()
-                for (batchEvent in batch.testEvents) {
+                val eventsList = batch.testEvents
+                for (batchEvent in eventsList) {
                     val batchEventBody = EventProducer.fromBatchEvent(batchEvent, batch)
                     batchEventBody.body = String(batchEvent.content)
                     batchEventBody.attachedMessageIds = loadAttachedMessages(batchEvent.messageIds)
@@ -174,6 +198,10 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
                     requestContext.processEvent(batchEventBody.convertToEvent())
                     count.value++
                 }
+                requestContext.addProcessedEvents(eventsList.size)
+            }
+            if (requestContext.isLimitReached() || !requestContext.contextAlive) {
+                return
             }
         }
     }

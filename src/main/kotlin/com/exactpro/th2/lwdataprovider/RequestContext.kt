@@ -33,7 +33,7 @@ abstract class RequestContext(
    val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 ) {
 
-   val contextAlive: Boolean = true
+   @Volatile var contextAlive: Boolean = true
 
    companion object {
       private val logger = KotlinLogging.logger { }
