@@ -35,8 +35,10 @@ class GrpcMessageRequestContext (
     counter: AtomicLong = AtomicLong(0L),
 
     scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
-    requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap()
-) : MessageRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo, requestedMessages) {
+    requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
+    maxMessagesPerRequest: Int = 0
+) : MessageRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo, requestedMessages,
+    maxMessagesPerRequest = maxMessagesPerRequest) {
 
 
     override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage): GrpcRequestedMessageDetails {

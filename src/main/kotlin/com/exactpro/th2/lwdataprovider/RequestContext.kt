@@ -20,11 +20,15 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import kotlinx.atomicfu.locks.ReentrantLock
+import kotlinx.atomicfu.locks.withLock
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.locks.Condition
 
 abstract class RequestContext(
    open val channelMessages: ResponseHandler,
@@ -51,6 +55,10 @@ abstract class RequestContext(
    fun keepAliveEvent() {
       channelMessages.keepAliveEvent(scannedObjectInfo, counter);
    }
+
+   open fun onMessageSent() {
+
+   }
 }
 
 abstract class MessageRequestContext (
@@ -59,8 +67,13 @@ abstract class MessageRequestContext (
    counter: AtomicLong = AtomicLong(0L),
    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
    val requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
-   val streamInfo: ProviderStreamInfo = ProviderStreamInfo()
+   val streamInfo: ProviderStreamInfo = ProviderStreamInfo(),
+   val maxMessagesPerRequest: Int = 0
 ) : RequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+
+   val lock: ReentrantLock = ReentrantLock()
+   val condition: Condition = lock.newCondition()
+   val messagesInProcess = AtomicInteger(0)
 
    val allMessagesRequested: AtomicBoolean = AtomicBoolean(false)
    var loadedMessages = 0
@@ -73,6 +86,14 @@ abstract class MessageRequestContext (
 
    abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage): RequestedMessageDetails;
    abstract fun addStreamInfo();
+
+   override fun onMessageSent() {
+      if (maxMessagesPerRequest > 0 && messagesInProcess.decrementAndGet() < maxMessagesPerRequest) {
+         lock.withLock {
+            condition.signal()
+         }
+      }
+   }
    
 }
 

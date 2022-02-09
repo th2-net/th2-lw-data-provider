@@ -33,8 +33,10 @@ class MessageSseRequestContext (
     counter: AtomicLong = AtomicLong(0L),
     scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo(),
     requestedMessages: MutableMap<String, RequestedMessageDetails> = ConcurrentHashMap(),
-    val jsonFormatter: CustomJsonFormatter = CustomJsonFormatter()
-) : MessageRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo, requestedMessages) {
+    val jsonFormatter: CustomJsonFormatter = CustomJsonFormatter(),
+    maxMessagesPerRequest: Int = 0
+) : MessageRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo, requestedMessages,
+    maxMessagesPerRequest = maxMessagesPerRequest) {
 
 
     override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage) : RequestedMessageDetails {

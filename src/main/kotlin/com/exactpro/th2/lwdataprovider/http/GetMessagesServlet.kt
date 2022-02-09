@@ -54,11 +54,11 @@ class GetMessagesServlet (
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
         val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
-        val reqContext = MessageSseRequestContext(sseResponse, queryParametersMap)
+        val reqContext = MessageSseRequestContext(sseResponse, queryParametersMap, maxMessagesPerRequest = configuration.bufferPerQuery)
         keepAliveHandler.addKeepAliveData(reqContext)
         searchMessagesHandler.loadMessages(request, reqContext)
 
-        this.waitAndWrite(queue, resp)
+        this.waitAndWrite(queue, resp, reqContext)
         keepAliveHandler.removeKeepAliveData(reqContext)
         logger.info { "Processing search sse messages request finished" }
     }
