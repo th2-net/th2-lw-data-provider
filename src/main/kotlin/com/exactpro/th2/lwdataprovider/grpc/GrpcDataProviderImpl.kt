@@ -130,7 +130,7 @@ open class GrpcDataProviderImpl(
         val requestParams = SseMessageSearchRequest(request)
         logger.info { "Loading messages $requestParams" }
         val grpcResponseHandler = GrpcResponseHandler(queue)
-        val context = GrpcMessageRequestContext(grpcResponseHandler)
+        val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
         searchMessagesHandler.loadMessages(requestParams, context)
         processResponse(responseObserver, grpcResponseHandler, context)
 
@@ -161,6 +161,7 @@ open class GrpcDataProviderImpl(
                 logger.warn { "Stream finished with exception" }
             } else if (event.resp != null) {
                 responseObserver.onNext(event.resp)
+                context.onMessageSent()
             }
         }
     }

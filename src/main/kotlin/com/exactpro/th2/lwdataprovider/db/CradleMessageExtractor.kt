@@ -25,6 +25,7 @@ import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import kotlinx.atomicfu.locks.withLock
 import mu.KotlinLogging
 import kotlin.system.measureTimeMillis
 
@@ -79,8 +80,15 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     messageBuffer.clear()
                     builder = RawMessageBatch.newBuilder()
                     msgCount += msgBufferCount
-                    msgBufferCount = 0
+                    logger.debug { "Message batch sent ($msgBufferCount). Total messages $msgCount" }
                     decoder.decodeBuffer.checkAndWait()
+                    if (requestContext.maxMessagesPerRequest > 0 && requestContext.maxMessagesPerRequest
+                        <= requestContext.messagesInProcess.addAndGet(msgBufferCount)) {
+                        requestContext.lock.withLock {
+                            requestContext.condition.await()
+                        }
+                    }
+                    msgBufferCount = 0
                 }
             }
             

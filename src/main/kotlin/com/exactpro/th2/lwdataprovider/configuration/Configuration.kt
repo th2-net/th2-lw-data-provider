@@ -28,6 +28,7 @@ class CustomConfigurationClass {
     val batchSize: Int? = null
     val mode: String? = null
     val grpcBackPressure : Boolean? = null
+    val bufferPerQuery: Int? = null
 }
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -43,6 +44,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val mode: Mode = VariableBuilder.getVariable("mode",
         customConfiguration.mode?.let { Mode.valueOf(it.toUpperCase()) }, Mode.HTTP)
     val grpcBackPressure: Boolean = VariableBuilder.getVariable("grpcBackPressure", customConfiguration.grpcBackPressure, false)
+    val bufferPerQuery: Int = VariableBuilder.getVariable("bufferPerQuery", customConfiguration.bufferPerQuery, 0)
 }
 
 enum class Mode {

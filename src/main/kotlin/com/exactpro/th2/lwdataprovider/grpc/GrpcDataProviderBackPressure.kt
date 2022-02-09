@@ -62,6 +62,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                     logger.warn(event.error) { "Executing finished with error" }
                 } else if (event.resp != null) {
                     servCallObs.onNext(event.resp)
+                    context.onMessageSent()
                 }
             }
         }
