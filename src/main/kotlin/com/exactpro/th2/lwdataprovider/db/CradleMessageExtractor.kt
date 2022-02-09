@@ -55,6 +55,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             var msgId: StoredMessageId? = null
             for (storedMessage in iterable) {
 
+                if (!requestContext.contextAlive) {
+                    return;
+                }
+
                 msgId = storedMessage.id
                 val id = storedMessage.id.toString()
                 val tmp = requestContext.createMessageDetails(id, 0, storedMessage)
@@ -111,6 +115,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             val time = System.currentTimeMillis()
             var msgId: StoredMessageId? = null
             for (storedMessageBatch in iterable) {
+                if (!requestContext.contextAlive) {
+                    return;
+                }
                 msgId = storedMessageBatch.id
                 val id = storedMessageBatch.id.toString()
                 val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch)

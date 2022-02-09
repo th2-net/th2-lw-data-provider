@@ -64,17 +64,39 @@ class SseRequestedMessageDetails(
 
 }
 
-class SseEventRequestContext (
-    override val channelMessages: SseResponseHandler,
+abstract class EventRequestContext (
+    channelMessages: ResponseHandler,
     requestParameters: Map<String, Any> = emptyMap(),
     counter: AtomicLong = AtomicLong(0L),
     scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 ) : RequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
 
-    fun processEvent(event: Event) {
+    private var processedEvents: Int = 0;
+    var eventsLimit: Int = 0;
+
+    abstract fun processEvent(event: Event);
+
+    fun addProcessedEvents(count: Int) {
+        this.processedEvents += count;
+    }
+
+    @Suppress("ConvertTwoComparisonsToRangeCheck")
+    fun isLimitReached():Boolean {
+        return eventsLimit > 0 && processedEvents >= eventsLimit
+    }
+
+}
+
+class SseEventRequestContext (
+    override val channelMessages: SseResponseHandler,
+    requestParameters: Map<String, Any> = emptyMap(),
+    counter: AtomicLong = AtomicLong(0L),
+    scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
+) : EventRequestContext(channelMessages, requestParameters, counter, scannedObjectInfo) {
+
+    override fun processEvent(event: Event) {
         val sseEvent = channelMessages.responseBuilder.build(event, counter)
         channelMessages.buffer.put(sseEvent)
         scannedObjectInfo.update(event.eventId, System.currentTimeMillis(), counter)
     }
-
 }

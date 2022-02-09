@@ -26,7 +26,7 @@ import com.exactpro.th2.lwdataprovider.entities.filters.FilterPredicate
 import java.time.Instant
 
 data class SseEventSearchRequest(
-    val filterPredicate: FilterPredicate<BaseEventEntity>,
+    val filterPredicate: FilterPredicate<BaseEventEntity>?,
     val startTimestamp: Instant?,
     val parentEvent: ProviderEventId?,
     val searchDirection: TimeRelation,
@@ -63,8 +63,8 @@ data class SseEventSearchRequest(
         attachedMessages = parameters["attachedMessages"]?.firstOrNull()?.toBoolean() ?: false
     )
 
-    constructor(request: EventSearchRequest, filterPredicate: FilterPredicate<BaseEventEntity>) : this(
-        filterPredicate = filterPredicate,
+    constructor(request: EventSearchRequest) : this(
+        filterPredicate = null,
         startTimestamp = if (request.hasStartTimestamp())
             request.startTimestamp.let {
                 Instant.ofEpochSecond(it.seconds, it.nanos.toLong())

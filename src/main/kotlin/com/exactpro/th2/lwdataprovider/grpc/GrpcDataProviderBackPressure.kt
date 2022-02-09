@@ -18,14 +18,18 @@ package com.exactpro.th2.lwdataprovider.grpc
 
 import com.exactpro.th2.dataprovider.grpc.StreamResponse
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
+import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 
-class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesHandler: SearchMessagesHandler) :
-    GrpcDataProviderImpl(configuration, searchMessagesHandler) {
+class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesHandler: SearchMessagesHandler,
+    searchEventsHandler: SearchEventsHandler
+) :
+    GrpcDataProviderImpl(configuration, searchMessagesHandler, searchEventsHandler) {
 
     companion object {
         private val logger = KotlinLogging.logger { }
@@ -33,7 +37,8 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
 
     override fun processResponse(
         responseObserver: StreamObserver<StreamResponse>,
-        grpcResponseHandler: GrpcResponseHandler
+        grpcResponseHandler: GrpcResponseHandler,
+        context: RequestContext
     ) {
         val servCallObs = responseObserver as ServerCallStreamObserver<StreamResponse>
         servCallObs.setOnReadyHandler {
@@ -47,11 +52,13 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                     servCallObs.onCompleted()
                     inProcess = false
                     grpcResponseHandler.streamClosed = true
+                    onCloseContext(context)
                     logger.info { "Executing finished successfully" }
                 } else if (event.error != null) {
                     servCallObs.onError(event.error)
                     inProcess = false
                     grpcResponseHandler.streamClosed = true
+                    onCloseContext(context)
                     logger.warn(event.error) { "Executing finished with error" }
                 } else if (event.resp != null) {
                     servCallObs.onNext(event.resp)
@@ -62,6 +69,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
         servCallObs.setOnCancelHandler {
             logger.warn{ "Execution cancelled" }
             grpcResponseHandler.streamClosed = true
+            onCloseContext(context)
             val buffer = grpcResponseHandler.buffer
             while (buffer.poll() != null);
         }

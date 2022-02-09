@@ -19,7 +19,7 @@ package com.exactpro.th2.lwdataprovider.handlers
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.http.SseEventRequestContext
+import com.exactpro.th2.lwdataprovider.http.EventRequestContext
 import mu.KotlinLogging
 import java.util.concurrent.ThreadPoolExecutor
 
@@ -31,8 +31,7 @@ class SearchEventsHandler(
         private val logger = KotlinLogging.logger { }
     }
     
-    fun loadEvents(request: SseEventSearchRequest, requestContext: SseEventRequestContext) {
-
+    fun loadEvents(request: SseEventSearchRequest, requestContext: EventRequestContext) {
         threadPool.execute {
             try {
                 cradle.getEvents(request, requestContext)
@@ -43,7 +42,7 @@ class SearchEventsHandler(
         }
     }
 
-    fun loadOneEvent(request: GetEventRequest, requestContext: SseEventRequestContext) {
+    fun loadOneEvent(request: GetEventRequest, requestContext: EventRequestContext) {
 
         threadPool.execute {
             try {

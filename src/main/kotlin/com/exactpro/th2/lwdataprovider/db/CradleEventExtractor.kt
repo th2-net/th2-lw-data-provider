@@ -28,6 +28,7 @@ import com.exactpro.cradle.testevents.StoredTestEventWrapper
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
+import com.exactpro.th2.lwdataprovider.http.EventRequestContext
 import com.exactpro.th2.lwdataprovider.http.SseEventRequestContext
 import mu.KotlinLogging
 import java.time.Instant
@@ -42,11 +43,11 @@ class CradleEventExtractor (private val cradleManager: CradleManager) {
         private val logger = KotlinLogging.logger { }
     }
 
-    fun getEvents(filter: SseEventSearchRequest, requestContext: SseEventRequestContext) {
+    fun getEvents(filter: SseEventSearchRequest, requestContext: EventRequestContext) {
         TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
 
-    fun getSingleEvents(filter: GetEventRequest, requestContext: SseEventRequestContext) {
+    fun getSingleEvents(filter: GetEventRequest, requestContext: EventRequestContext) {
         TODO("NOT IMPLEMENTED FOR CRADLE API 2.+")
     }
 
