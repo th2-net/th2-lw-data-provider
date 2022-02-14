@@ -45,9 +45,7 @@ class ProviderStreamInfo {
             Stream.newBuilder().apply {
                 this.session = streamDetails.streamName
                 this.direction = streamDetails.direction.toGrpcDirection()
-                streamDetails.msgId?.let {
-                    this.lastId = it.toGrpcMessageId()
-                }
+                this.lastId = streamDetails.msgId.toGrpcMessageId()
             }
         }.forEach { builder.addStreams(it) }
         return builder.build()
@@ -55,4 +53,6 @@ class ProviderStreamInfo {
 
 }
 
-data class StreamDetails(val streamName: String, val direction: Direction, var msgId: StoredMessageId? = null)
+data class StreamDetails(val streamName: String, val direction: Direction,
+                         var msgId: StoredMessageId = StoredMessageId(streamName, direction, 0L)
+)
