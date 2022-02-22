@@ -20,30 +20,27 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageID
-import com.exactpro.th2.dataprovider.grpc.MessageData
+import com.exactpro.th2.dataprovider.grpc.MessageGroupItem
+import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.google.protobuf.Timestamp
 import java.time.Instant
-import java.util.*
 
 class GrpcMessageProducer {
 
     companion object {
 
-        fun createMessage(rawMessage: RequestedMessageDetails): MessageData {
-            val convertToOneMessage = rawMessage.parsedMessage?.let { MessageProducer53.convertToOneMessage(it) }
+        fun createMessage(rawMessage: RequestedMessageDetails): MessageGroupResponse {
             val storedMessage = rawMessage.storedMessage
 
-            return MessageData.newBuilder().apply {
-                messageId = convertMessageId(storedMessage.id);
-                sessionId = messageId.connectionId
-                direction = messageId.direction;
-                timestamp = convertTimestamp(storedMessage.timestamp);
-                messageType = convertToOneMessage?.metadata?.messageType ?: "";
-                bodyBase64 = rawMessage.rawMessage?.let {
-                    Base64.getEncoder().encodeToString(it.body.toByteArray())
+            return MessageGroupResponse.newBuilder().apply {
+                messageId = convertMessageId(storedMessage.id)
+                timestamp = convertTimestamp(storedMessage.timestamp)
+                bodyRaw = rawMessage.rawMessage?.body
+
+                rawMessage.parsedMessage?.forEach {
+                    addMessageItem(MessageGroupItem.newBuilder().setMessage(it).build())
                 }
-                convertToOneMessage?.let { message = it }
             }.build()
         }
 

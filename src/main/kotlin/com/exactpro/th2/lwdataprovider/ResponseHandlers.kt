@@ -16,12 +16,12 @@
 
 package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.th2.dataprovider.grpc.StreamResponse
+import com.exactpro.th2.dataprovider.grpc.EventResponse
+import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.google.gson.Gson
-import java.util.*
+import java.util.Collections
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 interface ResponseHandler {
@@ -63,13 +63,7 @@ class GrpcResponseHandler(val buffer: ArrayBlockingQueue<GrpcEvent>) : ResponseH
     }
 
     override fun keepAliveEvent(obj: LastScannedObjectInfo, counter: AtomicLong) {
-        addMessage(StreamResponse.newBuilder().setLastScannedObject(
-            com.exactpro.th2.dataprovider.grpc.LastScannedObjectInfo.newBuilder().apply {
-                scanCounter = counter.incrementAndGet()
-                id = obj.id
-                timestampMillis = obj.timestamp
-            }.build()
-        ).build())
+
     }
 
     override fun writeErrorMessage(text: String) {
@@ -82,11 +76,16 @@ class GrpcResponseHandler(val buffer: ArrayBlockingQueue<GrpcEvent>) : ResponseH
             buffer.put(GrpcEvent(error = error))
     }
 
-    fun addMessage(resp: StreamResponse) {
+    fun addMessage(resp: MessageSearchResponse) {
         if (!streamClosed)
-            buffer.put(GrpcEvent(resp))
+            buffer.put(GrpcEvent(message = resp))
+    }
+
+    fun addEvent(resp: EventResponse) {
+        if (!streamClosed)
+            buffer.put(GrpcEvent(event = resp))
     }
 
 }
 
-data class GrpcEvent(val resp: StreamResponse? = null, val error: Throwable? = null, val close: Boolean = false)
+data class GrpcEvent(val message: MessageSearchResponse? = null, val event: EventResponse? = null, val error: Throwable? = null, val close: Boolean = false)

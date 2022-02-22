@@ -19,7 +19,8 @@ package com.exactpro.th2.lwdataprovider.grpc
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.dataprovider.grpc.StreamResponse
+import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
+import com.exactpro.th2.dataprovider.grpc.MessageStreamPointers
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -46,7 +47,8 @@ class GrpcMessageRequestContext (
     }
 
     override fun addStreamInfo() {
-        channelMessages.addMessage(StreamResponse.newBuilder().setStreamInfo(this.streamInfo.toGrpc()).build())
+        val grpcPointers = MessageStreamPointers.newBuilder().addAllMessageStreamPointer(this.streamInfo.toGrpc());
+        return channelMessages.addMessage(MessageSearchResponse.newBuilder().setMessageStreamPointers(grpcPointers).build())
     }
 
 }
@@ -62,7 +64,7 @@ class GrpcRequestedMessageDetails(
 
     override fun responseMessage() {
         val msg = GrpcMessageProducer.createMessage(this)
-        context.channelMessages.addMessage(StreamResponse.newBuilder().setMessage(msg).build())
+        context.channelMessages.addMessage(MessageSearchResponse.newBuilder().setMessage(msg).build())
     }
 
 }
