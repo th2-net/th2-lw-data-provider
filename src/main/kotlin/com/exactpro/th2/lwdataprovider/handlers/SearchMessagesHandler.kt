@@ -80,30 +80,27 @@ class SearchMessagesHandler(
                         limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
                     }
                 } else {
-                    request.stream?.forEach { stream ->
-                        for (direction in Direction.values()) {
+                    request.stream?.forEach { (stream, direction) ->
+                        requestContext.streamInfo.registerSession(stream, direction)
+                        if (limitReached)
+                            return@forEach;
+                        if (!requestContext.contextAlive)
+                            return@execute;
 
-                            requestContext.streamInfo.registerSession(stream, direction)
-                            if (limitReached)
-                                continue;
-                            if (!requestContext.contextAlive)
-                                return@execute;
+                        val filter = StoredMessageFilterBuilder().apply {
+                            streamName().isEqualTo(stream)
+                            direction().isEqualTo(direction)
+                            request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
+                            request.endTimestamp?.let { timestampTo().isLessThan(it) }
+                            request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
+                        }.build()
 
-                            val filter = StoredMessageFilterBuilder().apply {
-                                streamName().isEqualTo(stream)
-                                direction().isEqualTo(direction)
-                                request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
-                                request.endTimestamp?.let { timestampTo().isLessThan(it) }
-                                request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
-                            }.build()
+                        if (!request.onlyRaw)
+                            cradleMsgExtractor.getMessages(filter, requestContext)
+                        else
+                            cradleMsgExtractor.getRawMessages(filter, requestContext)
 
-                            if (!request.onlyRaw)
-                                cradleMsgExtractor.getMessages(filter, requestContext)
-                            else
-                                cradleMsgExtractor.getRawMessages(filter, requestContext)
-
-                            limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
-                        }
+                        limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
                     }
                 }
 

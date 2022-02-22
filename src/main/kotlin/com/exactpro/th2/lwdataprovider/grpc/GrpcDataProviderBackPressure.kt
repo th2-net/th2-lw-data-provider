@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
-import com.exactpro.th2.dataprovider.grpc.StreamResponse
+import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -35,12 +35,10 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
         private val logger = KotlinLogging.logger { }
     }
 
-    override fun processResponse(
-        responseObserver: StreamObserver<StreamResponse>,
-        grpcResponseHandler: GrpcResponseHandler,
-        context: RequestContext
-    ) {
-        val servCallObs = responseObserver as ServerCallStreamObserver<StreamResponse>
+    override fun  <T> processResponse(responseObserver: StreamObserver<T>,
+                                      grpcResponseHandler: GrpcResponseHandler,
+                                      context: RequestContext, converter: (GrpcEvent) -> T?) {
+        val servCallObs = responseObserver as ServerCallStreamObserver<T>
         servCallObs.setOnReadyHandler {
             if (grpcResponseHandler.streamClosed)
                 return@setOnReadyHandler;
@@ -60,8 +58,8 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                     grpcResponseHandler.streamClosed = true
                     onCloseContext(context)
                     logger.warn(event.error) { "Executing finished with error" }
-                } else if (event.resp != null) {
-                    servCallObs.onNext(event.resp)
+                } else {
+                    converter.invoke(event)?.let {  servCallObs.onNext(it) }
                     context.onMessageSent()
                 }
             }

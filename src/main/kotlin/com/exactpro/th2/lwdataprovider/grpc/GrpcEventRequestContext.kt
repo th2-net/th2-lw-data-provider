@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
-import com.exactpro.th2.dataprovider.grpc.StreamResponse
 import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
@@ -33,7 +32,7 @@ class GrpcEventRequestContext (
 
     override fun processEvent(event: Event) {
         val strResp = GrpcEventProducer.createEvent(event)
-        channelMessages.addMessage(StreamResponse.newBuilder().setEvent(strResp).build())
+        channelMessages.addEvent(strResp)
         scannedObjectInfo.update(event.eventId, System.currentTimeMillis(), counter)
     }
 }

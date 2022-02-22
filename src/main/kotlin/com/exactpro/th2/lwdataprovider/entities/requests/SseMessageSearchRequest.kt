@@ -16,11 +16,14 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
+import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
+import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
 import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 import java.time.Instant
@@ -28,10 +31,9 @@ import kotlin.streams.toList
 
 data class SseMessageSearchRequest(
     val startTimestamp: Instant?,
-    val stream: List<String>?,
+    val stream: List<ProviderMessageStream>?,
     val searchDirection: TimeRelation,
     val endTimestamp: Instant?,
-    val resumeFromId: StoredMessageId?,
     val resultCountLimit: Int?,
     val keepOpen: Boolean,
     val attachedEvents: Boolean,
@@ -47,18 +49,38 @@ data class SseMessageSearchRequest(
 
             throw InvalidRequestException("'$value' is not a valid timeline direction. Use 'next' or 'previous'")
         }
+
+        private fun toStreams(streams: List<String>?): List<ProviderMessageStream>? {
+            if (streams == null)
+                return null;
+            val providerStreams = ArrayList<ProviderMessageStream>(streams.size * 2)
+            streams.forEach {
+                providerStreams.add(ProviderMessageStream(it, Direction.SECOND))
+                providerStreams.add(ProviderMessageStream(it, Direction.FIRST))
+            }
+            return providerStreams
+        }
+
+        private fun toMessageIds(streamsPointers: List<MessageStreamPointer>?): List<StoredMessageId>? {
+            if (streamsPointers == null)
+                return null;
+            val providerMsgIds = ArrayList<StoredMessageId>(streamsPointers.size)
+            streamsPointers.forEach {
+                if (it.hasLastId()) {
+                    providerMsgIds.add(it.lastId.toStoredMessageId())
+                }
+            }
+            return providerMsgIds
+        }
     }
 
     constructor(parameters: Map<String, List<String>>) : this(
         startTimestamp = parameters["startTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
-        stream = parameters["stream"],
+        stream = toStreams(parameters["stream"]),
         searchDirection = parameters["searchDirection"]?.firstOrNull()?.let {
-            asCradleTimeRelation(
-                it
-            )
+            asCradleTimeRelation(it)
         } ?: TimeRelation.AFTER,
         endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
-        resumeFromId = parameters["resumeFromId"]?.firstOrNull().let { StoredMessageId.fromString(it) },
         resumeFromIdsList = parameters["messageId"]?.map { StoredMessageId.fromString(it) },
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
@@ -69,11 +91,10 @@ data class SseMessageSearchRequest(
 
     constructor(grpcRequest: MessageSearchRequest) : this(
         startTimestamp = grpcRequest.startTimestamp?.toInstant(),
-        stream = grpcRequest.stream.listStringList,
+        stream = grpcRequest.streamList.map { it.toProviderMessageStreams() },
         searchDirection = grpcRequest.searchDirection.toProviderRelation(),
         endTimestamp = grpcRequest.endTimestamp?.toInstant(),
-        resumeFromId = if (grpcRequest.hasResumeFromId()) grpcRequest.resumeFromId.toStoredMessageId() else null,
-        resumeFromIdsList = grpcRequest.messageIdList.stream().map { it.toStoredMessageId() }.toList(),
+        resumeFromIdsList = toMessageIds(grpcRequest.streamPointerList),
         resultCountLimit = if (grpcRequest.hasResultCountLimit()) grpcRequest.resultCountLimit.value else null,
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
         attachedEvents = false, // disabled
@@ -94,7 +115,7 @@ data class SseMessageSearchRequest(
     }
 
     private fun checkStartPoint() {
-        if (startTimestamp == null && resumeFromId == null && resumeFromIdsList == null)
+        if (startTimestamp == null && resumeFromIdsList == null)
             throw InvalidRequestException("One of the 'startTimestamp' or 'resumeFromId' or 'messageId' must not be null")
     }
 
@@ -103,3 +124,5 @@ data class SseMessageSearchRequest(
         checkEndTimestamp()
     }
 }
+
+data class ProviderMessageStream(val sessionAlias: String, val direction: Direction)

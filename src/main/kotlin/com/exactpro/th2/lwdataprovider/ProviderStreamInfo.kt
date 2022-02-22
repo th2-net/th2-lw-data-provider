@@ -18,8 +18,8 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.dataprovider.grpc.Stream
-import com.exactpro.th2.dataprovider.grpc.StreamsInfo
+import com.exactpro.th2.dataprovider.grpc.MessageStream
+import com.exactpro.th2.dataprovider.grpc.MessageStreamPointer
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcDirection
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
 
@@ -39,18 +39,18 @@ class ProviderStreamInfo {
         streams.computeIfAbsent(streamName + direction.label) {StreamDetails(streamName, direction)}
     }
 
-    fun toGrpc(): StreamsInfo {
-        val builder = StreamsInfo.newBuilder()
-        streams.values.asSequence().map { streamDetails ->
-            Stream.newBuilder().apply {
-                this.session = streamDetails.streamName
-                this.direction = streamDetails.direction.toGrpcDirection()
+    fun toGrpc(): Collection<MessageStreamPointer> {
+        return streams.values.asSequence().map { streamDetails ->
+            MessageStreamPointer.newBuilder().apply {
+                this.messageStream = MessageStream.newBuilder().apply {
+                    this.name = streamDetails.streamName
+                    this.direction = streamDetails.direction.toGrpcDirection()
+                }.build()
                 streamDetails.msgId?.let {
                     this.lastId = it.toGrpcMessageId()
                 }
-            }
-        }.forEach { builder.addStreams(it) }
-        return builder.build()
+            }.build()
+        }.toCollection(ArrayList(streams.size))
     }
 
 }

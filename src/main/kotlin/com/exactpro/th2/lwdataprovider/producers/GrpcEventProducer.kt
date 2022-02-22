@@ -21,7 +21,7 @@ import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.dataprovider.grpc.EventData
+import com.exactpro.th2.dataprovider.grpc.EventResponse
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
 import com.google.protobuf.ByteString
@@ -31,9 +31,9 @@ class GrpcEventProducer {
     companion object {
 
 
-        fun createEvent(event: Event): EventData {
+        fun createEvent(event: Event): EventResponse {
 
-            return EventData.newBuilder().apply {
+            return EventResponse.newBuilder().apply {
                 eventId = event.eventId.toEventId()
                 if (event.parentEventId != null) {
                     parentEventId = event.parentEventId.toEventId()
@@ -46,14 +46,14 @@ class GrpcEventProducer {
                 if (event.endTimestamp != null) {
                     endTimestamp = event.endTimestamp.toTimestamp()
                 }
-                successful = if (event.successful) EventStatus.SUCCESS else EventStatus.FAILED
+                status = if (event.successful) EventStatus.SUCCESS else EventStatus.FAILED
                 eventName = event.eventName
                 if (event.eventType != null) {
                     eventType = event.eventType
                 }
                 body = ByteString.copyFromUtf8(event.body)
                 for (msgId in event.attachedMessageIds) {
-                    addAttachedMessageIds(msgId.toMessageId())
+                    addAttachedMessageId(msgId.toMessageId())
                 }
             }.build()
         }

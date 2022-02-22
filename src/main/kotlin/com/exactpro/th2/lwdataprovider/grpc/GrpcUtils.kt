@@ -20,7 +20,9 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.dataprovider.grpc.MessageStream
 import com.exactpro.th2.dataprovider.grpc.TimeRelation
+import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.google.protobuf.Timestamp
 import java.time.Instant
 
@@ -57,4 +59,8 @@ fun StoredMessageId.toGrpcMessageId(): MessageID {
         this.direction = this@toGrpcMessageId.direction.toGrpcDirection()
         this.sequence = this@toGrpcMessageId.index
     }.build()
+}
+
+fun MessageStream.toProviderMessageStreams(): ProviderMessageStream {
+    return ProviderMessageStream(this.name, this.direction.toCradleDirection())
 }

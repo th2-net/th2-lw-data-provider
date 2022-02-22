@@ -16,16 +16,22 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.dataprovider.grpc.DataProviderGrpc
-import com.exactpro.th2.dataprovider.grpc.EventData
+import com.exactpro.th2.dataprovider.grpc.EventResponse
 import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
-import com.exactpro.th2.dataprovider.grpc.MessageData
+import com.exactpro.th2.dataprovider.grpc.EventSearchResponse
+import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
-import com.exactpro.th2.dataprovider.grpc.StreamResponse
-import com.exactpro.th2.dataprovider.grpc.StringList
-import com.exactpro.th2.lwdataprovider.*
+import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
+import com.exactpro.th2.dataprovider.grpc.MessageStream
+import com.exactpro.th2.dataprovider.grpc.MessageStreamsRequest
+import com.exactpro.th2.dataprovider.grpc.MessageStreamsResponse
+import com.exactpro.th2.lwdataprovider.GrpcEvent
+import com.exactpro.th2.lwdataprovider.GrpcResponseHandler
+import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
@@ -33,7 +39,6 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
-import com.google.protobuf.Empty
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
@@ -48,7 +53,7 @@ open class GrpcDataProviderImpl(
         private val logger = KotlinLogging.logger { }
     }
 
-    override fun getEvent(request: EventID?, responseObserver: StreamObserver<EventData>?) {
+    override fun getEvent(request: EventID?, responseObserver: StreamObserver<EventResponse>?) {
         checkNotNull(request)
         checkNotNull(responseObserver)
 
@@ -60,12 +65,11 @@ open class GrpcDataProviderImpl(
         val context = GrpcEventRequestContext(grpcResponseHandler)
         searchEventsHandler.loadOneEvent(requestParams, context)
         processSingle(responseObserver, grpcResponseHandler, context) {
-            if (it.hasEvent())
-                responseObserver.onNext(it.event)
+            it.event?.let { event -> responseObserver.onNext(event) }
         }
     }
 
-    override fun getMessage(request: MessageID?, responseObserver: StreamObserver<MessageData>?) {
+    override fun getMessage(request: MessageID?, responseObserver: StreamObserver<MessageGroupResponse>?) {
         checkNotNull(request)
         checkNotNull(responseObserver)
 
@@ -78,27 +82,26 @@ open class GrpcDataProviderImpl(
         val context = GrpcMessageRequestContext(grpcResponseHandler)
         searchMessagesHandler.loadOneMessage(requestParams, context)
         processSingle(responseObserver, grpcResponseHandler, context) {
-            if (it.hasMessage())
-                responseObserver.onNext(it.message)
+            if (it.message != null && it.message.hasMessage()) {
+                responseObserver.onNext(it.message.message)
+            }
         }
     }
 
     private fun <T> processSingle(responseObserver: StreamObserver<T>, grpcResponseHandler: GrpcResponseHandler,
-                                context: RequestContext, sender: (StreamResponse) -> Unit) {
+                                context: RequestContext, sender: (GrpcEvent) -> Unit) {
         val value = grpcResponseHandler.buffer.take()
         if (value.error != null) {
             responseObserver.onError(value.error)
         } else {
-            value.resp?.let {
-                sender.invoke(it)
-            }
+            sender.invoke(value)
             responseObserver.onCompleted()
         }
         context.contextAlive = false;
         grpcResponseHandler.streamClosed = true
     }
 
-    override fun searchEvents(request: EventSearchRequest?, responseObserver: StreamObserver<StreamResponse>?) {
+    override fun searchEvents(request: EventSearchRequest?, responseObserver: StreamObserver<EventSearchResponse>?) {
         checkNotNull(request)
         checkNotNull(responseObserver)
 
@@ -109,19 +112,30 @@ open class GrpcDataProviderImpl(
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcEventRequestContext(grpcResponseHandler)
         searchEventsHandler.loadEvents(requestParams, context)
-        processResponse(responseObserver, grpcResponseHandler, context)
+        processResponse(responseObserver, grpcResponseHandler, context) {
+            if (it.event != null) {
+                EventSearchResponse.newBuilder().setEvent(it.event).build()
+            } else {
+                null
+            }
+        }
     }
 
-    override fun getMessageStreams(request: Empty?, responseObserver: StreamObserver<StringList>?) {
+    override fun getMessageStreams(request: MessageStreamsRequest?, responseObserver: StreamObserver<MessageStreamsResponse>?) {
         logger.info { "Extracting message streams" }
-        val grpcResponse = StringList.newBuilder().addAllListString(searchMessagesHandler.extractStreamNames()).build()
+        val streamsRsp = MessageStreamsResponse.newBuilder()
+        for (name in searchMessagesHandler.extractStreamNames()) {
+            val currentBuilder = MessageStream.newBuilder().setName(name)
+            streamsRsp.addMessageStream(currentBuilder.setDirection(Direction.SECOND))
+            streamsRsp.addMessageStream(currentBuilder.setDirection(Direction.FIRST))
+        }
         responseObserver?.apply {
-            onNext(grpcResponse)
+            onNext(streamsRsp.build())
             onCompleted()
         }
     }
 
-    override fun searchMessages(request: MessageSearchRequest?, responseObserver: StreamObserver<StreamResponse>?) {
+    override fun searchMessages(request: MessageSearchRequest?, responseObserver: StreamObserver<MessageSearchResponse>?) {
 
         checkNotNull(request)
         checkNotNull(responseObserver)
@@ -132,17 +146,16 @@ open class GrpcDataProviderImpl(
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
         searchMessagesHandler.loadMessages(requestParams, context)
-        processResponse(responseObserver, grpcResponseHandler, context)
-
+        processResponse(responseObserver, grpcResponseHandler, context) { it.message }
     }
 
     protected open fun onCloseContext(requestContext: RequestContext) {
         requestContext.contextAlive = false;
     }
 
-    protected open fun processResponse(responseObserver: StreamObserver<StreamResponse>,
+    protected open fun <T> processResponse(responseObserver: StreamObserver<T>,
                                        grpcResponseHandler: GrpcResponseHandler,
-                                       context: RequestContext) {
+                                       context: RequestContext, converter: (GrpcEvent) -> T?) {
         val buffer = grpcResponseHandler.buffer
         var inProcess = true
         while (inProcess) {
@@ -159,8 +172,8 @@ open class GrpcDataProviderImpl(
                 grpcResponseHandler.streamClosed = true
                 inProcess = false
                 logger.warn { "Stream finished with exception" }
-            } else if (event.resp != null) {
-                responseObserver.onNext(event.resp)
+            } else {
+                converter.invoke(event)?.let {  responseObserver.onNext(it) }
                 context.onMessageSent()
             }
         }
