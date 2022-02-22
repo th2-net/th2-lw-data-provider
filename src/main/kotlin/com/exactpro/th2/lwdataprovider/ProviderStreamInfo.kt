@@ -39,6 +39,7 @@ class ProviderStreamInfo {
         streams.computeIfAbsent(streamName + direction.label) {StreamDetails(streamName, direction)}
     }
 
+
     fun toGrpc(): Collection<MessageStreamPointer> {
         return streams.values.asSequence().map { streamDetails ->
             MessageStreamPointer.newBuilder().apply {
@@ -46,13 +47,13 @@ class ProviderStreamInfo {
                     this.name = streamDetails.streamName
                     this.direction = streamDetails.direction.toGrpcDirection()
                 }.build()
-                streamDetails.msgId?.let {
-                    this.lastId = it.toGrpcMessageId()
-                }
+                this.lastId = streamDetails.msgId.toGrpcMessageId()
             }.build()
         }.toCollection(ArrayList(streams.size))
     }
 
 }
 
-data class StreamDetails(val streamName: String, val direction: Direction, var msgId: StoredMessageId? = null)
+data class StreamDetails(val streamName: String, val direction: Direction,
+                         var msgId: StoredMessageId = StoredMessageId(streamName, direction, 0L)
+)
