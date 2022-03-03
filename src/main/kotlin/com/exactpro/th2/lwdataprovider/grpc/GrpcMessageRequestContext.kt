@@ -42,8 +42,8 @@ class GrpcMessageRequestContext (
     maxMessagesPerRequest = maxMessagesPerRequest) {
 
 
-    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage): GrpcRequestedMessageDetails {
-        return GrpcRequestedMessageDetails(id, time, storedMessage, this)
+    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit): GrpcRequestedMessageDetails {
+        return GrpcRequestedMessageDetails(id, time, storedMessage, this, onResponse)
     }
 
     override fun addStreamInfo() {
@@ -58,11 +58,12 @@ class GrpcRequestedMessageDetails(
     time: Long,
     storedMessage: StoredMessage,
     override val context: GrpcMessageRequestContext,
+    onResponse: () -> Unit,
     parsedMessage: List<Message>? = null,
     rawMessage: RawMessage? = null
-) : RequestedMessageDetails(id, time, storedMessage, context, parsedMessage, rawMessage) {
+) : RequestedMessageDetails(id, time, storedMessage, context, parsedMessage, rawMessage, onResponse) {
 
-    override fun responseMessage() {
+    override fun responseMessageInternal() {
         val msg = GrpcMessageProducer.createMessage(this)
         context.channelMessages.addMessage(MessageSearchResponse.newBuilder().setMessage(msg).build())
     }

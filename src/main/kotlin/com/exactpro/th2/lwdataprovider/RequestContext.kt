@@ -20,6 +20,7 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import io.prometheus.client.Histogram
 import kotlinx.atomicfu.locks.ReentrantLock
 import kotlinx.atomicfu.locks.withLock
 import mu.KotlinLogging
@@ -84,7 +85,7 @@ abstract class MessageRequestContext (
 
    fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
 
-   abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage): RequestedMessageDetails;
+   abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit = {}): RequestedMessageDetails;
    abstract fun addStreamInfo();
 
    override fun onMessageSent() {
@@ -94,7 +95,41 @@ abstract class MessageRequestContext (
          }
       }
    }
-   
+
+    fun startStep(name: String): StepHolder {
+        return StepHolder(name, METRICS.labels(name).startTimer())
+    }
+
+    companion object {
+        private val METRICS = Histogram.build(
+            "message_pipeline_hist_time", "Time spent on each step for a message"
+        ).buckets(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 25.0, 50.0, 75.0)
+            .labelNames("step")
+            .register()
+    }
+}
+
+class StepHolder(
+    private val name: String,
+    private val timer: Histogram.Timer
+) : AutoCloseable {
+    init {
+        LOGGER.trace { "Step $name started with timer ${timer.hashCode()}" }
+    }
+    private var finished: Boolean = false
+    fun finish() {
+        if (finished) {
+            return
+        }
+        LOGGER.trace { "Step $name finished with timer ${timer.hashCode()}" }
+        finished = true
+        timer.observeDuration()
+    }
+    companion object {
+        private val LOGGER = KotlinLogging.logger { }
+    }
+
+    override fun close() = finish()
 }
 
 abstract class RequestedMessageDetails (
@@ -103,11 +138,19 @@ abstract class RequestedMessageDetails (
    val storedMessage: StoredMessage,
    protected open val context: MessageRequestContext,
    var parsedMessage: List<Message>? = null,
-   var rawMessage: RawMessage? = null
+   var rawMessage: RawMessage? = null,
+   private val onResponse: () -> Unit = {}
 ) {
 
-   abstract fun responseMessage();
-   
+   fun responseMessage() {
+       try {
+           responseMessageInternal()
+       } finally {
+           onResponse()
+       }
+   }
+   abstract fun responseMessageInternal();
+
    fun notifyMessage() {
       context.apply { 
          val reqDetails = requestedMessages.remove(id)

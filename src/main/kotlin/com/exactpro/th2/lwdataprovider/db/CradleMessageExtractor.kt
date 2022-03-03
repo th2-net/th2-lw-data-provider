@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
+import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.RawMessage
@@ -46,7 +47,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         var msgCount = 0
         val time = measureTimeMillis { 
             logger.info { "Executing query $filter" }
-            val iterable = storage.getMessages(filter);
+            val iterable = getMessagesFromCradle(filter, requestContext);
             val sessionName = filter.streamName.value
 
             var builder = RawMessageBatch.newBuilder()
@@ -62,7 +63,8 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
                 msgId = storedMessage.id
                 val id = storedMessage.id.toString()
-                val tmp = requestContext.createMessageDetails(id, 0, storedMessage)
+                val decodingStep = requestContext.startStep("decoding")
+                val tmp = requestContext.createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
                 messageBuffer.add(tmp)
                 ++msgBufferCount
                 tmp.rawMessage = RawMessage.parseFrom(storedMessage.content)
@@ -84,8 +86,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     decoder.decodeBuffer.checkAndWait()
                     if (requestContext.maxMessagesPerRequest > 0 && requestContext.maxMessagesPerRequest
                         <= requestContext.messagesInProcess.addAndGet(msgBufferCount)) {
-                        requestContext.lock.withLock {
-                            requestContext.condition.await()
+                        with(requestContext) {
+                            lock.withLock {
+                                startStep("await_queue").use { condition.await() }
+                            }
                         }
                     }
                     msgBufferCount = 0
@@ -118,7 +122,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         var msgCount = 0
         val time = measureTimeMillis {
             logger.info { "Executing query $filter" }
-            val iterable = storage.getMessages(filter);
+            val iterable = getMessagesFromCradle(filter, requestContext);
 
             val time = System.currentTimeMillis()
             var msgId: StoredMessageId? = null
@@ -141,6 +145,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     }
 
+    private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =
+        requestContext.startStep("cradle").use { storage.getMessages(filter) }
+
     fun getMessage(msgId: StoredMessageId, onlyRaw: Boolean, requestContext: MessageRequestContext) {
         
         val time = measureTimeMillis {
@@ -154,7 +161,8 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             }
 
             val time = System.currentTimeMillis()
-            val tmp = requestContext.createMessageDetails(message.id.toString(), time, message)
+            val decodingStep = if (onlyRaw) null else requestContext.startStep("decoding")
+            val tmp = requestContext.createMessageDetails(message.id.toString(), time, message) { decodingStep?.finish() }
             tmp.rawMessage = RawMessage.parseFrom(message.content)
             requestContext.loadedMessages += 1
             

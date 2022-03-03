@@ -39,8 +39,8 @@ class MessageSseRequestContext (
     maxMessagesPerRequest = maxMessagesPerRequest) {
 
 
-    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage) : RequestedMessageDetails {
-        return SseRequestedMessageDetails(id, time, storedMessage, this)
+    override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit) : RequestedMessageDetails {
+        return SseRequestedMessageDetails(id, time, storedMessage, this, onResponse)
     }
 
     override fun addStreamInfo() {
@@ -54,11 +54,12 @@ class SseRequestedMessageDetails(
     time: Long,
     storedMessage: StoredMessage,
     override val context: MessageSseRequestContext,
+    onResponse: () -> Unit,
     parsedMessage: List<Message>? = null,
     rawMessage: RawMessage? = null
-) : RequestedMessageDetails(id, time, storedMessage, context, parsedMessage, rawMessage) {
+) : RequestedMessageDetails(id, time, storedMessage, context, parsedMessage, rawMessage, onResponse) {
 
-    override fun responseMessage() {
+    override fun responseMessageInternal() {
         val msg = MessageProducer53.createMessage(this, context.jsonFormatter)
         val event = context.channelMessages.responseBuilder.build(msg, this.context.counter)
         context.channelMessages.buffer.put(event)
