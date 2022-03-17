@@ -145,8 +145,10 @@ open class GrpcDataProviderImpl(
         logger.info { "Loading messages $requestParams" }
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
-        searchMessagesHandler.loadMessages(requestParams, context)
-        processResponse(responseObserver, grpcResponseHandler, context) { it.message }
+        context.startStep("messages_loading").use {
+            searchMessagesHandler.loadMessages(requestParams, context)
+            processResponse(responseObserver, grpcResponseHandler, context) { it.message }
+        }
     }
 
     protected open fun onCloseContext(requestContext: RequestContext) {
