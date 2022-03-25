@@ -70,7 +70,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                 }
             }
             if (!servCallObs.isReady) {
-                logger.info { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${buffer.size}" }
+                logger.trace { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${buffer.size}" }
             }
         }
 
