@@ -63,6 +63,9 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                     context.onMessageSent()
                 }
             }
+            if (!servCallObs.isReady) {
+                logger.info { "Suspending processing because the opposite side is not ready to receive more messages. In queue: ${buffer.size}" }
+            }
         }
 
         servCallObs.setOnCancelHandler {
