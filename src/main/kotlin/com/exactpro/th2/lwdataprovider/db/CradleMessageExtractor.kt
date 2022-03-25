@@ -50,7 +50,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             val iterable = getMessagesFromCradle(filter, requestContext);
             val sessionName = filter.streamName.value
 
-            var builder = RawMessageBatch.newBuilder()
+            val builder = RawMessageBatch.newBuilder()
             var msgBufferCount = 0
             val messageBuffer = ArrayList<RequestedMessageDetails>()
 
@@ -87,8 +87,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     if (requestContext.maxMessagesPerRequest > 0 && requestContext.maxMessagesPerRequest
                         <= requestContext.messagesInProcess.addAndGet(msgBufferCount)) {
                         with(requestContext) {
-                            lock.withLock {
-                                startStep("await_queue").use { condition.await() }
+                            startStep("await_queue").use {
+                                lock.withLock {
+                                    condition.await()
+                                }
                             }
                         }
                     }
