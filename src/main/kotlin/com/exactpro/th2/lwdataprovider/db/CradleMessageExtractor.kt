@@ -67,7 +67,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 val tmp = requestContext.createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
                 messageBuffer.add(tmp)
                 ++msgBufferCount
-                tmp.rawMessage = RawMessage.parseFrom(storedMessage.content)
+                tmp.rawMessage = requestContext.startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }
                 builder.addMessages(tmp.rawMessage)
 
                 if (msgBufferCount >= batchSize) {
@@ -80,7 +80,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     decoder.sendBatchMessage(builder.build(), sessionName)
 
                     messageBuffer.clear()
-                    builder = RawMessageBatch.newBuilder()
+                    builder.clear()
                     msgCount += msgBufferCount
                     logger.debug { "Message batch sent ($msgBufferCount). Total messages $msgCount" }
                     decoder.decodeBuffer.checkAndWait()
