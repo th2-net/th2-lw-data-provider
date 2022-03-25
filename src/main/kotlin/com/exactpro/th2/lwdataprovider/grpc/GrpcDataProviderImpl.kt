@@ -145,9 +145,13 @@ open class GrpcDataProviderImpl(
         logger.info { "Loading messages $requestParams" }
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
-        context.startStep("messages_loading").use {
-            searchMessagesHandler.loadMessages(requestParams, context)
-            processResponse(responseObserver, grpcResponseHandler, context) { it.message }
+        val loadingStep = context.startStep("messages_loading")
+        searchMessagesHandler.loadMessages(requestParams, context)
+        try {
+            processResponse(responseObserver, grpcResponseHandler, context, loadingStep::finish) { it.message }
+        } catch (ex: Exception) {
+            loadingStep.finish()
+            throw ex
         }
     }
 
@@ -155,9 +159,13 @@ open class GrpcDataProviderImpl(
         requestContext.contextAlive = false;
     }
 
-    protected open fun <T> processResponse(responseObserver: StreamObserver<T>,
-                                       grpcResponseHandler: GrpcResponseHandler,
-                                       context: RequestContext, converter: (GrpcEvent) -> T?) {
+    protected open fun <T> processResponse(
+        responseObserver: StreamObserver<T>,
+        grpcResponseHandler: GrpcResponseHandler,
+        context: RequestContext,
+        onFinished: () -> Unit = {},
+        converter: (GrpcEvent) -> T?
+    ) {
         val buffer = grpcResponseHandler.buffer
         var inProcess = true
         while (inProcess) {
@@ -167,10 +175,12 @@ open class GrpcDataProviderImpl(
                 onCloseContext(context)
                 grpcResponseHandler.streamClosed = true
                 inProcess = false
+                onFinished()
                 logger.info { "Stream finished" }
             } else if (event.error != null) {
                 responseObserver.onError(event.error)
                 onCloseContext(context)
+                onFinished()
                 grpcResponseHandler.streamClosed = true
                 inProcess = false
                 logger.warn { "Stream finished with exception" }

@@ -35,9 +35,13 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
         private val logger = KotlinLogging.logger { }
     }
 
-    override fun  <T> processResponse(responseObserver: StreamObserver<T>,
-                                      grpcResponseHandler: GrpcResponseHandler,
-                                      context: RequestContext, converter: (GrpcEvent) -> T?) {
+    override fun <T> processResponse(
+        responseObserver: StreamObserver<T>,
+        grpcResponseHandler: GrpcResponseHandler,
+        context: RequestContext,
+        onFinished: () -> Unit,
+        converter: (GrpcEvent) -> T?
+    ) {
         val servCallObs = responseObserver as ServerCallStreamObserver<T>
         servCallObs.setOnReadyHandler {
             if (grpcResponseHandler.streamClosed)
@@ -50,12 +54,14 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
                     servCallObs.onCompleted()
                     inProcess = false
                     grpcResponseHandler.streamClosed = true
+                    onFinished()
                     onCloseContext(context)
                     logger.info { "Executing finished successfully" }
                 } else if (event.error != null) {
                     servCallObs.onError(event.error)
                     inProcess = false
                     grpcResponseHandler.streamClosed = true
+                    onFinished()
                     onCloseContext(context)
                     logger.warn(event.error) { "Executing finished with error" }
                 } else {
@@ -74,6 +80,7 @@ class GrpcDataProviderBackPressure(configuration: Configuration, searchMessagesH
             onCloseContext(context)
             val buffer = grpcResponseHandler.buffer
             while (buffer.poll() != null);
+            onFinished()
         }
 
 
