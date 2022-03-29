@@ -29,6 +29,15 @@ ext {
 group 'com.exactpro.th2'
 version release_version
 
+sourceCompatibility = 11
+targetCompatibility = 11
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+}
+
 repositories {
     mavenCentral()
     maven {

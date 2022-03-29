@@ -23,6 +23,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.EventTreeNode
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage
 import com.fasterxml.jackson.databind.ObjectMapper
+import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -33,7 +34,7 @@ enum class EventType {
     MESSAGE, EVENT, CLOSE, ERROR, KEEP_ALIVE, MESSAGE_IDS;
 
     override fun toString(): String {
-        return super.toString().toLowerCase()
+        return super.toString().lowercase(Locale.getDefault())
     }
 }
 

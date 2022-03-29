@@ -25,7 +25,7 @@ import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.gson.Gson
 import mu.KotlinLogging
-import java.util.Collections
+import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -81,8 +81,8 @@ class GetMessageById (
             if (split.size == 3 && split[2].all { it.isDigit() }) {
                 if (Direction.byLabel(split[1]) != null)
                     return msgId
-                else if (Direction.byLabel(split[1].toLowerCase()) != null)
-                    return split[0] + ":" + split[1].toLowerCase() + ":" + split[2]
+                else if (Direction.byLabel(split[1].lowercase(Locale.getDefault())) != null)
+                    return split[0] + ":" + split[1].lowercase(Locale.getDefault()) + ":" + split[2]
             }
         }
         

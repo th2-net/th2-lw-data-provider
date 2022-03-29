@@ -41,9 +41,7 @@ class SseResponseWriter (private val srcWriter: Writer){
 
     private fun eventWrite(event: SseEvent) {
         lock.withLock {
-            if (event.event != null) {
-                this.writer.write("event: ", event.event.toString(), "\n")
-            }
+            this.writer.write("event: ", event.event.toString(), "\n")
 
             this.writer.write("data: ", event.data, "\n")
             

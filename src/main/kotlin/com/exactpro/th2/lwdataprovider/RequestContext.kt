@@ -153,7 +153,7 @@ abstract class RequestedMessageDetails (
 
    fun notifyMessage() {
       context.apply { 
-         val reqDetails = requestedMessages.remove(id)
+         requestedMessages.remove(id)
          scannedObjectInfo.update(id, Instant.now(), counter)
          if (requestedMessages.isEmpty() && allMessagesRequested.get()) {
             addStreamInfo()

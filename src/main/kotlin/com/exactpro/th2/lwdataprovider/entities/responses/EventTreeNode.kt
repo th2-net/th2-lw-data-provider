@@ -69,7 +69,7 @@ data class EventTreeNode(
 
         parentEventId = (nonBatchedEvent?.parentId ?: batchedEvent?.parentId)?.let {
             if (batch?.getTestEvent(it) != null) {
-                ProviderEventId(batch?.id, it)
+                ProviderEventId(batch.id, it)
             } else {
                 ProviderEventId(null, it)
             }

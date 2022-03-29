@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.configuration
 
+import java.util.*
+
 
 class CustomConfigurationClass {
     var hostname: String? = null
@@ -42,7 +44,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val execThreadPoolSize: Int = VariableBuilder.getVariable("execThreadPoolSize", customConfiguration.execThreadPoolSize, 10)
     val batchSize: Int = VariableBuilder.getVariable("batchSize", customConfiguration.batchSize, 100)
     val mode: Mode = VariableBuilder.getVariable("mode",
-        customConfiguration.mode?.let { Mode.valueOf(it.toUpperCase()) }, Mode.HTTP)
+        customConfiguration.mode?.let { Mode.valueOf(it.uppercase(Locale.getDefault())) }, Mode.HTTP)
     val grpcBackPressure: Boolean = VariableBuilder.getVariable("grpcBackPressure", customConfiguration.grpcBackPressure, false)
     val bufferPerQuery: Int = VariableBuilder.getVariable("bufferPerQuery", customConfiguration.bufferPerQuery, 0)
 }

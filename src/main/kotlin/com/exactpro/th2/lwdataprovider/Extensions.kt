@@ -59,7 +59,7 @@ fun StoredMessageFilter.convertToString(): String {
 
 suspend fun <T> logTime(methodName: String, lambda: suspend () -> T): T? {
     return withContext(coroutineContext) {
-        var result: T? = null
+        var result: T?
 
         measureTimeMillis { result = lambda.invoke() }
             .also { logger.debug { "cradle: $methodName took ${it}ms" } }
