@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.CradleManager
 import com.exactpro.th2.common.grpc.MessageBatch
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessageBatch
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.message.MessageRouter
@@ -46,7 +47,7 @@ class Context(
 
     val cradleManager: CradleManager,
     val messageRouterRawBatch: MessageRouter<RawMessageBatch>,
-    val messageRouterParsedBatch: MessageRouter<MessageBatch>,
+    val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
     val grpcConfig: GrpcConfiguration,
     val keepAliveHandler: KeepAliveHandler = KeepAliveHandler(configuration),
     
