@@ -28,7 +28,7 @@ import mu.KotlinLogging
 
 class RabbitMqDecoder(private val configuration: Configuration, 
                       private val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
-                      private val messageRouterRawBatch: MessageRouter<RawMessageBatch>) {
+                      private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>) {
     
     var decodeBuffer = DecodeQueueBuffer(configuration.maxBufferDecodeQueue)
     var parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, "from_codec")
@@ -38,8 +38,8 @@ class RabbitMqDecoder(private val configuration: Configuration,
         private val logger = KotlinLogging.logger { }
     }
     
-    fun sendBatchMessage(batch: RawMessageBatch, session: String) {
-        this.messageRouterRawBatch.send(batch, session)
+    fun sendBatchMessage(batch: MessageGroupBatch, session: String) {
+        this.messageRouterRawBatch.send(batch, session, QueueAttribute.RAW.value)
     }
     
     fun registerMessage(message: RequestedMessageDetails) {

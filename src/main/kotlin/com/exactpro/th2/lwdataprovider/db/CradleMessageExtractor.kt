@@ -20,8 +20,10 @@ import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.grpc.RawMessageBatch
+import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -50,7 +52,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             val iterable = getMessagesFromCradle(filter, requestContext);
             val sessionName = filter.streamName.value
 
-            val builder = RawMessageBatch.newBuilder()
+            val builder = MessageGroupBatch.newBuilder()
             var msgBufferCount = 0
             val messageBuffer = ArrayList<RequestedMessageDetails>()
 
@@ -67,8 +69,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 val tmp = requestContext.createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
                 messageBuffer.add(tmp)
                 ++msgBufferCount
-                tmp.rawMessage = requestContext.startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }
-                builder.addMessages(tmp.rawMessage)
+                tmp.rawMessage = requestContext.startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }.also {
+                    builder.addGroupsBuilder() += it
+                }
 
                 if (msgBufferCount >= batchSize) {
                     val sendingTime = System.currentTimeMillis()
@@ -171,7 +174,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             if (onlyRaw) {
                 tmp.responseMessage()
             } else {
-                val msgBatch = RawMessageBatch.newBuilder().addMessages(tmp.rawMessage).build()
+                val msgBatch = MessageGroupBatch.newBuilder()
+                    .apply { addGroupsBuilder() += tmp.rawMessage!! /*TODO: should be refactored*/ }
+                    .build()
                 decoder.registerMessage(tmp)
                 requestContext.registerMessage(tmp)
                 decoder.sendBatchMessage(msgBatch, message.streamName)

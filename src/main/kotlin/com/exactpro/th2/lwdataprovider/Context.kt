@@ -17,14 +17,12 @@
 package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.cradle.CradleManager
-import com.exactpro.th2.common.grpc.MessageBatch
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.RawMessageBatch
 import com.exactpro.th2.common.schema.grpc.configuration.GrpcConfiguration
 import com.exactpro.th2.common.schema.message.MessageRouter
-import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
+import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -46,7 +44,7 @@ class Context(
         .disable(SerializationFeature.INDENT_OUTPUT),
 
     val cradleManager: CradleManager,
-    val messageRouterRawBatch: MessageRouter<RawMessageBatch>,
+    val messageRouterRawBatch: MessageRouter<MessageGroupBatch>,
     val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
     val grpcConfig: GrpcConfiguration,
     val keepAliveHandler: KeepAliveHandler = KeepAliveHandler(configuration),
