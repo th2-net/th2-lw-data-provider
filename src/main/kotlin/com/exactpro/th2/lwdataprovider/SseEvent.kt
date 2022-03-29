@@ -37,7 +37,7 @@ enum class EventType {
     }
 }
 
-data class SseEvent(val data: String = "empty data", val event: EventType? = null, val metadata: String? = null) {
+data class SseEvent(val data: String = "empty data", val event: EventType, val metadata: String? = null) {
     companion object {
         fun build(jacksonMapper: ObjectMapper, event: EventTreeNode, counter: AtomicLong): SseEvent {
             return SseEvent(
