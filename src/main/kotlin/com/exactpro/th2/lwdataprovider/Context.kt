@@ -31,6 +31,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadPoolExecutor
 
@@ -54,7 +55,7 @@ class Context(
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(cradleManager),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(configuration, cradleManager, mqDecoder),
     
-    val pool: ThreadPoolExecutor = Executors.newFixedThreadPool(configuration.execThreadPoolSize) as ThreadPoolExecutor,
+    val pool: ExecutorService = Executors.newFixedThreadPool(configuration.execThreadPoolSize),
     val searchMessagesHandler: SearchMessagesHandler = SearchMessagesHandler(
         cradleMsgExtractor,
         pool

@@ -21,11 +21,12 @@ import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.http.EventRequestContext
 import mu.KotlinLogging
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.ThreadPoolExecutor
 
 class SearchEventsHandler(
     private val cradle: CradleEventExtractor,
-    private val threadPool: ThreadPoolExecutor
+    private val threadPool: ExecutorService
 ) {
     companion object {
         private val logger = KotlinLogging.logger { }

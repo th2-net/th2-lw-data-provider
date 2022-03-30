@@ -26,7 +26,8 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
 ) {
     
     private val timeout: Long = configuration.decodingTimeout
-    private val running = AtomicBoolean(false)
+    @Volatile
+    private var running: Boolean = false
     private var thread: Thread? = null
 
     companion object {
@@ -35,19 +36,20 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
     
 
     fun start() {
-        thread = thread(name="timeout-watcher", start = true) { run() }
+        running = true
+        thread?.interrupt()
+        thread = thread(name="timeout-watcher", start = true, priority = 2) { run() }
     }
 
     fun stop() {
-        running.set(false)
+        running = false
         thread?.interrupt()
     }
     
     private fun run() {
 
         logger.debug { "Timeout watcher started" }
-        running.set(true)
-        while (running.get()) {
+        while (running) {
             val currentTime = System.currentTimeMillis()
             var mintime = currentTime
 
@@ -79,10 +81,9 @@ class TimerWatcher (private val decodeBuffer: DecodeQueueBuffer,
                 try {
                     Thread.sleep(sleepTime)
                 } catch (e: InterruptedException) {
-                    if (running.get()) {
-                        running.set(false)
-                        logger.warn(e) { "Someone stopped timeout watcher" }
-                    }
+                    running = false
+                    logger.warn(e) { "Someone stopped timeout watcher" }
+                    break
                 }
             }
         }

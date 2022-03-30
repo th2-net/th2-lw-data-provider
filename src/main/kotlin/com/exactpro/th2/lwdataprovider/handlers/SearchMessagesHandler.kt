@@ -16,21 +16,20 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
-import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation.AFTER
-import com.exactpro.cradle.messages.*
-import com.exactpro.th2.lwdataprovider.*
+import com.exactpro.cradle.messages.StoredMessageFilterBuilder
+import com.exactpro.cradle.messages.StoredMessageId
+import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
-import io.prometheus.client.Counter
 import mu.KotlinLogging
-import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.ExecutorService
 import kotlin.math.max
 
 class SearchMessagesHandler(
     private val cradleMsgExtractor: CradleMessageExtractor,
-    private val threadPool: ThreadPoolExecutor
+    private val threadPool: ExecutorService
 ) {
     companion object {
         private val logger = KotlinLogging.logger { }
