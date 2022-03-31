@@ -23,7 +23,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '3.0.0-TH2-2401-1494137046-SNAPSHOT'
+    cradleApiVersion = '3.0.0'
 }
 
 group 'com.exactpro.th2'
@@ -66,9 +66,9 @@ dependencies {
 
     implementation "com.exactpro.th2:cradle-core:$cradleApiVersion"
     implementation "com.exactpro.th2:cradle-cassandra:$cradleApiVersion"
-    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-stream_direction-1857765871-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0'
 
-    implementation 'io.github.microutils:kotlin-logging:1.7.10'
+    implementation 'io.github.microutils:kotlin-logging:2.1.14'
 
     implementation 'io.prometheus:simpleclient'
 
