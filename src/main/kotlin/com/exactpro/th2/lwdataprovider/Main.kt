@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider
 
+import com.exactpro.th2.common.metrics.LIVENESS_MONITOR
+import com.exactpro.th2.common.metrics.READINESS_MONITOR
 import com.exactpro.th2.common.metrics.liveness
 import com.exactpro.th2.common.metrics.readiness
 import com.exactpro.th2.common.schema.factory.CommonFactory
@@ -84,11 +86,11 @@ class Main {
     fun run() {
         logger.info { "Starting the box" }
 
-        liveness = true
+        LIVENESS_MONITOR.enable()
 
         startServer()
 
-        readiness = true
+        READINESS_MONITOR.enable()
 
         awaitShutdown(lock, condition)
     }
@@ -130,7 +132,7 @@ class Main {
             name = "Shutdown hook"
         ) {
             logger.info { "Shutdown start" }
-            readiness = false
+            READINESS_MONITOR.disable()
             lock.withLock { condition.signalAll() }
             resources.descendingIterator().forEachRemaining { resource ->
                 try {
@@ -139,7 +141,7 @@ class Main {
                     logger.error(e) { "Cannot close resource ${resource::class}" }
                 }
             }
-            liveness = false
+            LIVENESS_MONITOR.disable()
             logger.info { "Shutdown end" }
         })
     }
