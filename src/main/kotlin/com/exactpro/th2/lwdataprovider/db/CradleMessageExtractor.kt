@@ -22,14 +22,13 @@ import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.grpc.RawMessageBatch
 import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import kotlinx.atomicfu.locks.withLock
 import mu.KotlinLogging
+import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
 
 class CradleMessageExtractor(configuration: Configuration, private val cradleManager: CradleManager,

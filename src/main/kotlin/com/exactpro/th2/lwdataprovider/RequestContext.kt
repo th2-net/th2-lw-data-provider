@@ -21,8 +21,6 @@ import com.exactpro.th2.common.grpc.Message
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import io.prometheus.client.Histogram
-import kotlinx.atomicfu.locks.ReentrantLock
-import kotlinx.atomicfu.locks.withLock
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -30,6 +28,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.Condition
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 abstract class RequestContext(
    open val channelMessages: ResponseHandler,

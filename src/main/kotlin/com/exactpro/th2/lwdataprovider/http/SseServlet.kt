@@ -20,7 +20,7 @@ import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseWriter
-import io.ktor.http.HttpHeaders
+import org.eclipse.jetty.http.HttpHeader
 import org.eclipse.jetty.http.HttpStatus
 import java.util.concurrent.BlockingQueue
 import javax.servlet.http.HttpServlet
@@ -36,7 +36,7 @@ open class SseServlet : HttpServlet() {
     ) {
         resp.contentType = "text/event-stream"
         resp.status = HttpStatus.OK_200
-        resp.addHeader(HttpHeaders.CacheControl, "no-cache, no-store")
+        resp.addHeader(HttpHeader.CACHE_CONTROL.asString(), "no-cache, no-store")
         
         val writer = SseResponseWriter(resp.writer)
 

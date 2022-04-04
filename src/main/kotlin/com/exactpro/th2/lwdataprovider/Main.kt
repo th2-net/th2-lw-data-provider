@@ -18,27 +18,17 @@ package com.exactpro.th2.lwdataprovider
 
 import com.exactpro.th2.common.metrics.LIVENESS_MONITOR
 import com.exactpro.th2.common.metrics.READINESS_MONITOR
-import com.exactpro.th2.common.metrics.liveness
-import com.exactpro.th2.common.metrics.readiness
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
 import com.exactpro.th2.lwdataprovider.configuration.Mode
-import com.exactpro.th2.lwdataprovider.grpc.GrpcDataProviderBackPressure
-import com.exactpro.th2.lwdataprovider.grpc.GrpcDataProviderImpl
 import com.exactpro.th2.lwdataprovider.grpc.GrpcServer
 import com.exactpro.th2.lwdataprovider.http.HttpServer
-import io.grpc.BindableService
-import io.ktor.server.engine.*
-import io.ktor.util.*
-import kotlinx.atomicfu.locks.ReentrantLock
-import kotlinx.atomicfu.locks.withLock
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import mu.KotlinLogging
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.locks.Condition
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
 import kotlin.system.exitProcess
@@ -55,7 +45,6 @@ class Main {
     private val lock = ReentrantLock()
     private val condition: Condition = lock.newCondition()
 
-    @InternalAPI
     constructor(args: Array<String>) {
 
         configureShutdownHook(resources, lock, condition)
@@ -79,10 +68,6 @@ class Main {
     }
 
 
-    @ExperimentalCoroutinesApi
-    @FlowPreview
-    @EngineAPI
-    @InternalAPI
     fun run() {
         logger.info { "Starting the box" }
 
@@ -95,10 +80,6 @@ class Main {
         awaitShutdown(lock, condition)
     }
 
-    @ExperimentalCoroutinesApi
-    @FlowPreview
-    @EngineAPI
-    @InternalAPI
     private fun startServer() {
         
         context.keepAliveHandler.start()
@@ -157,10 +138,6 @@ class Main {
 }
 
 
-@FlowPreview
-@EngineAPI
-@InternalAPI
-@ExperimentalCoroutinesApi
 fun main(args: Array<String>) {
     try {
         Main(args).run()

@@ -18,18 +18,12 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.th2.common.grpc.ConnectionID
-import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.Message
-import com.exactpro.th2.common.message.toTimestamp
-import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
-import com.exactpro.th2.lwdataprovider.convertToProto
-import com.exactpro.th2.lwdataprovider.cradleDirectionToGrpc
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonRawValue
 import java.time.Instant
-import java.util.Collections
+import java.util.*
 
 @Deprecated("same format as rpt-data-provider5.3")
 data class ProviderMessage53 (

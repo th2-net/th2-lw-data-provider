@@ -17,11 +17,11 @@
 package com.exactpro.th2.lwdataprovider.workers
 
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import kotlinx.atomicfu.locks.ReentrantLock
-import kotlinx.atomicfu.locks.withLock
 import mu.KotlinLogging
 import java.util.ArrayList
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 class DecodeQueueBuffer(private val maxDecodeQueueSize: Int = -1) {
 

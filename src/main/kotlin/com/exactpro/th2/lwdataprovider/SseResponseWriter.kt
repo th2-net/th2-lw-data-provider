@@ -18,9 +18,9 @@ package com.exactpro.th2.lwdataprovider
 
 
 import com.exactpro.th2.lwdataprovider.http.SseBufferedWriter
-import kotlinx.atomicfu.locks.ReentrantLock
-import kotlinx.atomicfu.locks.withLock
 import java.io.Writer
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 class SseResponseWriter (private val srcWriter: Writer){
     
