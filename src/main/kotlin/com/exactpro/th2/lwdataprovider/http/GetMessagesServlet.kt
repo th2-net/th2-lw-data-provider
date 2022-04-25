@@ -31,10 +31,7 @@ class GetMessagesServlet (
     private val configuration: Configuration, private val jacksonMapper: ObjectMapper, 
     private val keepAliveHandler: KeepAliveHandler, 
     private val searchMessagesHandler: SearchMessagesHandler
-    )
-    : SseServlet() {
-
-    private val customJsonFormatter = CustomJsonFormatter()
+    ) : SseServlet() {
 
     companion object {
         private val logger = KotlinLogging.logger { }

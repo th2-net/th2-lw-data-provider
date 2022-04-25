@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.messages.StoredMessage
+import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
@@ -28,6 +29,9 @@ import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
+import java.time.Instant
+import java.util.LinkedList
+import java.util.Queue
 import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
 
@@ -36,9 +40,11 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     private val storage = cradleManager.storage
     private val batchSize = configuration.batchSize
+    private val groupBufferSize = configuration.groupRequestBuffer
     
     companion object {
         private val logger = KotlinLogging.logger { }
+        private val TIMESTAMP_COMPARATOR: Comparator<StoredMessage> = Comparator.comparing { it.timestamp }
     }
 
     fun getStreams(): Collection<String> = storage.streams
@@ -63,14 +69,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 }
 
                 msgId = storedMessage.id
-                val id = storedMessage.id.toString()
-                val decodingStep = requestContext.startStep("decoding")
-                val tmp = requestContext.createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
+                val tmp = requestContext.createRequestAndAddToBatch(storedMessage, builder)
                 messageBuffer.add(tmp)
                 ++msgBufferCount
-                tmp.rawMessage = requestContext.startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }.also {
-                    builder.addGroupsBuilder() += it
-                }
 
                 if (msgBufferCount >= batchSize) {
                     val sendingTime = System.currentTimeMillis()
@@ -86,16 +87,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     msgCount += msgBufferCount
                     logger.debug { "Message batch sent ($msgBufferCount). Total messages $msgCount" }
                     decoder.decodeBuffer.checkAndWait()
-                    if (requestContext.maxMessagesPerRequest > 0 && requestContext.maxMessagesPerRequest
-                        <= requestContext.messagesInProcess.addAndGet(msgBufferCount)) {
-                        with(requestContext) {
-                            startStep("await_queue").use {
-                                lock.withLock {
-                                    condition.await()
-                                }
-                            }
-                        }
-                    }
+                    requestContext.checkAndWaitForRequestLimit(msgBufferCount)
                     msgBufferCount = 0
                 }
             }
@@ -120,6 +112,18 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     }
 
+    private fun MessageRequestContext.createRequestAndAddToBatch(
+        storedMessage: StoredMessage,
+        builder: MessageGroupBatch.Builder
+    ): RequestedMessageDetails {
+        val id = storedMessage.id.toString()
+        val decodingStep = startStep("decoding")
+        val tmp = createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
+        tmp.rawMessage = startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }.also {
+            builder.addGroupsBuilder() += it
+        }
+        return tmp
+    }
 
     fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
 
@@ -147,6 +151,122 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
         logger.info { "Loaded $msgCount messages from DB $time ms"}
 
+    }
+
+
+    fun getMessagesGroup(group: String, start: Instant, end: Instant, requestContext: MessageRequestContext) {
+        val messagesGroup = cradleManager.storage.getGroupedMessageBatches(group, start, end)
+        val iterator = messagesGroup.iterator()
+        var prev: StoredMessageBatch? = null
+        if (!iterator.hasNext()) {
+            return
+        }
+
+        fun StoredMessage.timestampLess(batch: StoredMessageBatch): Boolean = timestamp < batch.firstTimestamp
+
+        var currentBatch: StoredMessageBatch = iterator.next()
+        val batchBuilder = MessageGroupBatch.newBuilder()
+        val detailsBuffer = arrayListOf<RequestedMessageDetails>()
+        val buffer: Queue<StoredMessage> = LinkedList()
+        val remaining: Queue<StoredMessage> = LinkedList()
+        while (iterator.hasNext()) {
+            prev = currentBatch
+            currentBatch = iterator.next()
+            if (prev.lastTimestamp < currentBatch.firstTimestamp) {
+                buffer.addAll(prev.messages)
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, requestContext)
+            } else {
+                remaining.filterTo(buffer) { it.timestampLess(currentBatch) }
+
+                val messageCount = prev.messageCount
+                prev.messages.forEachIndexed { index, msg ->
+                    if (msg.timestampLess(currentBatch)) {
+                        buffer += msg
+                    } else {
+                        check(remaining.size < groupBufferSize) {
+                            "the group buffer size cannot hold all messages: current size $groupBufferSize but needs ${messageCount - index} more"
+                        }
+                        remaining += msg
+                    }
+                }
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, requestContext)
+            }
+        }
+        if (prev == null) {
+            // Only single batch was extracted
+            drain(group, currentBatch.messages, detailsBuffer, batchBuilder, requestContext)
+        } else {
+            drain(
+                group,
+                ArrayList<StoredMessage>(buffer.size + remaining.size + currentBatch.messageCount).apply {
+                    addAll(buffer)
+                    addAll(remaining)
+                    addAll(currentBatch.messages)
+                    sortWith(TIMESTAMP_COMPARATOR)
+                },
+                detailsBuffer, batchBuilder, requestContext
+            )
+        }
+    }
+
+    private fun tryDrain(
+        group: String,
+        buffer: Queue<StoredMessage>,
+        detailsBuffer: MutableList<RequestedMessageDetails>,
+        batchBuilder: MessageGroupBatch.Builder,
+        requestContext: MessageRequestContext
+    ) {
+        val drainBuffer: MutableList<StoredMessage> = ArrayList(batchSize)
+        while (buffer.size >= batchSize) {
+            val sortedBatch = generateSequence(buffer::poll)
+                .take(batchSize)
+                .sortedWith(TIMESTAMP_COMPARATOR)
+                .toCollection(drainBuffer)
+            drain(group, sortedBatch, detailsBuffer, batchBuilder, requestContext)
+            drainBuffer.clear()
+        }
+    }
+
+    private fun drain(
+        group: String,
+        buffer: Collection<StoredMessage>,
+        detailsBuffer: MutableList<RequestedMessageDetails>,
+        batchBuilder: MessageGroupBatch.Builder,
+        requestContext: MessageRequestContext
+    ) {
+        fun MessageRequestContext.sendBatch(builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails>) {
+            if (detailsBuf.isEmpty()) {
+                return
+            }
+            val messageCount = detailsBuf.size
+            val sendingTime = System.currentTimeMillis()
+            detailsBuf.forEach {
+                it.time = sendingTime
+                decoder.registerMessage(it)
+                registerMessage(it)
+            }
+            decoder.sendBatchMessage(builder.build(), group)
+            builder.clear()
+            detailsBuf.clear()
+            checkAndWaitForRequestLimit(messageCount)
+        }
+        for (message in buffer) {
+            detailsBuffer += requestContext.createRequestAndAddToBatch(message, batchBuilder)
+            if (detailsBuffer.size == batchSize) {
+                requestContext.sendBatch(batchBuilder, detailsBuffer)
+            }
+        }
+        requestContext.sendBatch(batchBuilder, detailsBuffer)
+    }
+
+    private fun MessageRequestContext.checkAndWaitForRequestLimit(msgBufferCount: Int) {
+        if (maxMessagesPerRequest > 0 && maxMessagesPerRequest <= messagesInProcess.addAndGet(msgBufferCount)) {
+            startStep("await_queue").use {
+                lock.withLock {
+                    condition.await()
+                }
+            }
+        }
     }
 
     private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =

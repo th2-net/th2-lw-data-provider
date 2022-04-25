@@ -19,34 +19,35 @@ package com.exactpro.th2.lwdataprovider.configuration
 import java.util.*
 
 
-class CustomConfigurationClass {
-    var hostname: String? = null
-    var port: Int? = null
-    val keepAliveTimeout: Long? = null
-    val maxBufferDecodeQueue: Int? = null
-    val decodingTimeout: Long? = null
-    val responseQueueSize: Int? = null
-    val execThreadPoolSize: Int? = null
-    val batchSize: Int? = null
-    val mode: String? = null
-    val grpcBackPressure : Boolean? = null
-    val bufferPerQuery: Int? = null
-}
+class CustomConfigurationClass(
+    val hostname: String? = null,
+    val port: Int? = null,
+    val keepAliveTimeout: Long? = null,
+    val maxBufferDecodeQueue: Int? = null,
+    val decodingTimeout: Long? = null,
+    val responseQueueSize: Int? = null,
+    val execThreadPoolSize: Int? = null,
+    val batchSize: Int? = null,
+    val mode: String? = null,
+    val grpcBackPressure : Boolean? = null,
+    val bufferPerQuery: Int? = null,
+    val groupRequestBuffer: Int? = null,
+)
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
 
-    val hostname: String = VariableBuilder.getVariable("hostname", customConfiguration.hostname, "localhost")
-    val port: Int = VariableBuilder.getVariable("port", customConfiguration.port, 8080)
-    val keepAliveTimeout: Long = VariableBuilder.getVariable("keepAliveTimeout", customConfiguration.keepAliveTimeout, 5000)
-    val maxBufferDecodeQueue: Int = VariableBuilder.getVariable("maxBufferDecodeQueue", customConfiguration.maxBufferDecodeQueue, 10_000)
-    val decodingTimeout: Long = VariableBuilder.getVariable("decodingTimeout", customConfiguration.decodingTimeout, 60_000)
-    val responseQueueSize: Int = VariableBuilder.getVariable("responseQueueSize", customConfiguration.responseQueueSize, 1000)
-    val execThreadPoolSize: Int = VariableBuilder.getVariable("execThreadPoolSize", customConfiguration.execThreadPoolSize, 10)
-    val batchSize: Int = VariableBuilder.getVariable("batchSize", customConfiguration.batchSize, 100)
-    val mode: Mode = VariableBuilder.getVariable("mode",
-        customConfiguration.mode?.let { Mode.valueOf(it.uppercase(Locale.getDefault())) }, Mode.HTTP)
-    val grpcBackPressure: Boolean = VariableBuilder.getVariable("grpcBackPressure", customConfiguration.grpcBackPressure, false)
-    val bufferPerQuery: Int = VariableBuilder.getVariable("bufferPerQuery", customConfiguration.bufferPerQuery, 0)
+    val hostname: String = VariableBuilder.getVariable(customConfiguration::hostname, "localhost")
+    val port: Int = VariableBuilder.getVariable(customConfiguration::port, 8080)
+    val keepAliveTimeout: Long = VariableBuilder.getVariable(customConfiguration::keepAliveTimeout, 5000)
+    val maxBufferDecodeQueue: Int = VariableBuilder.getVariable(customConfiguration::maxBufferDecodeQueue, 10_000)
+    val decodingTimeout: Long = VariableBuilder.getVariable(customConfiguration::decodingTimeout, 60_000)
+    val responseQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseQueueSize, 1000)
+    val execThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::execThreadPoolSize, 10)
+    val batchSize: Int = VariableBuilder.getVariable(customConfiguration::batchSize, 100)
+    val mode: Mode = VariableBuilder.getVariable(customConfiguration::mode, Mode.HTTP) { Mode.valueOf(it.uppercase(Locale.getDefault())) }
+    val grpcBackPressure: Boolean = VariableBuilder.getVariable(customConfiguration::grpcBackPressure, false)
+    val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, 0)
+    val groupRequestBuffer: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, 1000)
 }
 
 enum class Mode {

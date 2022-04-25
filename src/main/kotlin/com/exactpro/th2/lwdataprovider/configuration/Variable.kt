@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.configuration
 
 import mu.KotlinLogging
+import kotlin.reflect.KProperty
 
 class VariableBuilder {
     
@@ -35,12 +36,15 @@ class VariableBuilder {
             }
         }
         
-        fun <T> getVariable(name: String, param: T?, defaultValue: T, showInLog: Boolean = true) : T {
+        fun <T, R> getVariable(property: KProperty<T?>, defaultValue: R, showInLog: Boolean = true, transform: (T) -> R) : R {
+            val param = property.call()?.let(transform)
             val value = param ?: defaultValue
-            printToLog(name, value as Any, param == null, showInLog)
+            printToLog(property.name, value as Any, param == null, showInLog)
             return value
         }
-        
-        
+
+        fun <T> getVariable(property: KProperty<T?>, defaultValue: T, showInLog: Boolean = true) : T = getVariable(property, defaultValue, showInLog) { it }
+
+
     }
 }
