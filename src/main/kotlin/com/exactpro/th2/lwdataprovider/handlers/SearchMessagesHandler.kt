@@ -22,7 +22,9 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
+import com.exactpro.th2.lwdataprovider.http.MessageSseRequestContext
 import mu.KotlinLogging
 import java.util.concurrent.ExecutorService
 import kotlin.math.max
@@ -128,6 +130,32 @@ class SearchMessagesHandler(
             } catch (e: Exception) {
                 logger.error("Error getting messages", e)
                 requestContext.writeErrorMessage(e.message?:"")
+                requestContext.finishStream()
+            }
+        }
+    }
+
+    fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageSseRequestContext) {
+        if (request.groups.isEmpty()) {
+            return
+        }
+
+        threadPool.execute {
+            try {
+                request.groups.forEach { group ->
+                    logger.debug { "Executing request for group $group" }
+                    cradleMsgExtractor.getMessagesGroup(group, request.startTimestamp, request.endTimestamp, requestContext)
+                    logger.debug { "Executing of request for group $group has been finished" }
+                }
+
+                requestContext.allDataLoadedFromCradle()
+                if (requestContext.requestedMessages.isEmpty()) {
+                    requestContext.addStreamInfo()
+                    requestContext.finishStream()
+                }
+            } catch (ex: Exception) {
+                logger.error("Error getting messages group", ex)
+                requestContext.writeErrorMessage(ex.message ?: "")
                 requestContext.finishStream()
             }
         }
