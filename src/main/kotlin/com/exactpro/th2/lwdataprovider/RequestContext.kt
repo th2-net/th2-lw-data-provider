@@ -85,7 +85,7 @@ abstract class MessageRequestContext (
 
    fun allDataLoadedFromCradle() = allMessagesRequested.set(true)
 
-   abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit = {}): RequestedMessageDetails;
+   abstract fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit = {}): RequestedMessageDetails
    abstract fun addStreamInfo();
 
    override fun onMessageSent() {

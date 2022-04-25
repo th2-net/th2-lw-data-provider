@@ -30,8 +30,8 @@ class RabbitMqDecoder(private val configuration: Configuration,
                       private val messageRouterParsedBatch: MessageRouter<MessageGroupBatch>,
                       private val messageRouterRawBatch: MessageRouter<MessageGroupBatch>) {
     
-    var decodeBuffer = DecodeQueueBuffer(configuration.maxBufferDecodeQueue)
-    var parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, "from_codec")
+    val decodeBuffer = DecodeQueueBuffer(configuration.maxBufferDecodeQueue)
+    private val parsedMonitor = messageRouterParsedBatch.subscribeAll(CodecMessageListener(decodeBuffer), QueueAttribute.PARSED.value, "from_codec")
 
 
     companion object {

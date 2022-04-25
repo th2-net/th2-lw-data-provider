@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
+import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.cradle.messages.StoredMessageFilter
@@ -30,8 +31,10 @@ import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
 import java.time.Instant
+import java.util.Collections
 import java.util.LinkedList
 import java.util.Queue
+import java.util.function.Function
 import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
 
@@ -44,7 +47,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     
     companion object {
         private val logger = KotlinLogging.logger { }
-        private val TIMESTAMP_COMPARATOR: Comparator<StoredMessage> = Comparator.comparing { it.timestamp }
+        private val STORED_MESSAGE_COMPARATOR: Comparator<StoredMessage> = Comparator.comparing<StoredMessage, Instant> { it.timestamp }
+            .thenComparing({ it.direction }) { dir1, dir2 -> -(dir1.ordinal - dir2.ordinal) } // SECOND < FIRST
+            .thenComparing<String> { it.streamName }
     }
 
     fun getStreams(): Collection<String> = storage.streams
@@ -167,16 +172,19 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         var currentBatch: StoredMessageBatch = iterator.next()
         val batchBuilder = MessageGroupBatch.newBuilder()
         val detailsBuffer = arrayListOf<RequestedMessageDetails>()
-        val buffer: Queue<StoredMessage> = LinkedList()
-        val remaining: Queue<StoredMessage> = LinkedList()
+        val buffer: LinkedList<StoredMessage> = LinkedList()
+        val remaining: LinkedList<StoredMessage> = LinkedList()
         while (iterator.hasNext()) {
             prev = currentBatch
             currentBatch = iterator.next()
+            check(prev.firstTimestamp <= currentBatch.firstTimestamp) {
+                "Unordered batches received: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
+            }
             if (prev.lastTimestamp < currentBatch.firstTimestamp) {
                 buffer.addAll(prev.messages)
                 tryDrain(group, buffer, detailsBuffer, batchBuilder, requestContext)
             } else {
-                remaining.filterTo(buffer) { it.timestampLess(currentBatch) }
+                generateSequence { if (remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
                 val messageCount = prev.messageCount
                 prev.messages.forEachIndexed { index, msg ->
@@ -202,7 +210,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     addAll(buffer)
                     addAll(remaining)
                     addAll(currentBatch.messages)
-                    sortWith(TIMESTAMP_COMPARATOR)
+                    sortWith(STORED_MESSAGE_COMPARATOR)
                 },
                 detailsBuffer, batchBuilder, requestContext
             )
@@ -211,16 +219,19 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     private fun tryDrain(
         group: String,
-        buffer: Queue<StoredMessage>,
+        buffer: LinkedList<StoredMessage>,
         detailsBuffer: MutableList<RequestedMessageDetails>,
         batchBuilder: MessageGroupBatch.Builder,
         requestContext: MessageRequestContext
     ) {
+        if (buffer.size < batchSize) {
+            return
+        }
+        buffer.sortWith(STORED_MESSAGE_COMPARATOR)
         val drainBuffer: MutableList<StoredMessage> = ArrayList(batchSize)
         while (buffer.size >= batchSize) {
             val sortedBatch = generateSequence(buffer::poll)
                 .take(batchSize)
-                .sortedWith(TIMESTAMP_COMPARATOR)
                 .toCollection(drainBuffer)
             drain(group, sortedBatch, detailsBuffer, batchBuilder, requestContext)
             drainBuffer.clear()
@@ -234,29 +245,31 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         batchBuilder: MessageGroupBatch.Builder,
         requestContext: MessageRequestContext
     ) {
-        fun MessageRequestContext.sendBatch(builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails>) {
-            if (detailsBuf.isEmpty()) {
-                return
-            }
-            val messageCount = detailsBuf.size
-            val sendingTime = System.currentTimeMillis()
-            detailsBuf.forEach {
-                it.time = sendingTime
-                decoder.registerMessage(it)
-                registerMessage(it)
-            }
-            decoder.sendBatchMessage(builder.build(), group)
-            builder.clear()
-            detailsBuf.clear()
-            checkAndWaitForRequestLimit(messageCount)
-        }
         for (message in buffer) {
             detailsBuffer += requestContext.createRequestAndAddToBatch(message, batchBuilder)
             if (detailsBuffer.size == batchSize) {
-                requestContext.sendBatch(batchBuilder, detailsBuffer)
+                requestContext.sendBatch(group, batchBuilder, detailsBuffer)
             }
         }
-        requestContext.sendBatch(batchBuilder, detailsBuffer)
+        requestContext.sendBatch(group, batchBuilder, detailsBuffer)
+    }
+
+
+    private fun MessageRequestContext.sendBatch(alias: String, builder: MessageGroupBatch.Builder, detailsBuf: MutableList<RequestedMessageDetails>) {
+        if (detailsBuf.isEmpty()) {
+            return
+        }
+        val messageCount = detailsBuf.size
+        val sendingTime = System.currentTimeMillis()
+        detailsBuf.forEach {
+            it.time = sendingTime
+            decoder.registerMessage(it)
+            registerMessage(it)
+        }
+        decoder.sendBatchMessage(builder.build(), alias)
+        builder.clear()
+        detailsBuf.clear()
+        checkAndWaitForRequestLimit(messageCount)
     }
 
     private fun MessageRequestContext.checkAndWaitForRequestLimit(msgBufferCount: Int) {
@@ -307,3 +320,5 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     }
 }
+
+private fun StoredMessageBatch.toShortInfo(): String = "$streamName:${direction.label}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"
