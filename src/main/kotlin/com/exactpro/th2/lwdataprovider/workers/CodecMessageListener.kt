@@ -51,7 +51,7 @@ class CodecMessageListener(
 
             val msgIdQueue = decodeQueue.removeById(messageIdStr)
             if (msgIdQueue != null) {
-                logger.debug { "Received message from codec $messageIdStr. Count of awaiters: ${msgIdQueue.size}. Messages count: ${group.messagesCount}" }
+                logger.debug { "Received message from codec $messageIdStr. Count of listeners for message: ${msgIdQueue.size}. Messages count: ${group.messagesCount}" }
 
                 msgIdQueue.forEach {
                     it.parsedMessage = group.messagesList.map { anyMsg -> anyMsg.message }
@@ -59,7 +59,7 @@ class CodecMessageListener(
                     it.notifyMessage()
                 }
             } else {
-                logger.debug { "Not found expected from codec message with id $messageIdStr" }
+                logger.debug { "Received unexpected message $messageIdStr. There is no request for this message in decode queue" }
             }
         }
 
