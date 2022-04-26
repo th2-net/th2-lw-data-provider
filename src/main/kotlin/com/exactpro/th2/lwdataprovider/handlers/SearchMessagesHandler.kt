@@ -135,7 +135,7 @@ class SearchMessagesHandler(
         }
     }
 
-    fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageSseRequestContext) {
+    fun loadMessageGroups(request: MessagesGroupRequest, requestContext: MessageRequestContext) {
         if (request.groups.isEmpty()) {
             return
         }

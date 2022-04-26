@@ -24,6 +24,7 @@ import com.exactpro.th2.dataprovider.grpc.EventResponse
 import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
 import com.exactpro.th2.dataprovider.grpc.EventSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageGroupResponse
+import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageSearchRequest
 import com.exactpro.th2.dataprovider.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.grpc.MessageStream
@@ -35,6 +36,7 @@ import com.exactpro.th2.lwdataprovider.RequestContext
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
+import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -148,6 +150,22 @@ open class GrpcDataProviderImpl(
         val loadingStep = context.startStep("messages_loading")
         searchMessagesHandler.loadMessages(requestParams, context)
         try {
+            processResponse(responseObserver, grpcResponseHandler, context, loadingStep::finish) { it.message }
+        } catch (ex: Exception) {
+            loadingStep.finish()
+            throw ex
+        }
+    }
+
+    override fun searchMessageGroups(request: MessageGroupsSearchRequest, responseObserver: StreamObserver<MessageSearchResponse>) {
+        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
+        val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
+        logger.info { "Loading messages groups $requestParams" }
+        val grpcResponseHandler = GrpcResponseHandler(queue)
+        val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
+        val loadingStep = context.startStep("messages_group_loading")
+        try {
+            searchMessagesHandler.loadMessageGroups(requestParams, context)
             processResponse(responseObserver, grpcResponseHandler, context, loadingStep::finish) { it.message }
         } catch (ex: Exception) {
             loadingStep.finish()
