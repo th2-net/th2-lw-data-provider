@@ -45,7 +45,7 @@ class GetMessageGroupsServlet(
         val queue = ArrayBlockingQueue<SseEvent>(configuration.responseQueueSize)
         val sseResponseBuilder = SseResponseBuilder(jacksonMapper)
         val sseResponse = SseResponseHandler(queue, sseResponseBuilder)
-        val reqContext = MessageSseRequestContext(sseResponse, queryParametersMap, maxMessagesPerRequest = configuration.bufferPerQuery)
+        val reqContext = MessageSseRequestContext(sseResponse, maxMessagesPerRequest = configuration.bufferPerQuery)
         reqContext.startStep("messages_loading").use {
             keepAliveHandler.addKeepAliveData(reqContext)
             searchMessagesHandler.loadMessageGroups(request, reqContext)

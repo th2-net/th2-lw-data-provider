@@ -174,15 +174,18 @@ internal class TestCradleMessageExtractor {
     }
 
     private class MockRequestContext(channelMessages: ResponseHandler) : MessageRequestContext(channelMessages) {
-        override fun createMessageDetails(id: String, time: Long, storedMessage: StoredMessage, onResponse: () -> Unit): RequestedMessageDetails {
-            return createMockDetails(id)
+        override fun createMessageDetails(id: String, storedMessage: StoredMessage, onResponse: () -> Unit): RequestedMessageDetails {
+            return createMockDetails(id, storedMessage)
         }
 
         override fun addStreamInfo() {
             TODO("Not yet implemented")
         }
 
-        private fun createMockDetails(id: String): RequestedMessageDetails = mock { on { this.id }.thenReturn(id) }
+        private fun createMockDetails(id: String, storedMessage: StoredMessage): RequestedMessageDetails = mock {
+            on { this.id }.thenReturn(id)
+            on { this.storedMessage }.thenReturn(storedMessage)
+        }
     }
 
     private fun createStoredMessages(

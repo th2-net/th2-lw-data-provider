@@ -23,7 +23,6 @@ import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
-import com.exactpro.th2.common.message.plusAssign
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -71,38 +70,25 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 }
 
                 msgId = storedMessage.id
-                val tmp = requestContext.createRequestAndAddToBatch(storedMessage, builder)
+                val tmp = requestContext.createRequest(storedMessage)
                 messageBuffer.add(tmp)
                 ++msgBufferCount
 
                 if (msgBufferCount >= batchSize) {
-                    val sendingTime = System.currentTimeMillis()
-                    messageBuffer.forEach {
-                        it.time = sendingTime
-                        decoder.registerMessage(it)
-                        requestContext.registerMessage(it)
-                    }
-                    decoder.sendBatchMessage(builder.build(), sessionName)
+                    // TODO: requestContext.registerMessage(it) in for messages
+                    decoder.sendBatchMessage(builder, messageBuffer, sessionName)
 
                     messageBuffer.clear()
                     builder.clear()
                     msgCount += msgBufferCount
                     logger.debug { "Message batch sent ($msgBufferCount). Total messages $msgCount" }
-                    decoder.decodeBuffer.checkAndWait()
                     requestContext.checkAndWaitForRequestLimit(msgBufferCount)
                     msgBufferCount = 0
                 }
             }
             
             if (msgBufferCount > 0) {
-                decoder.sendBatchMessage(builder.build(), sessionName)
-
-                val sendingTime = System.currentTimeMillis()
-                messageBuffer.forEach { 
-                    it.time = sendingTime
-                    decoder.registerMessage(it)
-                    requestContext.registerMessage(it)
-                }
+                decoder.sendBatchMessage(builder, messageBuffer, sessionName)
                 msgCount += msgBufferCount
             }
 
@@ -114,27 +100,21 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     }
 
-    private fun MessageRequestContext.createRequestAndAddToBatch(
-        storedMessage: StoredMessage,
-        builder: MessageGroupBatch.Builder
+    private fun MessageRequestContext.createRequest(
+        storedMessage: StoredMessage
     ): RequestedMessageDetails {
         val id = storedMessage.id.toString()
         val decodingStep = startStep("decoding")
-        val tmp = createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
-        tmp.rawMessage = startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }.also {
-            builder.addGroupsBuilder() += it
-        }
-        return tmp
+        return createMessageDetails(id, storedMessage) { decodingStep.finish() }
     }
 
     private fun MessageRequestContext.createRequestAndSend(
         storedMessage: StoredMessage,
     ): RequestedMessageDetails {
         val id = storedMessage.id.toString()
-        return createMessageDetails(id, 0, storedMessage).apply {
+        return createMessageDetails(id, storedMessage).apply {
             rawMessage = startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }
             responseMessage()
-            notifyMessage()
         }
     }
 
@@ -153,7 +133,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 }
                 msgId = storedMessageBatch.id
                 val id = storedMessageBatch.id.toString()
-                val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch)
+                val tmp = requestContext.createMessageDetails(id, storedMessageBatch)
                 tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
                 tmp.responseMessage()
                 msgCount++
@@ -168,34 +148,28 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
 
     fun getMessage(msgId: StoredMessageId, onlyRaw: Boolean, requestContext: MessageRequestContext) {
-
+        
         val time = measureTimeMillis {
             logger.info { "Extracting message: $msgId" }
             val message = storage.getMessage(msgId);
-
+            
             if (message == null) {
                 requestContext.writeErrorMessage("Message with id $msgId not found")
                 requestContext.finishStream()
                 return
             }
 
-            val time = System.currentTimeMillis()
             val decodingStep = if (onlyRaw) null else requestContext.startStep("decoding")
-            val tmp = requestContext.createMessageDetails(message.id.toString(), time, message) { decodingStep?.finish() }
+            val tmp = requestContext.createMessageDetails(message.id.toString(), message) { decodingStep?.finish() }
             tmp.rawMessage = RawMessage.parseFrom(message.content)
             requestContext.loadedMessages += 1
-
+            
             if (onlyRaw) {
                 tmp.responseMessage()
             } else {
-                val msgBatch = MessageGroupBatch.newBuilder()
-                    .apply { addGroupsBuilder() += tmp.rawMessage!! /*TODO: should be refactored*/ }
-                    .build()
-                decoder.registerMessage(tmp)
-                requestContext.registerMessage(tmp)
-                decoder.sendBatchMessage(msgBatch, message.streamName)
+                decoder.sendMessage(tmp, message.streamName)
             }
-
+            
         }
 
         logger.info { "Loaded 1 messages with id $msgId from DB $time ms"}
@@ -334,7 +308,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 requestContext.createRequestAndSend(message)
                 continue
             }
-            detailsBuffer += requestContext.createRequestAndAddToBatch(message, batchBuilder)
+            detailsBuffer += requestContext.createRequest(message)
             if (detailsBuffer.size == batchSize) {
                 requestContext.sendBatch(group, batchBuilder, detailsBuffer)
             }
@@ -350,16 +324,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             return
         }
         val messageCount = detailsBuf.size
-        val sendingTime = System.currentTimeMillis()
-        detailsBuf.forEach {
-            it.time = sendingTime
-            decoder.registerMessage(it)
-            registerMessage(it)
-        }
-        decoder.sendBatchMessage(builder.build(), alias)
+        // TODO: registerMessage(it) in message
+        decoder.sendBatchMessage(builder, detailsBuf, alias)
         builder.clear()
         detailsBuf.clear()
-        decoder.decodeBuffer.checkAndWait()
         checkAndWaitForRequestLimit(messageCount)
     }
 
