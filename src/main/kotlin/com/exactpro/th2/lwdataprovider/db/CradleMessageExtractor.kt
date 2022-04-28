@@ -133,7 +133,6 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 msgId = storedMessageBatch.id
                 val id = storedMessageBatch.id.toString()
                 val tmp = requestContext.createMessageDetails(id, storedMessageBatch)
-                tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
                 tmp.responseMessage()
                 msgCount++
             }
@@ -160,7 +159,6 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
             val decodingStep = if (onlyRaw) null else requestContext.startStep("decoding")
             val tmp = requestContext.createMessageDetails(message.id.toString(), message) { decodingStep?.finish() }
-            tmp.rawMessage = RawMessage.parseFrom(message.content)
             requestContext.loadedMessages += 1
             
             if (onlyRaw) {
