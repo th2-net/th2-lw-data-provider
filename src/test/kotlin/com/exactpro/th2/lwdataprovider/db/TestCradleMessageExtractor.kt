@@ -179,12 +179,15 @@ internal class TestCradleMessageExtractor {
         }
 
         override fun addStreamInfo() {
-            TODO("Not yet implemented")
         }
 
-        private fun createMockDetails(id: String, storedMessage: StoredMessage): RequestedMessageDetails = mock {
-            on { this.id }.thenReturn(id)
-            on { this.storedMessage }.thenReturn(storedMessage)
+        private fun createMockDetails(id: String, storedMessage: StoredMessage): RequestedMessageDetails = MockDetails(id, storedMessage, this)
+    }
+
+    private class MockDetails(id: String, storedMessage: StoredMessage, context: MessageRequestContext) : RequestedMessageDetails(
+        id, storedMessage, context
+    ) {
+        override fun responseMessageInternal() {
         }
     }
 

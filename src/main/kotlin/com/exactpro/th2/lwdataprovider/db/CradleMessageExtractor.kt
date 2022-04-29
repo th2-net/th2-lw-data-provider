@@ -22,7 +22,6 @@ import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
-import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
@@ -30,7 +29,6 @@ import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.LinkedList
-import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
 
 class CradleMessageExtractor(configuration: Configuration, private val cradleManager: CradleManager,
@@ -112,7 +110,6 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     ): RequestedMessageDetails {
         val id = storedMessage.id.toString()
         return createMessageDetails(id, storedMessage).apply {
-            rawMessage = startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }
             responseMessage()
         }
     }
@@ -124,7 +121,6 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             logger.info { "Executing query $filter" }
             val iterable = getMessagesFromCradle(filter, requestContext);
 
-            val time = System.currentTimeMillis()
             var msgId: StoredMessageId? = null
             for (storedMessageBatch in iterable) {
                 if (!requestContext.contextAlive) {
@@ -195,6 +191,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         val detailsBuffer = arrayListOf<RequestedMessageDetails>()
         val buffer: LinkedList<StoredMessage> = LinkedList()
         val remaining: LinkedList<StoredMessage> = LinkedList()
+        val batchBuffer = ArrayList<StoredMessage>(batchSize)
         while (iterator.hasNext()) {
             prev = currentBatch
             currentBatch = iterator.next()
@@ -210,7 +207,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     buffer.addAll(prev.messages)
                 }
                 requestContext.streamInfo.registerMessage(buffer.last.id)
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, rawOnly)
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, rawOnly, batchBuffer)
             } else {
                 generateSequence { if (!sort || remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
@@ -236,7 +233,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     remaining.last
                 }.id
                 requestContext.streamInfo.registerMessage(lastId)
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, rawOnly)
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext, rawOnly, batchBuffer)
             }
         }
         val remainingMessages = currentBatch.filterIfRequired()
@@ -270,6 +267,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         sort: Boolean,
         requestContext: MessageRequestContext,
         rawOnly: Boolean,
+        batchBuffer: MutableList<StoredMessage>,
     ) {
         if (buffer.size < batchSize && !rawOnly) {
             return
@@ -282,13 +280,12 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             buffer.clear() // we must pull all messages from the buffer
             return
         }
-        val drainBuffer: MutableList<StoredMessage> = ArrayList(batchSize)
         while (buffer.size >= batchSize) {
             val sortedBatch = generateSequence(buffer::poll)
                 .take(batchSize)
-                .toCollection(drainBuffer)
+                .toCollection(batchBuffer)
             drain(group, sortedBatch, detailsBuffer, batchBuilder, requestContext, false)
-            drainBuffer.clear()
+            batchBuffer.clear()
         }
     }
 
