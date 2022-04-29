@@ -99,7 +99,7 @@ open class GrpcDataProviderImpl(
             sender.invoke(value)
             responseObserver.onCompleted()
         }
-        context.contextAlive = false;
+        context.cancel();
         grpcResponseHandler.streamClosed = true
     }
 
@@ -178,7 +178,7 @@ open class GrpcDataProviderImpl(
     }
 
     protected open fun onCloseContext(requestContext: RequestContext) {
-        requestContext.contextAlive = false;
+        requestContext.cancel();
     }
 
     protected open fun <T> processResponse(
