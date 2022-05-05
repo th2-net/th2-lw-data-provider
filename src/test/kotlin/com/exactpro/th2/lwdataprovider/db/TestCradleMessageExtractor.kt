@@ -144,7 +144,7 @@ internal class TestCradleMessageExtractor {
 
         val channelMessages = mock<ResponseHandler> {}
         val context: MessageRequestContext = MockRequestContext(channelMessages)
-        extractor.getMessagesGroup("test", startTimestamp, endTimestamp, context)
+        extractor.getMessagesGroup("test", startTimestamp, endTimestamp, true, context)
 
         val captor = argumentCaptor<MessageGroupBatch>()
         verify(messageRouter, times(ceil(messagesCount.toDouble() / batchSize).toInt())).send(captor.capture(), any())

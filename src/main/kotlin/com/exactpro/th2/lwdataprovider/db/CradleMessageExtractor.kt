@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
-import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.cradle.messages.StoredMessageFilter
@@ -31,10 +30,7 @@ import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import mu.KotlinLogging
 import java.time.Instant
-import java.util.Collections
 import java.util.LinkedList
-import java.util.Queue
-import java.util.function.Function
 import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
 
@@ -159,7 +155,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     }
 
 
-    fun getMessagesGroup(group: String, start: Instant, end: Instant, requestContext: MessageRequestContext) {
+    fun getMessagesGroup(group: String, start: Instant, end: Instant, sort: Boolean, requestContext: MessageRequestContext) {
         val messagesGroup = cradleManager.storage.getGroupedMessageBatches(group, start, end)
         val iterator = messagesGroup.iterator()
         var prev: StoredMessageBatch? = null
@@ -182,7 +178,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             }
             if (prev.lastTimestamp < currentBatch.firstTimestamp) {
                 buffer.addAll(prev.messages)
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, requestContext)
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext)
             } else {
                 generateSequence { if (remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
@@ -197,7 +193,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         remaining += msg
                     }
                 }
-                tryDrain(group, buffer, detailsBuffer, batchBuilder, requestContext)
+                tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext)
             }
         }
         if (prev == null) {
@@ -210,7 +206,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     addAll(buffer)
                     addAll(remaining)
                     addAll(currentBatch.messages)
-                    sortWith(STORED_MESSAGE_COMPARATOR)
+                    if (sort) {
+                        sortWith(STORED_MESSAGE_COMPARATOR)
+                    }
                 },
                 detailsBuffer, batchBuilder, requestContext
             )
@@ -222,12 +220,15 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         buffer: LinkedList<StoredMessage>,
         detailsBuffer: MutableList<RequestedMessageDetails>,
         batchBuilder: MessageGroupBatch.Builder,
+        sort: Boolean,
         requestContext: MessageRequestContext
     ) {
         if (buffer.size < batchSize) {
             return
         }
-        buffer.sortWith(STORED_MESSAGE_COMPARATOR)
+        if (sort) {
+            buffer.sortWith(STORED_MESSAGE_COMPARATOR)
+        }
         val drainBuffer: MutableList<StoredMessage> = ArrayList(batchSize)
         while (buffer.size >= batchSize) {
             val sortedBatch = generateSequence(buffer::poll)
