@@ -47,7 +47,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val mode: Mode = VariableBuilder.getVariable(customConfiguration::mode, Mode.HTTP) { Mode.valueOf(it.uppercase(Locale.getDefault())) }
     val grpcBackPressure: Boolean = VariableBuilder.getVariable(customConfiguration::grpcBackPressure, false)
     val bufferPerQuery: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, 0)
-    val groupRequestBuffer: Int = VariableBuilder.getVariable(customConfiguration::bufferPerQuery, 1000)
+    val groupRequestBuffer: Int = VariableBuilder.getVariable(customConfiguration::groupRequestBuffer, 1000)
 }
 
 enum class Mode {
