@@ -51,7 +51,7 @@ class CodecMessageListener(
 
             val msgIdQueue = decodeQueue.removeById(messageIdStr)
             if (msgIdQueue != null) {
-                logger.debug { "Received message from codec $messageIdStr. Count of listeners for message: ${msgIdQueue.size}. Messages count: ${group.messagesCount}" }
+                logger.trace { "Received message from codec $messageIdStr. Count of listeners for message: ${msgIdQueue.size}. Messages count: ${group.messagesCount}" }
 
                 msgIdQueue.forEach {
                     it.parsedMessage = group.messagesList.map { anyMsg -> anyMsg.message }
