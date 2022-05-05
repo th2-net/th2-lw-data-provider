@@ -270,6 +270,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         decoder.sendBatchMessage(builder.build(), alias)
         builder.clear()
         detailsBuf.clear()
+        decoder.decodeBuffer.checkAndWait()
         checkAndWaitForRequestLimit(messageCount)
     }
 
