@@ -66,7 +66,7 @@ internal class TestCradleMessageExtractor {
         ArrayList<StoredMessageBatch>().apply {
             val startSeconds = startTimestamp.epochSecond
             repeat(batchesCount) {
-                val start = Instant.ofEpochSecond(startSeconds + it * increase * (messagesPerBatch - overlapCount))
+                val start = Instant.ofEpochSecond(startSeconds + it * increase * (messagesPerBatch - overlapCount), startTimestamp.nano.toLong())
                 add(StoredMessageBatch().apply {
                     createStoredMessages(
                         "test$it",
@@ -75,6 +75,7 @@ internal class TestCradleMessageExtractor {
                         messagesPerBatch,
                         direction = if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
                         incSeconds = increase,
+                        endTimestamp,
                     ).forEach(this::addMessage)
                 })
             }
@@ -191,10 +192,11 @@ internal class TestCradleMessageExtractor {
         count: Long,
         direction: Direction = Direction.FIRST,
         incSeconds: Long = 10L,
+        maxTimestamp: Instant,
     ): List<MessageToStore> {
         return (0 until count).map {
             val index = startSequence + it
-            val instant = startTimestamp.plusSeconds(incSeconds * it)
+            val instant = startTimestamp.plusSeconds(incSeconds * it).coerceAtMost(maxTimestamp)
             MessageToStoreBuilder()
                 .direction(direction)
                 .streamName(alias)
