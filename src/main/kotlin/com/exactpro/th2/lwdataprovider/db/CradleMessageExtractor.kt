@@ -226,11 +226,13 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 } else {
                     buffer.addAll(prev.messages)
                 }
+                requestContext.streamInfo.registerMessage(buffer.last.id)
                 tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext)
             } else {
                 generateSequence { if (remaining.peek()?.timestampLess(currentBatch) == true) remaining.poll() else null }.toCollection(buffer)
 
                 val messageCount = prev.messageCount
+                val prevRemaining = remaining.size
                 prev.messages.forEachIndexed { index, msg ->
                     if (needFiltration && !msg.inRange()) {
                         return@forEachIndexed
@@ -244,10 +246,20 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         remaining += msg
                     }
                 }
+
+                val lastId = if (prevRemaining == remaining.size) {
+                    buffer.last
+                } else {
+                    remaining.last
+                }.id
+                requestContext.streamInfo.registerMessage(lastId)
                 tryDrain(group, buffer, detailsBuffer, batchBuilder, sort, requestContext)
             }
         }
         val remainingMessages = currentBatch.filterIfRequired()
+        val lastMsgId = remainingMessages.last().id
+        requestContext.streamInfo.registerMessage(lastMsgId)
+
         if (prev == null) {
             // Only single batch was extracted
             drain(group, remainingMessages, detailsBuffer, batchBuilder, requestContext)
