@@ -46,6 +46,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         private val STORED_MESSAGE_COMPARATOR: Comparator<StoredMessage> = Comparator.comparing<StoredMessage, Instant> { it.timestamp }
             .thenComparing({ it.direction }) { dir1, dir2 -> -(dir1.ordinal - dir2.ordinal) } // SECOND < FIRST
             .thenComparing<String> { it.streamName }
+            .thenComparingLong { it.index }
     }
 
     fun getStreams(): Collection<String> = storage.streams
