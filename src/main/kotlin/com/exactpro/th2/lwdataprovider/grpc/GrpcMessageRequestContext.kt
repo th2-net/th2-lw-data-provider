@@ -26,9 +26,9 @@ import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.producers.GrpcMessageProducer
+import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
-
 
 class GrpcMessageRequestContext (
     override val channelMessages: GrpcResponseHandler,
@@ -65,7 +65,11 @@ class GrpcRequestedMessageDetails(
 
     override fun responseMessageInternal() {
         val msg = GrpcMessageProducer.createMessage(this)
+        LOGGER.trace { "Adding message: ${storedMessage.id} to queue" }
         context.channelMessages.addMessage(MessageSearchResponse.newBuilder().setMessage(msg).build())
     }
 
+    companion object {
+        private val LOGGER = KotlinLogging.logger { }
+    }
 }
