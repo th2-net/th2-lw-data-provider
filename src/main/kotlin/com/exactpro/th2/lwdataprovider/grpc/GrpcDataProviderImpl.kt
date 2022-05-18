@@ -52,14 +52,14 @@ open class GrpcDataProviderImpl(
 ): DataProviderGrpc.DataProviderImplBase() {
 
     companion object {
-        private val logger = KotlinLogging.logger { }
+        private val LOGGER = KotlinLogging.logger { }
     }
 
     override fun getEvent(request: EventID?, responseObserver: StreamObserver<EventResponse>?) {
         checkNotNull(request)
         checkNotNull(responseObserver)
 
-        logger.info { "Getting event with ID $request" }
+        LOGGER.info { "Getting event with ID $request" }
 
         val queue = ArrayBlockingQueue<GrpcEvent>(5)
         val requestParams = GetEventRequest.fromEventID(request)
@@ -75,7 +75,7 @@ open class GrpcDataProviderImpl(
         checkNotNull(request)
         checkNotNull(responseObserver)
 
-        logger.info { "Getting message with ID $request" }
+        LOGGER.info { "Getting message with ID $request" }
 
         val queue = ArrayBlockingQueue<GrpcEvent>(5)
 
@@ -109,7 +109,7 @@ open class GrpcDataProviderImpl(
 
         val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
         val requestParams = SseEventSearchRequest(request)
-        logger.info { "Loading events $requestParams" }
+        LOGGER.info { "Loading events $requestParams" }
 
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcEventRequestContext(grpcResponseHandler)
@@ -124,7 +124,7 @@ open class GrpcDataProviderImpl(
     }
 
     override fun getMessageStreams(request: MessageStreamsRequest?, responseObserver: StreamObserver<MessageStreamsResponse>?) {
-        logger.info { "Extracting message streams" }
+        LOGGER.info { "Extracting message streams" }
         val streamsRsp = MessageStreamsResponse.newBuilder()
         for (name in searchMessagesHandler.extractStreamNames()) {
             val currentBuilder = MessageStream.newBuilder().setName(name)
@@ -144,7 +144,7 @@ open class GrpcDataProviderImpl(
 
         val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
         val requestParams = SseMessageSearchRequest(request)
-        logger.info { "Loading messages $requestParams" }
+        LOGGER.info { "Loading messages $requestParams" }
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
         val loadingStep = context.startStep("messages_loading")
@@ -160,13 +160,17 @@ open class GrpcDataProviderImpl(
     override fun searchMessageGroups(request: MessageGroupsSearchRequest, responseObserver: StreamObserver<MessageSearchResponse>) {
         val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
         val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
-        logger.info { "Loading messages groups $requestParams" }
+        LOGGER.info { "Loading messages groups $requestParams" }
         val grpcResponseHandler = GrpcResponseHandler(queue)
         val context = GrpcMessageRequestContext(grpcResponseHandler, maxMessagesPerRequest = configuration.bufferPerQuery)
         val loadingStep = context.startStep("messages_group_loading")
         try {
             searchMessagesHandler.loadMessageGroups(requestParams, context)
-            processResponse(responseObserver, grpcResponseHandler, context, loadingStep::finish) { it.message }
+            processResponse(responseObserver, grpcResponseHandler, context, loadingStep::finish) {
+                it.message?.apply {
+                    LOGGER.trace { "Sending message ${this.message.messageId.toStoredMessageId()}" }
+                }
+            }
         } catch (ex: Exception) {
             loadingStep.finish()
             throw ex
@@ -194,14 +198,14 @@ open class GrpcDataProviderImpl(
                 grpcResponseHandler.streamClosed = true
                 inProcess = false
                 onFinished()
-                logger.info { "Stream finished" }
+                LOGGER.info { "Stream finished" }
             } else if (event.error != null) {
                 responseObserver.onError(event.error)
                 onCloseContext(context)
                 onFinished()
                 grpcResponseHandler.streamClosed = true
                 inProcess = false
-                logger.warn { "Stream finished with exception" }
+                LOGGER.warn { "Stream finished with exception" }
             } else {
                 converter.invoke(event)?.let {  responseObserver.onNext(it) }
                 context.onMessageSent()
