@@ -300,15 +300,16 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         requestContext: MessageRequestContext,
         rawOnly: Boolean,
     ) {
-        if (rawOnly) {
-            drain(group, buffer, detailsBuffer, batchBuilder, requestContext, true)
-            return
-        }
-        if (buffer.size < batchSize) {
+        if (buffer.size < batchSize && !rawOnly) {
             return
         }
         if (sort) {
             buffer.sortWith(STORED_MESSAGE_COMPARATOR)
+        }
+        if (rawOnly) {
+            drain(group, buffer, detailsBuffer, batchBuilder, requestContext, true)
+            buffer.clear() // we must pull all messages from the buffer
+            return
         }
         val drainBuffer: MutableList<StoredMessage> = ArrayList(batchSize)
         while (buffer.size >= batchSize) {
