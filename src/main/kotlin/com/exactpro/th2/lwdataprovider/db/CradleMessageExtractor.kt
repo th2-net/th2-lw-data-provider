@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.CradleManager
+import com.exactpro.cradle.messages.StoredGroupMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.cradle.messages.StoredMessageFilter
@@ -203,23 +204,23 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     }
 
     fun getMessagesGroup(group: String, start: Instant, end: Instant, sort: Boolean, rawOnly: Boolean, requestContext: MessageRequestContext) {
-        val messagesGroup = cradleManager.storage.getGroupedMessageBatches(group, start, end)
+        val messagesGroup: MutableIterable<StoredGroupMessageBatch> = cradleManager.storage.getGroupedMessageBatches(group, start, end)
         val iterator = messagesGroup.iterator()
-        var prev: StoredMessageBatch? = null
         if (!iterator.hasNext()) {
             return
         }
 
-        fun StoredMessage.timestampLess(batch: StoredMessageBatch): Boolean = timestamp < batch.firstTimestamp
-        fun StoredMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp > end
+        fun StoredMessage.timestampLess(batch: StoredGroupMessageBatch): Boolean = timestamp < batch.firstTimestamp
+        fun StoredGroupMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp > end
         fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp <= end
-        fun StoredMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
+        fun StoredGroupMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
             messages.filter(StoredMessage::inRange)
         } else {
             messages
         }
 
-        var currentBatch: StoredMessageBatch = iterator.next()
+        var prev: StoredGroupMessageBatch? = null
+        var currentBatch: StoredGroupMessageBatch = iterator.next()
         val batchBuilder = MessageGroupBatch.newBuilder()
         val detailsBuffer = arrayListOf<RequestedMessageDetails>()
         val buffer: LinkedList<StoredMessage> = LinkedList()
@@ -377,4 +378,4 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         requestContext.startStep("cradle").use { storage.getMessages(filter) }
 }
 
-private fun StoredMessageBatch.toShortInfo(): String = "$streamName:${direction.label}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"
+private fun StoredGroupMessageBatch.toShortInfo(): String = "${sessionGroup}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"

@@ -21,8 +21,8 @@ import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.MessageToStore
 import com.exactpro.cradle.messages.MessageToStoreBuilder
+import com.exactpro.cradle.messages.StoredGroupMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
-import com.exactpro.cradle.messages.StoredMessageBatch
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
@@ -62,12 +62,12 @@ internal class TestCradleMessageExtractor {
     private val batchSize = 100
     private val groupRequestBuffer = 200
 
-    private fun createBatches(messagesPerBatch: Long, batchesCount: Int, overlapCount: Long, increase: Long): List<StoredMessageBatch> =
-        ArrayList<StoredMessageBatch>().apply {
+    private fun createBatches(messagesPerBatch: Long, batchesCount: Int, overlapCount: Long, increase: Long): List<StoredGroupMessageBatch> =
+        ArrayList<StoredGroupMessageBatch>().apply {
             val startSeconds = startTimestamp.epochSecond
             repeat(batchesCount) {
                 val start = Instant.ofEpochSecond(startSeconds + it * increase * (messagesPerBatch - overlapCount), startTimestamp.nano.toLong())
-                add(StoredMessageBatch().apply {
+                add(StoredGroupMessageBatch().apply {
                     createStoredMessages(
                         "test$it",
                         0,
@@ -135,7 +135,7 @@ internal class TestCradleMessageExtractor {
     }
 
     private fun checkMessagesReturnsInOrder(messagesPerBatch: Long, batchesCount: Int, increase: Long, messagesCount: Long, overlap: Long) {
-        val batchesList: List<StoredMessageBatch> = createBatches(
+        val batchesList: List<StoredGroupMessageBatch> = createBatches(
             messagesPerBatch = messagesPerBatch,
             batchesCount = batchesCount,
             overlapCount = overlap,
