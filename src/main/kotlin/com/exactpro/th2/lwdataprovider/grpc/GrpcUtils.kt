@@ -16,10 +16,12 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.MessageID
+import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.grpc.MessageStream
 import com.exactpro.th2.dataprovider.grpc.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
@@ -50,14 +52,16 @@ fun com.exactpro.cradle.Direction.toGrpcDirection(): Direction {
 }
 
 fun MessageID.toStoredMessageId(): StoredMessageId {
-    return StoredMessageId(this.connectionId.sessionAlias, this.direction.toCradleDirection(), this.sequence)
+    return StoredMessageId(BookId(bookName), connectionId.sessionAlias, direction.toCradleDirection(), timestamp.toInstant(), sequence)
 }
 
 fun StoredMessageId.toGrpcMessageId(): MessageID {
     return MessageID.newBuilder().apply {
-        this.connectionId = ConnectionID.newBuilder().setSessionAlias(this@toGrpcMessageId.streamName).build()
+        connectionId = ConnectionID.newBuilder().setSessionAlias(this@toGrpcMessageId.sessionAlias).build()
         this.direction = this@toGrpcMessageId.direction.toGrpcDirection()
-        this.sequence = this@toGrpcMessageId.index
+        this.sequence = this@toGrpcMessageId.sequence
+        this.timestamp = this@toGrpcMessageId.timestamp.toTimestamp()
+        this.bookName = this@toGrpcMessageId.bookId.name
     }.build()
 }
 

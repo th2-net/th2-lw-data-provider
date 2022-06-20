@@ -26,19 +26,6 @@ class EventProducer() {
     companion object {
         private val logger = KotlinLogging.logger { }
 
-        fun fromEventMetadata(
-            storedEvent: StoredTestEventMetadata
-        ): BaseEventEntity {
-            val batchId = storedEvent.batchMetadata?.id
-
-            return BaseEventEntity(
-                storedEvent,
-                ProviderEventId(batchId, storedEvent.id),
-                batchId,
-                storedEvent.parentId?.let { ProviderEventId(null, storedEvent.parentId) }
-            )
-        }
-
         fun fromSingleEvent(storedEvent: StoredTestEventSingle): BaseEventEntity {
             return BaseEventEntity(
                 "event",

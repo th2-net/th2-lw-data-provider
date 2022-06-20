@@ -16,8 +16,10 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.cradle.BookId
 import com.exactpro.th2.dataprovider.grpc.MessageGroupsSearchRequest
 import com.exactpro.th2.lwdataprovider.grpc.toInstant
+import com.exactpro.th2.lwdataprovider.toCradle
 import java.time.Instant
 
 data class MessagesGroupRequest(
@@ -26,6 +28,7 @@ data class MessagesGroupRequest(
     val endTimestamp: Instant,
     val sort: Boolean,
     val rawOnly: Boolean,
+    val bookId: BookId,
 ) {
     init {
         check(startTimestamp <= endTimestamp) { "$START_TIMESTAMP_PARAM must be greater than $END_TIMESTAMP_PARAM" }
@@ -36,6 +39,7 @@ data class MessagesGroupRequest(
         private const val END_TIMESTAMP_PARAM = "endTimestamp"
         private const val SORT_PARAMETER = "sort"
         private const val RAW_ONLY_PARAMETER = "onlyRaw"
+        private const val BOOK_ID_PARAM = "bookId"
 
         @JvmStatic
         fun fromParametersMap(map: Map<String, List<String>>): MessagesGroupRequest =
@@ -45,19 +49,23 @@ data class MessagesGroupRequest(
                 extractInstant(map, END_TIMESTAMP_PARAM),
                 map.booleanOrDefault(SORT_PARAMETER, false),
                 map.booleanOrDefault(RAW_ONLY_PARAMETER, false),
+                map[BOOK_ID_PARAM]?.firstOrNull()?.let(::BookId)
+                    ?: error("parameter '$BOOK_ID_PARAM' is required")
             )
 
         @JvmStatic
-        fun fromGrpcRequest(request: MessageGroupsSearchRequest): MessagesGroupRequest =
+        fun fromGrpcRequest(request: MessageGroupsSearchRequest): MessagesGroupRequest = request.run {
             MessagesGroupRequest(
-                request.messageGroupList.mapTo(HashSet(request.messageGroupCount)) {
+                messageGroupList.mapTo(HashSet(messageGroupCount)) {
                     it.name.apply { check(isNotEmpty()) { "group name cannot be empty" } }
                 },
-                if (request.hasStartTimestamp()) request.startTimestamp.toInstant() else error("missing start timestamp"),
-                if (request.hasEndTimestamp()) request.endTimestamp.toInstant() else error("missing end timestamp"),
-                if (request.hasSort()) request.sort.value else false,
-                request.rawOnly,
+                if (hasStartTimestamp()) startTimestamp.toInstant() else error("missing start timestamp"),
+                if (hasEndTimestamp()) endTimestamp.toInstant() else error("missing end timestamp"),
+                if (hasSort()) sort.value else false,
+                rawOnly,
+                if (hasBookId()) bookId.toCradle() else error("parameter '$BOOK_ID_PARAM' is required")
             )
+        }
 
         private fun Map<String, List<String>>.booleanOrDefault(name: String, default: Boolean): Boolean {
             val params = this[name] ?: return default

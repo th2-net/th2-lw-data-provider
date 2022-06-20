@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.cradle.messages.StoredMessageId
@@ -26,6 +27,7 @@ import com.exactpro.th2.lwdataprovider.grpc.toInstant
 import com.exactpro.th2.lwdataprovider.grpc.toProviderMessageStreams
 import com.exactpro.th2.lwdataprovider.grpc.toProviderRelation
 import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
+import com.exactpro.th2.lwdataprovider.toCradle
 import java.time.Instant
 import kotlin.streams.toList
 
@@ -39,7 +41,8 @@ data class SseMessageSearchRequest(
     val attachedEvents: Boolean,
     val lookupLimitDays: Int?,
     val resumeFromIdsList: List<StoredMessageId>?,
-    val onlyRaw: Boolean
+    val onlyRaw: Boolean,
+    val bookId: BookId,
 ) {
 
     companion object {
@@ -86,7 +89,8 @@ data class SseMessageSearchRequest(
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
         attachedEvents = parameters["attachedEvents"]?.firstOrNull()?.toBoolean() ?: false,
         lookupLimitDays = parameters["lookupLimitDays"]?.firstOrNull()?.toInt(),
-        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false
+        onlyRaw = parameters["onlyRaw"]?.firstOrNull()?.toBoolean() ?: false,
+        bookId = parameters["bookId"]?.firstOrNull()?.let(::BookId) ?: error("parameter 'bookId' is required"),
     )
 
     constructor(grpcRequest: MessageSearchRequest) : this(
@@ -99,7 +103,8 @@ data class SseMessageSearchRequest(
         keepOpen = if (grpcRequest.hasKeepOpen()) grpcRequest.keepOpen.value else false,
         attachedEvents = false, // disabled
         lookupLimitDays = null,
-        onlyRaw = false // NOT SUPPORTED in GRPC
+        onlyRaw = false, // NOT SUPPORTED in GRPC
+        bookId = grpcRequest.run { if (hasBookId()) bookId.toCradle() else error("parameter 'bookId' is required") },
     )
 
     private fun checkEndTimestamp() {

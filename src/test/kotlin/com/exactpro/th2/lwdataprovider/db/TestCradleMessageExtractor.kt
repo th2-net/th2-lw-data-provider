@@ -16,13 +16,16 @@
 
 package com.exactpro.th2.lwdataprovider.db
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.Direction
-import com.exactpro.cradle.messages.MessageToStore
+import com.exactpro.cradle.PageId
+import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.MessageToStoreBuilder
-import com.exactpro.cradle.messages.StoredGroupMessageBatch
+import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
+import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.th2.common.grpc.ConnectionID
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
@@ -46,7 +49,6 @@ import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.clearInvocations
-import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -62,12 +64,13 @@ internal class TestCradleMessageExtractor {
     private val batchSize = 100
     private val groupRequestBuffer = 200
 
-    private fun createBatches(messagesPerBatch: Long, batchesCount: Int, overlapCount: Long, increase: Long): List<StoredGroupMessageBatch> =
-        ArrayList<StoredGroupMessageBatch>().apply {
+    private fun createBatches(messagesPerBatch: Long, batchesCount: Int, overlapCount: Long, increase: Long): MutableList<StoredGroupedMessageBatch> =
+        ArrayList<StoredGroupedMessageBatch>().apply {
             val startSeconds = startTimestamp.epochSecond
             repeat(batchesCount) {
                 val start = Instant.ofEpochSecond(startSeconds + it * increase * (messagesPerBatch - overlapCount), startTimestamp.nano.toLong())
-                add(StoredGroupMessageBatch().apply {
+                add(StoredGroupedMessageBatch(
+                    "test",
                     createStoredMessages(
                         "test$it",
                         0,
@@ -76,8 +79,10 @@ internal class TestCradleMessageExtractor {
                         direction = if (it % 2 == 0) Direction.FIRST else Direction.SECOND,
                         incSeconds = increase,
                         endTimestamp,
-                    ).forEach(this::addMessage)
-                })
+                    ),
+                    PageId(BookId("test-book"), "test-page"),
+                    Instant.now(),
+                ))
             }
         }
 
@@ -135,17 +140,21 @@ internal class TestCradleMessageExtractor {
     }
 
     private fun checkMessagesReturnsInOrder(messagesPerBatch: Long, batchesCount: Int, increase: Long, messagesCount: Long, overlap: Long) {
-        val batchesList: List<StoredGroupMessageBatch> = createBatches(
+        val batchesList: MutableList<StoredGroupedMessageBatch> = createBatches(
             messagesPerBatch = messagesPerBatch,
             batchesCount = batchesCount,
             overlapCount = overlap,
             increase = increase
         )
-        whenever(storage.getGroupedMessageBatches(eq("test"), eq(startTimestamp), eq(endTimestamp))).thenReturn(batchesList)
+        whenever(storage.getGroupedMessageBatches(any())).thenReturn(ListCradleResult(batchesList))
 
         val channelMessages = mock<ResponseHandler> {}
         val context: MessageRequestContext = MockRequestContext(channelMessages)
-        extractor.getMessagesGroup("test", startTimestamp, endTimestamp, sort = true, rawOnly = false, requestContext = context)
+        extractor.getMessagesGroup(GroupedMessageFilter.builder()
+            .groupName("test")
+            .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+            .timestampTo().isLessThan(endTimestamp)
+            .build(), sort = true, rawOnly = false, requestContext = context)
 
         val captor = argumentCaptor<MessageGroupBatch>()
         verify(messageRouter, times(ceil(messagesCount.toDouble() / batchSize).toInt())).send(captor.capture(), any())
@@ -162,7 +171,7 @@ internal class TestCradleMessageExtractor {
         for (message in messages) {
             ids += message.metadata.id
             prevMessage?.also {
-                Assertions.assertTrue(it.metadata.timestamp.toInstant() <= message.metadata.timestamp.toInstant()) {
+                Assertions.assertTrue(it.metadata.id.timestamp.toInstant() <= message.metadata.id.timestamp.toInstant()) {
                     "Unordered messages: $it and $message"
                 }
             }
@@ -193,14 +202,16 @@ internal class TestCradleMessageExtractor {
         direction: Direction = Direction.FIRST,
         incSeconds: Long = 10L,
         maxTimestamp: Instant,
-    ): List<MessageToStore> {
+    ): List<StoredMessage> {
+        val bookId = BookId("test-book")
         return (0 until count).map {
             val index = startSequence + it
             val instant = startTimestamp.plusSeconds(incSeconds * it).coerceAtMost(maxTimestamp)
             MessageToStoreBuilder()
+                .bookId(bookId)
                 .direction(direction)
-                .streamName(alias)
-                .index(index)
+                .sessionAlias(alias)
+                .sequence(index)
                 .timestamp(instant)
                 .content(
                     RawMessage.newBuilder().apply {
@@ -209,12 +220,25 @@ internal class TestCradleMessageExtractor {
                                 .setDirection(direction.toGrpcDirection())
                                 .setSequence(index)
                                 .setConnectionId(ConnectionID.newBuilder().setSessionAlias(alias))
+                                .setTimestamp(instant.toTimestamp())
                                 .build()
-                            timestamp = instant.toTimestamp()
                         }
                     }.build().toByteArray()
                 )
                 .build()
+                .let { msg ->
+                    StoredMessage(msg, msg.id, null)
+                }
         }
     }
+}
+
+private class ListCradleResult<T>(collection: MutableCollection<T>) : CradleResultSet<T> {
+    private val iterator: MutableIterator<T> = collection.iterator()
+    override fun remove() = iterator.remove()
+
+    override fun hasNext(): Boolean = iterator.hasNext()
+
+    override fun next(): T = iterator.next()
+
 }

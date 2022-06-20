@@ -23,7 +23,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '3.2.2-TH2-3789-2508815656-SNAPSHOT'
+    cradleApiVersion = '4.0.0-TH2-2150-2515326049-SNAPSHOT'
 }
 
 group 'com.exactpro.th2'
@@ -58,7 +58,7 @@ dependencies {
 
     implementation "io.grpc:grpc-services:1.32.1"
 
-    implementation 'com.exactpro.th2:common:3.38.0-TH2-3789-2508882525-SNAPSHOT'
+    implementation 'com.exactpro.th2:common:4.0.0-th2-2150-books-pages-2496284531-SNAPSHOT'
 
     implementation 'org.eclipse.jetty:jetty-server:9.4.44.v20210927'
     implementation 'org.eclipse.jetty:jetty-servlet:9.4.44.v20210927'
@@ -68,7 +68,7 @@ dependencies {
     implementation('net.jpountz.lz4:lz4:1.3.0') {
         because('cassandra driver requires lz4 impl in classpath for compression')
     }
-    implementation 'com.exactpro.th2:grpc-data-provider:1.1.0-th2-3597-2410121472-SNAPSHOT'
+    implementation 'com.exactpro.th2:grpc-data-provider:2.0.0-th2-3834-2528652769-SNAPSHOT'
 
     implementation 'io.github.microutils:kotlin-logging:2.1.14'
 

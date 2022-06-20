@@ -16,12 +16,14 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.TimeRelation
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.dataprovider.grpc.EventSearchRequest
 import com.exactpro.th2.dataprovider.grpc.TimeRelation.*
+import com.exactpro.th2.lwdataprovider.toCradle
 import java.time.Instant
 
 data class SseEventSearchRequest(
@@ -34,7 +36,9 @@ data class SseEventSearchRequest(
     val keepOpen: Boolean,
     val limitForParent: Long?,
     val metadataOnly: Boolean,
-    val attachedMessages: Boolean
+    val attachedMessages: Boolean,
+    val bookId: BookId,
+    val scope: String,
 ) {
     companion object {
         private fun asCradleTimeRelation(value: String): TimeRelation {
@@ -57,7 +61,11 @@ data class SseEventSearchRequest(
         keepOpen = parameters["keepOpen"]?.firstOrNull()?.toBoolean() ?: false,
         limitForParent = parameters["limitForParent"]?.firstOrNull()?.toLong(),
         metadataOnly = parameters["metadataOnly"]?.firstOrNull()?.toBoolean() ?: true,
-        attachedMessages = parameters["attachedMessages"]?.firstOrNull()?.toBoolean() ?: false
+        attachedMessages = parameters["attachedMessages"]?.firstOrNull()?.toBoolean() ?: false,
+        bookId = parameters["bookId"]?.firstOrNull()?.run(::BookId)
+            ?: error("parameter 'bookId' is required"),
+        scope = parameters["scope"]?.firstOrNull()
+            ?: error("parameter 'scope' is required"),
     )
 
     constructor(request: EventSearchRequest) : this(
@@ -95,7 +103,9 @@ data class SseEventSearchRequest(
         } else true,
         attachedMessages = if (request.hasAttachedMessages()) {
             request.attachedMessages.value
-        } else false
+        } else false,
+        bookId = request.run { if (hasBookId()) bookId.toCradle() else error("parameter 'bookId' is required") },
+        scope = request.run { if (hasScope()) scope.name else error("parameter 'scope' is required") },
     )
 
     private fun checkEndTimestamp() {

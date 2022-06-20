@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.grpc
 
+import com.exactpro.cradle.BookId
 import com.exactpro.th2.common.grpc.Direction
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.MessageID
@@ -41,6 +42,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.toCradle
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 import java.util.concurrent.ArrayBlockingQueue
@@ -123,15 +125,15 @@ open class GrpcDataProviderImpl(
         }
     }
 
-    override fun getMessageStreams(request: MessageStreamsRequest?, responseObserver: StreamObserver<MessageStreamsResponse>?) {
+    override fun getMessageStreams(request: MessageStreamsRequest, responseObserver: StreamObserver<MessageStreamsResponse>) {
         LOGGER.info { "Extracting message streams" }
         val streamsRsp = MessageStreamsResponse.newBuilder()
-        for (name in searchMessagesHandler.extractStreamNames()) {
+        for (name in searchMessagesHandler.extractStreamNames(request.bookId.toCradle())) {
             val currentBuilder = MessageStream.newBuilder().setName(name)
             streamsRsp.addMessageStream(currentBuilder.setDirection(Direction.SECOND))
             streamsRsp.addMessageStream(currentBuilder.setDirection(Direction.FIRST))
         }
-        responseObserver?.apply {
+        responseObserver.apply {
             onNext(streamsRsp.build())
             onCompleted()
         }

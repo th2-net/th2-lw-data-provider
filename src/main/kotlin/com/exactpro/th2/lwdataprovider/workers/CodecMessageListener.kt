@@ -40,7 +40,7 @@ class CodecMessageListener(
         private val logger = KotlinLogging.logger { }
     }
     
-    override fun handler(consumerTag: String, message: MessageGroupBatch) {
+    override fun handle(consumerTag: String, message: MessageGroupBatch) {
 
         message.groupsList.forEach { group ->
             if (group.messagesList.any { !it.hasMessage() }) {

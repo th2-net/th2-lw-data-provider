@@ -30,8 +30,8 @@ class ProviderStreamInfo {
     fun registerMessage(msg: StoredMessageId?) {
         if (msg == null)
             return
-        streams.computeIfAbsent(msg.streamName + msg.direction.label) {
-            StreamDetails(msg.streamName, msg.direction)
+        streams.computeIfAbsent(msg.sessionAlias + msg.direction.label) {
+            StreamDetails(msg.sessionAlias, msg.direction, msg)
         }.msgId = msg
     }
 
@@ -47,13 +47,13 @@ class ProviderStreamInfo {
                     this.name = streamDetails.streamName
                     this.direction = streamDetails.direction.toGrpcDirection()
                 }.build()
-                this.lastId = streamDetails.msgId.toGrpcMessageId()
+                streamDetails.msgId?.toGrpcMessageId()?.also {
+                    lastId = it
+                }
             }.build()
         }.toCollection(ArrayList(streams.size))
     }
 
 }
 
-data class StreamDetails(val streamName: String, val direction: Direction,
-                         var msgId: StoredMessageId = StoredMessageId(streamName, direction, 0L)
-)
+data class StreamDetails(val streamName: String, val direction: Direction, var msgId: StoredMessageId? = null)

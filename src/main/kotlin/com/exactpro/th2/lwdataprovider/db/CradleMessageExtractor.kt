@@ -16,11 +16,13 @@
 
 package com.exactpro.th2.lwdataprovider.db
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
-import com.exactpro.cradle.messages.StoredGroupMessageBatch
+import com.exactpro.cradle.messages.GroupedMessageFilter
+import com.exactpro.cradle.messages.MessageFilter
+import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageBatch
-import com.exactpro.cradle.messages.StoredMessageFilter
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
@@ -46,19 +48,19 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         private val logger = KotlinLogging.logger { }
         private val STORED_MESSAGE_COMPARATOR: Comparator<StoredMessage> = Comparator.comparing<StoredMessage, Instant> { it.timestamp }
             .thenComparing({ it.direction }) { dir1, dir2 -> -(dir1.ordinal - dir2.ordinal) } // SECOND < FIRST
-            .thenComparing<String> { it.streamName }
-            .thenComparingLong { it.index }
+            .thenComparing<String> { it.sessionAlias }
+            .thenComparingLong { it.sequence }
     }
 
-    fun getStreams(): Collection<String> = storage.streams
+    fun getStreams(bookId: BookId): Collection<String> = storage.getSessionAliases(bookId)
     
-    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
+    fun getMessages(filter: MessageFilter, requestContext: MessageRequestContext) {
 
         var msgCount = 0
         val time = measureTimeMillis { 
             logger.info { "Executing query $filter" }
             val iterable = getMessagesFromCradle(filter, requestContext);
-            val sessionName = filter.streamName.value
+            val sessionName = filter.sessionAlias
 
             val builder = MessageGroupBatch.newBuilder()
             var msgBufferCount = 0
@@ -139,7 +141,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
     }
 
-    fun getRawMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
+    fun getRawMessages(filter: MessageFilter, requestContext: MessageRequestContext) {
 
         var msgCount = 0
         val time = measureTimeMillis {
@@ -194,7 +196,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     .build()
                 decoder.registerMessage(tmp)
                 requestContext.registerMessage(tmp)
-                decoder.sendBatchMessage(msgBatch, message.streamName)
+                decoder.sendBatchMessage(msgBatch, message.sessionAlias)
             }
 
         }
@@ -203,24 +205,26 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     }
 
-    fun getMessagesGroup(group: String, start: Instant, end: Instant, sort: Boolean, rawOnly: Boolean, requestContext: MessageRequestContext) {
-        val messagesGroup: MutableIterable<StoredGroupMessageBatch> = cradleManager.storage.getGroupedMessageBatches(group, start, end)
-        val iterator = messagesGroup.iterator()
+    fun getMessagesGroup(filter: GroupedMessageFilter, sort: Boolean, rawOnly: Boolean, requestContext: MessageRequestContext) {
+        val group = filter.groupName
+        val start = filter.from.value
+        val end = filter.to.value
+        val iterator = cradleManager.storage.getGroupedMessageBatches(filter).iterator()
         if (!iterator.hasNext()) {
             return
         }
 
-        fun StoredMessage.timestampLess(batch: StoredGroupMessageBatch): Boolean = timestamp < batch.firstTimestamp
-        fun StoredGroupMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp > end
-        fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp <= end
-        fun StoredGroupMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
+        fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
+        fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp > end
+        fun StoredMessage.inRange(): Boolean = timestamp in start..end
+        fun StoredGroupedMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
             messages.filter(StoredMessage::inRange)
         } else {
             messages
         }
 
-        var prev: StoredGroupMessageBatch? = null
-        var currentBatch: StoredGroupMessageBatch = iterator.next()
+        var prev: StoredGroupedMessageBatch? = null
+        var currentBatch: StoredGroupedMessageBatch = iterator.next()
         val batchBuilder = MessageGroupBatch.newBuilder()
         val detailsBuffer = arrayListOf<RequestedMessageDetails>()
         val buffer: LinkedList<StoredMessage> = LinkedList()
@@ -374,8 +378,8 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
     }
 
-    private fun getMessagesFromCradle(filter: StoredMessageFilter, requestContext: MessageRequestContext): Iterable<StoredMessage> =
+    private fun getMessagesFromCradle(filter: MessageFilter, requestContext: MessageRequestContext): Iterator<StoredMessage> =
         requestContext.startStep("cradle").use { storage.getMessages(filter) }
 }
 
-private fun StoredGroupMessageBatch.toShortInfo(): String = "${sessionGroup}:${firstMessage.index}..${lastMessage.index} ($firstTimestamp..$lastTimestamp)"
+private fun StoredGroupedMessageBatch.toShortInfo(): String = "${group}:${firstMessage.sequence}..${lastMessage.sequence} ($firstTimestamp..$lastTimestamp)"

@@ -63,7 +63,7 @@ class RabbitMqDecoderOld (private val queue: BlockingQueue<List<RequestedMessage
             val message = queue.poll(200L, TimeUnit.MILLISECONDS)
             
             message?.let {
-                val msgStreamName = it[0].storedMessage.streamName
+                val msgStreamName = it[0].storedMessage.sessionAlias
                 if (currStreamName != msgStreamName && batchLength > 0) {
                     messageRouterRawBatch.sendAll(currBatch.build(), currStreamName)
                     currBatch = RawMessageBatch.newBuilder()

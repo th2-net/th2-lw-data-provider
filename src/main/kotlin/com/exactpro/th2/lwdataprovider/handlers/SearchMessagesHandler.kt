@@ -16,15 +16,16 @@
 
 package com.exactpro.th2.lwdataprovider.handlers
 
+import com.exactpro.cradle.BookId
 import com.exactpro.cradle.TimeRelation.AFTER
-import com.exactpro.cradle.messages.StoredMessageFilterBuilder
+import com.exactpro.cradle.messages.GroupedMessageFilter
+import com.exactpro.cradle.messages.MessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
-import com.exactpro.th2.lwdataprovider.http.MessageSseRequestContext
 import mu.KotlinLogging
 import java.util.concurrent.ExecutorService
 import kotlin.math.max
@@ -37,9 +38,9 @@ class SearchMessagesHandler(
         private val logger = KotlinLogging.logger { }
     }
 
-    fun extractStreamNames(): Collection<String> {
+    fun extractStreamNames(bookId: BookId): Collection<String> {
         logger.info { "Getting stream names" }
-        return cradleMsgExtractor.getStreams();
+        return cradleMsgExtractor.getStreams(bookId);
     }
     
     fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageRequestContext) {
@@ -54,18 +55,19 @@ class SearchMessagesHandler(
                 var limitReached = false;
                 if (!request.resumeFromIdsList.isNullOrEmpty()) {
                     request.resumeFromIdsList.forEach { resumeFromId ->
-                        requestContext.streamInfo.registerSession(resumeFromId.streamName, resumeFromId.direction)
+                        requestContext.streamInfo.registerSession(resumeFromId.sessionAlias, resumeFromId.direction)
                         if (limitReached)
                             return@forEach;
                         if (!requestContext.contextAlive)
                             return@execute;
-                        val filter = StoredMessageFilterBuilder().apply {
-                            streamName().isEqualTo(resumeFromId.streamName)
-                            direction().isEqualTo(resumeFromId.direction)
+                        val filter = MessageFilterBuilder().apply {
+                            bookId(request.bookId)
+                            sessionAlias(resumeFromId.sessionAlias)
+                            direction(resumeFromId.direction)
                             if (request.searchDirection == AFTER) {
-                                index().isGreaterThanOrEqualTo(resumeFromId.index)
+                                sequence().isGreaterThanOrEqualTo(resumeFromId.sequence)
                             } else {
-                                index().isLessThanOrEqualTo(resumeFromId.index)
+                                sequence().isLessThanOrEqualTo(resumeFromId.sequence)
                             }
 
                             request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
@@ -88,9 +90,10 @@ class SearchMessagesHandler(
                         if (!requestContext.contextAlive)
                             return@execute;
 
-                        val filter = StoredMessageFilterBuilder().apply {
-                            streamName().isEqualTo(stream)
-                            direction().isEqualTo(direction)
+                        val filter = MessageFilterBuilder().apply {
+                            bookId(bookId)
+                            sessionAlias(stream)
+                            direction(direction)
                             request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
                             request.endTimestamp?.let { timestampTo().isLessThan(it) }
                             request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
@@ -122,7 +125,7 @@ class SearchMessagesHandler(
 
         threadPool.execute {
             try {
-                cradleMsgExtractor.getMessage(StoredMessageId.fromString(request.msgId), request.onlyRaw, requestContext);
+                cradleMsgExtractor.getMessage(request.msgId, request.onlyRaw, requestContext);
                 requestContext.allDataLoadedFromCradle()
                 if (requestContext.requestedMessages.isEmpty()) {
                     requestContext.finishStream()
@@ -144,7 +147,12 @@ class SearchMessagesHandler(
             try {
                 request.groups.forEach { group ->
                     logger.debug { "Executing request for group $group" }
-                    cradleMsgExtractor.getMessagesGroup(group, request.startTimestamp, request.endTimestamp, request.sort, request.rawOnly, requestContext)
+                    cradleMsgExtractor.getMessagesGroup(GroupedMessageFilter.builder()
+                        .groupName(group)
+                        .bookId(request.bookId)
+                        .timestampFrom().isGreaterThanOrEqualTo(request.startTimestamp)
+                        .timestampTo().isLessThan(request.endTimestamp)
+                        .build(), request.sort, request.rawOnly, requestContext)
                     logger.debug { "Executing of request for group $group has been finished" }
                 }
 
