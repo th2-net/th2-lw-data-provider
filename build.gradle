@@ -35,6 +35,7 @@ targetCompatibility = 11
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
     kotlinOptions {
         jvmTarget = "11"
+        freeCompilerArgs += '-Xopt-in=kotlin.RequiresOptIn'
     }
 }
 
@@ -86,10 +87,31 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:3.2.0'
+
+
+    testImplementation platform("org.testcontainers:testcontainers-bom:1.17.2")
+    testImplementation "org.testcontainers:cassandra"
+    testImplementation "org.testcontainers:rabbitmq"
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags('integration-test')
+    }
+}
+
+tasks.register('integrationTest', Test) {
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags('integration-test')
+    }
+    dependsOn 'dockerPrepare'
+    testLogging {
+        showStandardStreams = true
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
 }
 
 jar {

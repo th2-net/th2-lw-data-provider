@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.handlers
 
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.BookInfo
+import com.exactpro.cradle.BookListEntry
 import com.exactpro.cradle.TimeRelation.AFTER
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.MessageFilterBuilder
@@ -39,7 +40,7 @@ class SearchMessagesHandler(
         private val logger = KotlinLogging.logger { }
     }
 
-    fun extractBookNames(): Collection<BookInfo> {
+    fun extractBookNames(): Collection<BookListEntry> {
         return cradleMsgExtractor.getBooks()
     }
 

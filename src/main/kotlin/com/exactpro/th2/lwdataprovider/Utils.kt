@@ -16,7 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider
 
-import com.exactpro.cradle.BookInfo
+import com.exactpro.cradle.BookListEntry
 import com.exactpro.cradle.Direction
 import com.exactpro.th2.dataprovider.grpc.BookId
 
@@ -36,4 +36,4 @@ fun grpcDirectionToCradle(direction: com.exactpro.th2.common.grpc.Direction): Di
 
 fun BookId.toCradle(): com.exactpro.cradle.BookId = com.exactpro.cradle.BookId(name)
 
-fun BookInfo.toGrpc(): BookId = BookId.newBuilder().setName(fullName).build()
+fun BookListEntry.toGrpc(): BookId = BookId.newBuilder().setName(name).build()
