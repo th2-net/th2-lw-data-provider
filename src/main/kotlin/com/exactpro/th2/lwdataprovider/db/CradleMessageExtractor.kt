@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.db
 
 import com.exactpro.cradle.BookId
+import com.exactpro.cradle.BookInfo
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.messages.GroupedMessageFilter
 import com.exactpro.cradle.messages.MessageFilter
@@ -51,6 +52,8 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             .thenComparing<String> { it.sessionAlias }
             .thenComparingLong { it.sequence }
     }
+
+    fun getBooks(): Collection<BookInfo> = storage.books
 
     fun getStreams(bookId: BookId): Collection<String> = storage.getSessionAliases(bookId)
     
