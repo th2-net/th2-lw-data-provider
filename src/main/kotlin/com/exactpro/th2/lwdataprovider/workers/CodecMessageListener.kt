@@ -24,6 +24,7 @@ import com.exactpro.th2.common.grpc.MessageGroup
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.schema.message.MessageListener
+import com.exactpro.th2.lwdataprovider.grpc.toStoredMessageId
 import mu.KotlinLogging
 import java.util.Collections
 
@@ -32,8 +33,7 @@ class CodecMessageListener(
 ) : MessageListener<MessageGroupBatch>  {
     
     private fun buildMessageIdString(messageId: MessageID) : String {
-        return messageId.connectionId.sessionAlias + ":" + 
-                (if (messageId.direction == Direction.FIRST) "first" else "second") + ":" + messageId.sequence
+        return messageId.toStoredMessageId().toString() // FIXME: should be done faster and in common way
     }
 
     companion object {
