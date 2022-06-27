@@ -218,8 +218,8 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         }
 
         fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
-        fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp > end
-        fun StoredMessage.inRange(): Boolean = timestamp in start..end
+        fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = filter.run { !from.check(firstTimestamp) || !to.check(lastTimestamp) }
+        fun StoredMessage.inRange(): Boolean = filter.run { from.check(timestamp) && to.check(timestamp) }
         fun StoredGroupedMessageBatch.filterIfRequired(): Collection<StoredMessage> = if (isNeedFiltration()) {
             messages.filter(StoredMessage::inRange)
         } else {
