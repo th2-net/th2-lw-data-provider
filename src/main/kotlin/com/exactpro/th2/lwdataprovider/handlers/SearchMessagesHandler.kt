@@ -96,7 +96,7 @@ class SearchMessagesHandler(
                             return@execute;
 
                         val filter = MessageFilterBuilder().apply {
-                            bookId(bookId)
+                            bookId(request.bookId)
                             sessionAlias(stream)
                             direction(direction)
                             request.startTimestamp?.let { timestampFrom().isGreaterThanOrEqualTo(it) }
