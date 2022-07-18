@@ -132,6 +132,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     idBuilder.mergeFrom(storedMessage.id.toGrpcMessageId())
                     timestampBuilder.mergeFrom(storedMessage.timestamp.toTimestamp())
                 }.build()
+                body = ByteString.copyFrom(storedMessage.content)
             }.build()
         }.also {
             builder.addGroupsBuilder() += it
@@ -151,6 +152,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         idBuilder.mergeFrom(storedMessage.id.toGrpcMessageId())
                         timestampBuilder.mergeFrom(storedMessage.timestamp.toTimestamp())
                     }.build()
+                    body = ByteString.copyFrom(storedMessage.content)
                 }.build()
             }
             responseMessage()
