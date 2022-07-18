@@ -204,7 +204,7 @@ internal class TestCradleMessageExtractor {
                 .index(index)
                 .timestamp(instant)
                 .content(
-                    byteArrayOf(0x00)
+                    "abc".toByteArray()
                 )
                 //.metadata("protocol", "abc")
                 .build()

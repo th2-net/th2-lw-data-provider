@@ -37,6 +37,7 @@ import java.time.Instant
 import java.util.LinkedList
 import kotlin.concurrent.withLock
 import kotlin.system.measureTimeMillis
+import kotlin.text.Charsets.UTF_8
 
 class CradleMessageExtractor(configuration: Configuration, private val cradleManager: CradleManager,
                              private val decoder: RabbitMqDecoder) {
@@ -135,6 +136,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 body = ByteString.copyFrom(storedMessage.content)
             }.build()
         }.also {
+            println(it)
             builder.addGroupsBuilder() += it
         }
         return tmp
@@ -176,7 +178,14 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 msgId = storedMessageBatch.id
                 val id = storedMessageBatch.id.toString()
                 val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch)
-                tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
+                tmp.rawMessage = RawMessage.newBuilder().apply {
+                    metadataBuilder.apply {
+                        putAllProperties(storedMessageBatch.metadata?.toMap() ?: emptyMap())
+                        idBuilder.mergeFrom(storedMessageBatch.id.toGrpcMessageId())
+                        timestampBuilder.mergeFrom(storedMessageBatch.timestamp.toTimestamp())
+                    }.build()
+                    body = ByteString.copyFrom(storedMessageBatch.content)
+                }.build()
                 tmp.responseMessage()
                 msgCount++
             }
@@ -204,7 +213,14 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             val time = System.currentTimeMillis()
             val decodingStep = if (onlyRaw) null else requestContext.startStep("decoding")
             val tmp = requestContext.createMessageDetails(message.id.toString(), time, message) { decodingStep?.finish() }
-            tmp.rawMessage = RawMessage.parseFrom(message.content)
+            tmp.rawMessage = RawMessage.newBuilder().apply {
+                metadataBuilder.apply {
+                    putAllProperties(message.metadata?.toMap() ?: emptyMap())
+                    idBuilder.mergeFrom(message.id.toGrpcMessageId())
+                    timestampBuilder.mergeFrom(message.timestamp.toTimestamp())
+                }.build()
+                body = ByteString.copyFrom(message.content)
+            }.build()
             requestContext.loadedMessages += 1
 
             if (onlyRaw) {
