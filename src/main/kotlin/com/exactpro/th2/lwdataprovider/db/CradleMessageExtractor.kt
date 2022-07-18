@@ -25,10 +25,13 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.common.grpc.MessageGroupBatch
 import com.exactpro.th2.common.grpc.RawMessage
 import com.exactpro.th2.common.message.plusAssign
+import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
 import com.exactpro.th2.lwdataprovider.RabbitMqDecoder
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
+import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
+import com.google.protobuf.ByteString
 import mu.KotlinLogging
 import java.time.Instant
 import java.util.LinkedList
@@ -122,7 +125,15 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
         val id = storedMessage.id.toString()
         val decodingStep = startStep("decoding")
         val tmp = createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
-        tmp.rawMessage = startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }.also {
+        tmp.rawMessage = startStep("raw_message_parsing").use {
+            RawMessage.newBuilder().apply {
+                metadataBuilder.apply {
+                    putAllProperties(storedMessage.metadata?.toMap() ?: emptyMap())
+                    idBuilder.mergeFrom(storedMessage.id.toGrpcMessageId())
+                    timestampBuilder.mergeFrom(storedMessage.timestamp.toTimestamp())
+                }.build()
+            }.build()
+        }.also {
             builder.addGroupsBuilder() += it
         }
         return tmp
@@ -133,7 +144,15 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
     ): RequestedMessageDetails {
         val id = storedMessage.id.toString()
         return createMessageDetails(id, 0, storedMessage).apply {
-            rawMessage = startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }
+            rawMessage = startStep("raw_message_parsing").use {
+                RawMessage.newBuilder().apply {
+                    metadataBuilder.apply {
+                        putAllProperties(storedMessage.metadata?.toMap() ?: emptyMap())
+                        idBuilder.mergeFrom(storedMessage.id.toGrpcMessageId())
+                        timestampBuilder.mergeFrom(storedMessage.timestamp.toTimestamp())
+                    }.build()
+                }.build()
+            }
             responseMessage()
             notifyMessage()
         }
