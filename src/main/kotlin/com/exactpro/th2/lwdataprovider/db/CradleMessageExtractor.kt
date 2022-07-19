@@ -36,6 +36,7 @@ import mu.KotlinLogging
 import java.time.Instant
 import java.util.LinkedList
 import kotlin.concurrent.withLock
+import kotlin.math.log
 import kotlin.system.measureTimeMillis
 import kotlin.text.Charsets.UTF_8
 
@@ -136,7 +137,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 body = ByteString.copyFrom(storedMessage.content)
             }.build()
         }.also {
-            println(it)
+            logger.debug { it }
             builder.addGroupsBuilder() += it
         }
         return tmp
@@ -156,6 +157,8 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     }.build()
                     body = ByteString.copyFrom(storedMessage.content)
                 }.build()
+            }.also {
+                logger.debug { it }
             }
             responseMessage()
             notifyMessage()
@@ -185,7 +188,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         timestampBuilder.mergeFrom(storedMessageBatch.timestamp.toTimestamp())
                     }.build()
                     body = ByteString.copyFrom(storedMessageBatch.content)
-                }.build()
+                }.build().also {
+                    logger.debug { it }
+                }
                 tmp.responseMessage()
                 msgCount++
             }
@@ -220,7 +225,9 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     timestampBuilder.mergeFrom(message.timestamp.toTimestamp())
                 }.build()
                 body = ByteString.copyFrom(message.content)
-            }.build()
+            }.build().also {
+                logger.debug { it }
+            }
             requestContext.loadedMessages += 1
 
             if (onlyRaw) {
