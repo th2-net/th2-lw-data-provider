@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2009-2020 Exactpro (Exactpro Systems Limited)
+ * Copyright 2009-2022 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ plugins {
 
 ext {
     dockerImageVersion = release_version
-    cradleApiVersion = '3.1.2'
+    cradleApiVersion = '3.2.1'
 }
 
 group 'com.exactpro.th2'
@@ -51,12 +51,12 @@ repositories {
 }
 
 dependencies {
-    api platform('com.exactpro.th2:bom:3.0.0')
+    api platform('com.exactpro.th2:bom:3.2.0')
 
     implementation 'org.slf4j:slf4j-api'
     implementation 'org.slf4j:slf4j-log4j12'
 
-    implementation 'com.exactpro.th2:common:3.34.0'
+    implementation 'com.exactpro.th2:common:3.39.0'
 
     implementation 'org.eclipse.jetty:jetty-server:9.4.44.v20210927'
     implementation 'org.eclipse.jetty:jetty-servlet:9.4.44.v20210927'
@@ -68,7 +68,7 @@ dependencies {
     }
     implementation 'com.exactpro.th2:grpc-data-provider:1.1.0'
 
-    implementation 'io.github.microutils:kotlin-logging:2.1.14'
+    implementation 'io.github.microutils:kotlin-logging:2.1.23'
 
     implementation('io.prometheus:simpleclient') {
         because('need add custom metrics to provider')
@@ -83,7 +83,7 @@ dependencies {
     }
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
-    testImplementation 'org.assertj:assertj-core:3.12.2'
+    testImplementation 'org.assertj:assertj-core:3.23.1'
 }
 
 test {

@@ -36,6 +36,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     private val storage = cradleManager.storage
     private val batchSize = configuration.batchSize
+    private val codecUsePinAttributes = configuration.codecUsePinAttributes
     
     companion object {
         private val logger = KotlinLogging.logger { }
@@ -79,7 +80,11 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         decoder.registerMessage(it)
                         requestContext.registerMessage(it)
                     }
-                    decoder.sendBatchMessage(builder.build(), sessionName)
+                    if (codecUsePinAttributes) {
+                        decoder.sendBatchMessage(builder.build(), sessionName)
+                    } else {
+                        decoder.sendAllBatchMessage(builder.build())
+                    }
 
                     messageBuffer.clear()
                     builder.clear()
@@ -101,7 +106,11 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
             }
             
             if (msgBufferCount > 0) {
-                decoder.sendBatchMessage(builder.build(), sessionName)
+                if (codecUsePinAttributes) {
+                    decoder.sendBatchMessage(builder.build(), sessionName)
+                } else {
+                    decoder.sendAllBatchMessage(builder.build())
+                }
 
                 val sendingTime = System.currentTimeMillis()
                 messageBuffer.forEach { 
@@ -178,7 +187,12 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     .build()
                 decoder.registerMessage(tmp)
                 requestContext.registerMessage(tmp)
-                decoder.sendBatchMessage(msgBatch, message.streamName)
+                if (codecUsePinAttributes) {
+                    decoder.sendBatchMessage(msgBatch, message.streamName)
+                } else {
+                    decoder.sendAllBatchMessage(msgBatch)
+                }
+
             }
             
         }
