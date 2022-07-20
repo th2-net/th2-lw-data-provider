@@ -73,7 +73,7 @@ class SearchMessagesHandler(
                         }.build()
 
                         if (!request.onlyRaw)
-                            cradleMsgExtractor.getMessages(filter, requestContext)
+                            cradleMsgExtractor.getMessages(filter, requestContext, request.responseFormats ?: emptyList())
                         else
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
                         limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
@@ -95,7 +95,7 @@ class SearchMessagesHandler(
                         }.build()
 
                         if (!request.onlyRaw)
-                            cradleMsgExtractor.getMessages(filter, requestContext)
+                            cradleMsgExtractor.getMessages(filter, requestContext, request.responseFormats ?: emptyList())
                         else
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
 

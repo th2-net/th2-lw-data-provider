@@ -44,7 +44,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
     fun getStreams(): Collection<String> = storage.streams
     
-    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext) {
+    fun getMessages(filter: StoredMessageFilter, requestContext: MessageRequestContext, responseFormats: List<String>) {
 
         var msgCount = 0
         val time = measureTimeMillis { 
@@ -66,7 +66,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 msgId = storedMessage.id
                 val id = storedMessage.id.toString()
                 val decodingStep = requestContext.startStep("decoding")
-                val tmp = requestContext.createMessageDetails(id, 0, storedMessage) { decodingStep.finish() }
+                val tmp = requestContext.createMessageDetails(id, 0, storedMessage, responseFormats) { decodingStep.finish() }
                 messageBuffer.add(tmp)
                 ++msgBufferCount
                 tmp.rawMessage = requestContext.startStep("raw_message_parsing").use { RawMessage.parseFrom(storedMessage.content) }.also {
@@ -145,7 +145,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                 }
                 msgId = storedMessageBatch.id
                 val id = storedMessageBatch.id.toString()
-                val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch)
+                val tmp = requestContext.createMessageDetails(id, time, storedMessageBatch, emptyList())
                 tmp.rawMessage = RawMessage.parseFrom(storedMessageBatch.content)
                 tmp.responseMessage()
                 msgCount++
@@ -175,7 +175,7 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
 
             val time = System.currentTimeMillis()
             val decodingStep = if (onlyRaw) null else requestContext.startStep("decoding")
-            val tmp = requestContext.createMessageDetails(message.id.toString(), time, message) { decodingStep?.finish() }
+            val tmp = requestContext.createMessageDetails(message.id.toString(), time, message, emptyList()) { decodingStep?.finish() }
             tmp.rawMessage = RawMessage.parseFrom(message.content)
             requestContext.loadedMessages += 1
             
