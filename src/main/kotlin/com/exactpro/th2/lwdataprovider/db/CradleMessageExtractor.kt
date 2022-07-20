@@ -133,11 +133,11 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     putAllProperties(storedMessage.metadata?.toMap() ?: emptyMap())
                     idBuilder.mergeFrom(storedMessage.id.toGrpcMessageId())
                     timestampBuilder.mergeFrom(storedMessage.timestamp.toTimestamp())
+                    protocol = storedMessage.protocol
                 }.build()
                 body = ByteString.copyFrom(storedMessage.content)
             }.build()
         }.also {
-            logger.debug { it }
             builder.addGroupsBuilder() += it
         }
         return tmp
@@ -154,11 +154,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         putAllProperties(storedMessage.metadata?.toMap() ?: emptyMap())
                         idBuilder.mergeFrom(storedMessage.id.toGrpcMessageId())
                         timestampBuilder.mergeFrom(storedMessage.timestamp.toTimestamp())
+                        protocol = storedMessage.protocol
                     }.build()
                     body = ByteString.copyFrom(storedMessage.content)
                 }.build()
-            }.also {
-                logger.debug { it }
             }
             responseMessage()
             notifyMessage()
@@ -186,11 +185,10 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                         putAllProperties(storedMessageBatch.metadata?.toMap() ?: emptyMap())
                         idBuilder.mergeFrom(storedMessageBatch.id.toGrpcMessageId())
                         timestampBuilder.mergeFrom(storedMessageBatch.timestamp.toTimestamp())
+                        protocol = storedMessageBatch.protocol
                     }.build()
                     body = ByteString.copyFrom(storedMessageBatch.content)
-                }.build().also {
-                    logger.debug { it }
-                }
+                }.build()
                 tmp.responseMessage()
                 msgCount++
             }
@@ -223,11 +221,11 @@ class CradleMessageExtractor(configuration: Configuration, private val cradleMan
                     putAllProperties(message.metadata?.toMap() ?: emptyMap())
                     idBuilder.mergeFrom(message.id.toGrpcMessageId())
                     timestampBuilder.mergeFrom(message.timestamp.toTimestamp())
+                    protocol = message.protocol
                 }.build()
+                body
                 body = ByteString.copyFrom(message.content)
-            }.build().also {
-                logger.debug { it }
-            }
+            }.build()
             requestContext.loadedMessages += 1
 
             if (onlyRaw) {
