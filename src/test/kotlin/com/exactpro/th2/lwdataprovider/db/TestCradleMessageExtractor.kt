@@ -206,7 +206,7 @@ internal class TestCradleMessageExtractor {
                 .content(
                     "abc".toByteArray()
                 )
-                //.metadata("protocol", "abc")
+                .metadata("com.exactpro.th2.cradle.grpc.protocol", "abc")
                 .build()
         }
     }
