@@ -72,10 +72,12 @@ class SearchMessagesHandler(
 
                         }.build()
 
-                        if (!request.onlyRaw)
-                            cradleMsgExtractor.getMessages(filter, requestContext, request.responseFormats ?: emptyList())
-                        else
+                        val responseFormats = request.responseFormats ?: emptyList()
+                        if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
+                        } else {
+                            cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
+                        }
                         limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
                     }
                 } else {
@@ -94,10 +96,12 @@ class SearchMessagesHandler(
                             request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
                         }.build()
 
-                        if (!request.onlyRaw)
-                            cradleMsgExtractor.getMessages(filter, requestContext, request.responseFormats ?: emptyList())
-                        else
+                        val responseFormats = request.responseFormats ?: emptyList()
+                        if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
+                        } else {
+                            cradleMsgExtractor.getMessages(filter, requestContext, responseFormats)
+                        }
 
                         limitReached = request.resultCountLimit != null && request.resultCountLimit <= requestContext.loadedMessages
                     }
