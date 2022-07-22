@@ -32,6 +32,7 @@ class CustomConfigurationClass {
     val grpcBackPressure : Boolean? = null
     val bufferPerQuery: Int? = null
     val codecUsePinAttributes: Boolean = true
+    val responseFormats: List<String> = emptyList()
 }
 
 class Configuration(customConfiguration: CustomConfigurationClass) {
@@ -49,6 +50,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val grpcBackPressure: Boolean = VariableBuilder.getVariable("grpcBackPressure", customConfiguration.grpcBackPressure, false)
     val bufferPerQuery: Int = VariableBuilder.getVariable("bufferPerQuery", customConfiguration.bufferPerQuery, 0)
     val codecUsePinAttributes: Boolean = VariableBuilder.getVariable("codecUsePinAttributes", customConfiguration.codecUsePinAttributes, true)
+    val responseFormats: List<String> = VariableBuilder.getVariable("responseFormats", customConfiguration.responseFormats, emptyList())
 }
 
 enum class Mode {

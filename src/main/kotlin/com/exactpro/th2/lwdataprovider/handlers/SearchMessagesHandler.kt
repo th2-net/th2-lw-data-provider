@@ -20,6 +20,7 @@ import com.exactpro.cradle.TimeRelation.AFTER
 import com.exactpro.cradle.messages.StoredMessageFilterBuilder
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.MessageRequestContext
+import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
@@ -40,7 +41,7 @@ class SearchMessagesHandler(
         return cradleMsgExtractor.getStreams();
     }
     
-    fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageRequestContext) {
+    fun loadMessages(request: SseMessageSearchRequest, requestContext: MessageRequestContext, configuration: Configuration) {
         
         if (request.stream == null && request.resumeFromIdsList.isNullOrEmpty()) {
             return;
@@ -72,7 +73,7 @@ class SearchMessagesHandler(
 
                         }.build()
 
-                        val responseFormats = request.responseFormats ?: emptyList()
+                        val responseFormats = request.responseFormats ?: configuration.responseFormats
                         if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
                         } else {
@@ -96,7 +97,7 @@ class SearchMessagesHandler(
                             request.resultCountLimit?.let { limit(max(it - requestContext.loadedMessages, 0)) }
                         }.build()
 
-                        val responseFormats = request.responseFormats ?: emptyList()
+                        val responseFormats = request.responseFormats ?: configuration.responseFormats
                         if (request.onlyRaw || (responseFormats.contains("BASE_64") && responseFormats.size == 1)) {
                             cradleMsgExtractor.getRawMessages(filter, requestContext)
                         } else {
