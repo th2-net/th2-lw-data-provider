@@ -98,7 +98,6 @@ jobs:
     with:
       custom-version: ${{ needs.grpc-version.outputs.version }}rc1
       project-path: grpc
-      java-version: '21'
     secrets:
       pypi_password: ${{ secrets.PYPI_PASSWORD }}
 
@@ -132,7 +131,6 @@ jobs:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       multiproject: true
-      javaVersion: '21'
     secrets:
       nvd-api-key: ${{ secrets.NVD_APIKEY }}
       cisa-domain: ${{ secrets.CISA_DOMAIN }}
@@ -144,7 +142,6 @@ jobs:
     needs: [app-version]
     with:
       version: ${{ needs.app-version.outputs.version }}-dev
-      java-version: '21'
 
   publish-docker:
     name: Build and publish docker image
@@ -157,7 +154,6 @@ jobs:
       - app-version
     uses: th2-net/.github/.github/workflows/compaund-java-docker-push.yml@main
     with:
-      javaVersion: '21'
       docker-username: ${{ github.actor }}
       version: ${{ needs.app-version.outputs.version }}-dev
       versionNumber: ${{ needs.app-version.outputs.version }}
