@@ -224,6 +224,13 @@ spec:
 
 # Release notes:
 
+## Unreleased
+
+### Update:
+
++ Update Javalin to `6.4.0`
++ Use Java 21 as build-time and runtime JVM
+
 ## 2.13.3
 
 ### Fix:
