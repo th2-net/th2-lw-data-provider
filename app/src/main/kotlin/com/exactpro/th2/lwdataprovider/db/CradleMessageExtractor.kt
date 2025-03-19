@@ -128,7 +128,7 @@ class CradleMessageExtractor(
             return
         }
 
-        fun StoredGroupedMessageBatch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp >= end
+        fun Batch.isNeedFiltration(): Boolean = firstTimestamp < start || lastTimestamp >= end
         fun StoredMessage.inRange(): Boolean = timestamp >= start && timestamp < end
         fun Sequence<StoredMessage>.preFilter(): Sequence<StoredMessage> =
             parameters.preFilter?.let { filter(it) } ?: this
@@ -138,7 +138,7 @@ class CradleMessageExtractor(
             return dest
         }
 
-        fun StoredGroupedMessageBatch.filterIfRequired(): Collection<StoredMessage> = messages.asSequence().run {
+        fun Batch.filterIfRequired(): Collection<StoredMessage> = messages.asSequence().run {
             if (this@filterIfRequired.isNeedFiltration()) {
                 filter(StoredMessage::inRange and parameters.preFilter)
             } else {
@@ -146,8 +146,8 @@ class CradleMessageExtractor(
             }
         }.toList()
 
-        var prev: StoredGroupedMessageBatch? = null
-        var currentBatch: StoredGroupedMessageBatch = iterator.next()
+        var prev: Batch? = null
+        var currentBatch: Batch = Batch.Stored(iterator.next())
         val buffer: MutableList<StoredMessage> = ArrayList()
         while (iterator.hasNext()) {
             val measurement = dataMeasurement.start("process_cradle_group_batch")
@@ -158,21 +158,38 @@ class CradleMessageExtractor(
                     return
                 }
                 prev = currentBatch
-                currentBatch = iterator.next()
-                check(orderStrategy.checkBatchOrdered(prev, currentBatch)) {
-                    "Unordered batches received for $orderStrategy: ${prev.toShortInfo()} and ${currentBatch.toShortInfo()}"
+                currentBatch = Batch.Stored(iterator.next())
+                check(orderStrategy.batchesAreOrdered(prev, currentBatch)) {
+                    "Unordered batches received for $orderStrategy: ${prev.toShortInfo(group)} and ${currentBatch.toShortInfo(group)}"
                 }
+
+                val currentMessages = currentBatch.messages
+                val prevMessages = prev.messages
+                when (orderStrategy) {
+                    OrderStrategy.DIRECT -> if (prevMessages.containsAll(currentMessages)) {
+                        logger.warn { "Duplicates detected for $orderStrategy: ${prev.toShortInfo(group)} and ${currentBatch.toShortInfo(group)}. Drop duplicated batch" }
+                        currentBatch = prev
+                        continue
+                    }
+                    OrderStrategy.REVERSE -> if (currentMessages.containsAll(prevMessages)) {
+                        logger.warn { "Duplicates detected for $orderStrategy: ${prev.toShortInfo(group)} and ${currentBatch.toShortInfo(group)}. Filter messages in duplicated batch" }
+                        currentBatch = Batch.Filtered(currentBatch, prevMessages.first())
+                    }
+                }
+
                 val needFiltration = prev.isNeedFiltration()
 
-                if (orderStrategy.checkBatchOverlap(prev, currentBatch)) {
+                val messages = prevMessages
+
+                if (orderStrategy.batchesNotOverlap(prev, currentBatch)) {
                     if (needFiltration) {
-                        orderStrategy.reorder(prev.messages).filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
+                        orderStrategy.reorder(messages).filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
                     } else {
-                        orderStrategy.reorder(prev.messages).preFilterTo(buffer)
+                        orderStrategy.reorder(messages).preFilterTo(buffer)
                     }
                     tryDrain(group, buffer, sink)
                 } else {
-                    orderStrategy.reorder(prev.messages).forEachIndexed { _, msg ->
+                    orderStrategy.reorder(messages).forEachIndexed { _, msg ->
                         if ((needFiltration && !msg.inRange()) || parameters.preFilter?.invoke(msg) == false) {
                             return@forEachIndexed
                         }
@@ -203,6 +220,55 @@ class CradleMessageExtractor(
                 },
                 sink
             )
+        }
+    }
+
+    internal interface Batch {
+        val firstSequence: Long
+        val lastSequence: Long
+        val firstTimestamp: Instant
+        val lastTimestamp: Instant
+        val messages: Collection<StoredMessage>
+
+        class Stored(
+            private val original: StoredGroupedMessageBatch,
+        ) : Batch {
+            override val firstSequence: Long
+                get() = original.firstMessage.sequence
+            override val lastSequence: Long
+                get() = original.lastMessage.sequence
+            override val firstTimestamp: Instant
+                get() = original.firstTimestamp
+            override val lastTimestamp: Instant
+                get() = original.lastTimestamp
+            override val messages: Collection<StoredMessage>
+                get() = original.messages
+        }
+
+        class Filtered(
+            original: Batch,
+            marker: StoredMessage,
+        ) : Batch {
+            private val _messages: List<StoredMessage> =
+                original.messages.takeWhile { it.id != marker.id }
+            override val messages: Collection<StoredMessage>
+                get() = _messages
+            override val firstSequence: Long
+            override val lastSequence: Long
+
+            override val firstTimestamp: Instant
+            override val lastTimestamp: Instant
+
+            init {
+                _messages.first().also {
+                    firstTimestamp = it.timestamp
+                    firstSequence = it.sequence
+                }
+                _messages.last().also {
+                    lastTimestamp = it.timestamp
+                    lastSequence = it.sequence
+                }
+            }
         }
     }
 
@@ -372,10 +438,13 @@ internal class GroupBatchCheckIterator(
 private data class StreamMetadata(val timestamp: Instant, val sequence: Long)
 private val MIN_STREAM_METADATA = StreamMetadata(Instant.MIN, Long.MIN_VALUE)
 
+private fun CradleMessageExtractor.Batch.toShortInfo(group: String): String =
+    "${group}:${firstSequence}..${lastSequence} ($firstTimestamp..$lastTimestamp)"
+
 fun StoredGroupedMessageBatch.toShortInfo(): String =
     "${group}:${firstMessage.sequence}..${lastMessage.sequence} ($firstTimestamp..$lastTimestamp)"
 
-fun StoredMessage.toShortInfo(): String =
+private fun StoredMessage.toShortInfo(): String =
     "${sessionAlias}:${sequence} ($timestamp)"
 
 data class CradleGroupRequest(
@@ -387,13 +456,10 @@ private enum class OrderStrategy {
         /**
          * Batch order 0: [1, 2], 1: [2, 3], 2: [4, 5]
          */
-        override fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+        override fun batchesAreOrdered(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean =
             first.lastTimestamp <= second.firstTimestamp || first.messages.containsAll(second.messages)
 
-        override fun checkMessageInOrderWithBatch(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
-            message?.timestampLess(batch) == true
-
-        override fun checkBatchOverlap(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+        override fun batchesNotOverlap(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean =
             first.lastTimestamp < second.firstTimestamp
 
         override fun <T> reorder(collection: Collection<T>): Collection<T> = collection
@@ -402,13 +468,10 @@ private enum class OrderStrategy {
         /**
          * Batch order 0: [4, 5], 1: [2, 3], 2: [1, 2]
          */
-        override fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+        override fun batchesAreOrdered(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean =
             first.firstTimestamp >= second.lastTimestamp || second.messages.containsAll(first.messages)
 
-        override fun checkMessageInOrderWithBatch(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
-            message?.timestampGreater(batch) == true
-
-        override fun checkBatchOverlap(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
+        override fun batchesNotOverlap(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean =
             first.firstTimestamp > second.lastTimestamp
 
         override fun <T> reorder(collection: Collection<T>): Collection<T> = collection.reversed()
@@ -417,19 +480,15 @@ private enum class OrderStrategy {
     /**
      * Check order of grouped batch. Batches should go one by one without overlapping
      */
-    abstract fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
-    abstract fun checkMessageInOrderWithBatch(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean
-    abstract fun checkBatchOverlap(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean
+    abstract fun batchesAreOrdered(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean
+    abstract fun batchesNotOverlap(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean
 
     abstract fun <T>reorder(collection: Collection<T>): Collection<T>
 
     companion object {
-        internal fun Order.toOrderStrategy(): OrderStrategy = when(this) {
+        fun Order.toOrderStrategy(): OrderStrategy = when(this) {
             Order.DIRECT -> DIRECT
             Order.REVERSE -> REVERSE
         }
-
-        private fun StoredMessage.timestampLess(batch: StoredGroupedMessageBatch): Boolean = timestamp < batch.firstTimestamp
-        private fun StoredMessage.timestampGreater(batch: StoredGroupedMessageBatch): Boolean = timestamp > batch.lastTimestamp
     }
 }
