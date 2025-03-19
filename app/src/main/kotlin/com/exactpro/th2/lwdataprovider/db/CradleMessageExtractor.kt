@@ -388,7 +388,7 @@ private enum class OrderStrategy {
          * Batch order 0: [1, 2], 1: [2, 3], 2: [4, 5]
          */
         override fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
-            first.lastTimestamp <= second.firstTimestamp
+            first.lastTimestamp <= second.firstTimestamp || first.messages.containsAll(second.messages)
 
         override fun checkMessageInOrderWithBatch(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
             message?.timestampLess(batch) == true
@@ -403,7 +403,7 @@ private enum class OrderStrategy {
          * Batch order 0: [4, 5], 1: [2, 3], 2: [1, 2]
          */
         override fun checkBatchOrdered(first: StoredGroupedMessageBatch, second: StoredGroupedMessageBatch): Boolean =
-            first.firstTimestamp >= second.lastTimestamp
+            first.firstTimestamp >= second.lastTimestamp || second.messages.containsAll(first.messages)
 
         override fun checkMessageInOrderWithBatch(message: StoredMessage?, batch: StoredGroupedMessageBatch): Boolean =
             message?.timestampGreater(batch) == true
