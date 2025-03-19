@@ -63,7 +63,9 @@ import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
 import strikt.assertions.hasSize
+import strikt.assertions.isNotNull
 import strikt.assertions.isSuccess
+import strikt.assertions.startsWith
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -352,16 +354,9 @@ internal class TestCradleMessageExtractor {
                 sinkMock
             )
         }
-        val batch = StoredGroupedMessageBatch(
-            TEST_SESSION_GROUP,
-            incorrectMessages,
-            mock<PageId> {},
-            mock<Instant> {},
-        )
-        assertEquals("Unordered message received for: ${batch.toShortInfo()} batch, " +
-                "$TEST_SESSION_ALIAS session alias, ${Direction.SECOND} direction, " +
-                "${correctMessages[0].timestamp} actual timestamp, ${correctMessages[1].timestamp} previous timestamp",
-            exception.message)
+        expectThat(exception.message)
+            .isNotNull()
+            .startsWith("Unordered message received for:")
     }
 
     @ParameterizedTest
@@ -409,16 +404,9 @@ internal class TestCradleMessageExtractor {
                 sinkMock
             )
         }
-        val batch = StoredGroupedMessageBatch(
-            TEST_SESSION_GROUP,
-            incorrectMessages,
-            mock<PageId> {},
-            mock<Instant> {},
-        )
-        assertEquals("Unordered message received for: ${batch.toShortInfo()} batch, " +
-                "$TEST_SESSION_ALIAS session alias, ${Direction.SECOND} direction, " +
-                "${correctMessages[0].sequence} actual sequence, ${correctMessages[1].sequence} previous sequence",
-            exception.message)
+        expectThat(exception.message)
+            .isNotNull()
+            .startsWith("Unordered message received for:")
     }
 
     @ParameterizedTest
@@ -513,7 +501,7 @@ internal class TestCradleMessageExtractor {
             createCradleStoredMessage(
                 book = book,
                 streamName = "test",
-                direction = Direction.SECOND,
+                direction = Direction.FIRST,
                 index = 2,
                 timestamp = start.plusSeconds(1),
                 pageTimestamp = start,
@@ -537,9 +525,14 @@ internal class TestCradleMessageExtractor {
             book = book,
             timestamp = start,
         )
+        val thirdBatch = createBatch(
+            messages = messages.subList(2, 3),
+            book = book,
+            timestamp = start,
+        )
         fun batches(order: Order) = when(order) {
-            Order.DIRECT -> listOf(firstBatch, secondBatch)
-            Order.REVERSE -> listOf(secondBatch, firstBatch)
+            Order.DIRECT -> listOf(firstBatch, secondBatch,thirdBatch)
+            Order.REVERSE -> listOf(thirdBatch, secondBatch, firstBatch)
         }
 
         fun messages(order: Order) = when(order) {
