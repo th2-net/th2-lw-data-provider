@@ -35,8 +35,9 @@ fun createCradleStoredMessage(
     direction: Direction,
     index: Long,
     content: String = "hello",
-    timestamp: Instant? = Instant.now(),
+    timestamp: Instant = Instant.now(),
     book: String = "test",
+    pageTimestamp: Instant = timestamp,
 ): StoredMessage = MessageToStoreBuilder()
     .bookId(BookId(book))
     .direction(direction)
@@ -47,7 +48,7 @@ fun createCradleStoredMessage(
     .metadata("com.exactpro.th2.cradle.grpc.protocol", "abc")
     .build()
     .let { msg ->
-        StoredMessage(msg, msg.id, null)
+        StoredMessage(msg, msg.id, PageId(BookId(book), pageTimestamp, "test-page"))
     }
 
 fun createPageInfo(
@@ -148,16 +149,27 @@ fun createBatches(
     return sequence {
         while (true) {
             yield(
-                StoredGroupedMessageBatch(
+                createBatch(
                     group,
-                    messageGenerator.take(messagesPerBatch).toList(),
-                    PageId(BookId("test-book"), Instant.now(), "test-page"),
                     timestamp ?: Instant.now(),
+                    messageGenerator.take(messagesPerBatch).toList(),
                 )
             )
         }
     }
 }
+
+fun createBatch(
+    group: String = TEST_SESSION_GROUP,
+    timestamp: Instant = Instant.now(),
+    messages: List<StoredMessage> = emptyList(),
+    book: String = "test-book",
+): StoredGroupedMessageBatch = StoredGroupedMessageBatch(
+    group,
+    messages,
+    PageId(BookId(book), timestamp, "test-page"),
+    timestamp,
+)
 
 fun createMessages(
     alias: String = TEST_SESSION_ALIAS,
