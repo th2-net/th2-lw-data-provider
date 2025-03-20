@@ -160,9 +160,9 @@ class CradleMessageExtractor(
                 prev = currentBatch
                 currentBatch = Batch.Stored(iterator.next())
 
-                val originalPrevBatch = prev
+                val origPrevBatch = prev
                 check(orderStrategy.batchesAreOrdered(prev, currentBatch)) {
-                    "Unordered batches received for $orderStrategy: ${originalPrevBatch.toShortInfo(group)} and ${currentBatch.toShortInfo(group)}"
+                    "Unordered batches received for $orderStrategy: ${origPrevBatch.toShortInfo(group)} and ${currentBatch.toShortInfo(group)}"
                 }
 
                 val batchesNotOverlap = orderStrategy.batchesNotOverlap(prev, currentBatch)
@@ -174,10 +174,10 @@ class CradleMessageExtractor(
                         currentBatch = result.currentBatch
 
                         if (prev == null) {
-                            logger.warn { "Duplicates detected for $orderStrategy: ${originalPrevBatch.toShortInfo(group)} and ${origCurBatch.toShortInfo(group)}. Drop duplicated batch" }
+                            logger.warn { "Duplicates detected for $orderStrategy: ${origPrevBatch.toShortInfo(group)} and ${origCurBatch.toShortInfo(group)}. Drop duplicated batch" }
                             continue
                         } else if (currentBatch is Batch.Filtered) {
-                            logger.warn { "Duplicates detected for $orderStrategy: ${originalPrevBatch.toShortInfo(group)} and ${origCurBatch.toShortInfo(group)}. Filter messages in duplicated batch" }
+                            logger.warn { "Duplicates detected for $orderStrategy: ${origPrevBatch.toShortInfo(group)} and ${origCurBatch.toShortInfo(group)}. Filter messages in duplicated batch" }
                         }
                     }
                 }
@@ -514,6 +514,13 @@ private enum class OrderStrategy {
 
     class DeduplicationResult(val prevBatch: CradleMessageExtractor.Batch?, val currentBatch: CradleMessageExtractor.Batch)
 
+    /**
+     * Checks if [lastBatch] and [currentBatch] contains duplicates and filters them out.
+     * The new [lastBatch] and [currentBatch] are returned in [DeduplicationResult].
+     * If [DeduplicationResult.prevBatch] is equal to `null` then the next batch should be requested.
+     * If [DeduplicationResult.currentBatch] is an instance of [CradleMessageExtractor.Batch.Filtered]
+     * the processing can continue but some messages will be filtered out
+     */
     abstract fun deduplicate(lastBatch: CradleMessageExtractor.Batch, currentBatch: CradleMessageExtractor.Batch): DeduplicationResult?
 
     abstract fun <T>reorder(collection: Collection<T>): Collection<T>
