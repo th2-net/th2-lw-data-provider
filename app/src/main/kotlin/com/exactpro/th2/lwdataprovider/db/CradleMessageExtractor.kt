@@ -159,29 +159,35 @@ class CradleMessageExtractor(
                 }
                 prev = currentBatch
                 currentBatch = Batch.Stored(iterator.next())
+
+                val originalPrevBatch = prev
                 check(orderStrategy.batchesAreOrdered(prev, currentBatch)) {
-                    "Unordered batches received for $orderStrategy: ${prev.toShortInfo(group)} and ${currentBatch.toShortInfo(group)}"
+                    "Unordered batches received for $orderStrategy: ${originalPrevBatch.toShortInfo(group)} and ${currentBatch.toShortInfo(group)}"
                 }
 
-                val currentMessages = currentBatch.messages
-                val prevMessages = prev.messages
-                when (orderStrategy) {
-                    OrderStrategy.DIRECT -> if (prevMessages.containsAll(currentMessages)) {
-                        logger.warn { "Duplicates detected for $orderStrategy: ${prev.toShortInfo(group)} and ${currentBatch.toShortInfo(group)}. Drop duplicated batch" }
-                        currentBatch = prev
-                        continue
-                    }
-                    OrderStrategy.REVERSE -> if (currentMessages.containsAll(prevMessages)) {
-                        logger.warn { "Duplicates detected for $orderStrategy: ${prev.toShortInfo(group)} and ${currentBatch.toShortInfo(group)}. Filter messages in duplicated batch" }
-                        currentBatch = Batch.Filtered(currentBatch, prevMessages.first())
+                val batchesNotOverlap = orderStrategy.batchesNotOverlap(prev, currentBatch)
+                if (!batchesNotOverlap) {
+                    val result = orderStrategy.deduplicate(prev, currentBatch)
+                    if (result != null) {
+                        prev = result.prevBatch
+                        val origCurBatch = currentBatch
+                        currentBatch = result.currentBatch
+
+                        if (prev == null) {
+                            logger.warn { "Duplicates detected for $orderStrategy: ${originalPrevBatch.toShortInfo(group)} and ${origCurBatch.toShortInfo(group)}. Drop duplicated batch" }
+                            continue
+                        } else if (currentBatch is Batch.Filtered) {
+                            logger.warn { "Duplicates detected for $orderStrategy: ${originalPrevBatch.toShortInfo(group)} and ${origCurBatch.toShortInfo(group)}. Filter messages in duplicated batch" }
+                        }
                     }
                 }
+
 
                 val needFiltration = prev.isNeedFiltration()
 
-                val messages = prevMessages
+                val messages = prev.messages
 
-                if (orderStrategy.batchesNotOverlap(prev, currentBatch)) {
+                if (batchesNotOverlap) {
                     if (needFiltration) {
                         orderStrategy.reorder(messages).filterTo(buffer, StoredMessage::inRange and parameters.preFilter)
                     } else {
@@ -462,6 +468,17 @@ private enum class OrderStrategy {
         override fun batchesNotOverlap(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean =
             first.lastTimestamp < second.firstTimestamp
 
+        override fun deduplicate(
+            lastBatch: CradleMessageExtractor.Batch,
+            currentBatch: CradleMessageExtractor.Batch
+        ): DeduplicationResult? {
+            return if (lastBatch.messages.containsAll(currentBatch.messages)) {
+                DeduplicationResult(prevBatch = null, currentBatch = lastBatch)
+            } else {
+                null
+            }
+        }
+
         override fun <T> reorder(collection: Collection<T>): Collection<T> = collection
     },
     REVERSE {
@@ -474,6 +491,18 @@ private enum class OrderStrategy {
         override fun batchesNotOverlap(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean =
             first.firstTimestamp > second.lastTimestamp
 
+        override fun deduplicate(
+            lastBatch: CradleMessageExtractor.Batch,
+            currentBatch: CradleMessageExtractor.Batch
+        ): DeduplicationResult? {
+            val lastMessages = lastBatch.messages
+            return if (currentBatch.messages.containsAll(lastMessages)) {
+                DeduplicationResult(prevBatch = lastBatch, currentBatch = CradleMessageExtractor.Batch.Filtered(currentBatch, lastMessages.first()))
+            } else {
+                null
+            }
+        }
+
         override fun <T> reorder(collection: Collection<T>): Collection<T> = collection.reversed()
     };
 
@@ -482,6 +511,10 @@ private enum class OrderStrategy {
      */
     abstract fun batchesAreOrdered(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean
     abstract fun batchesNotOverlap(first: CradleMessageExtractor.Batch, second: CradleMessageExtractor.Batch): Boolean
+
+    class DeduplicationResult(val prevBatch: CradleMessageExtractor.Batch?, val currentBatch: CradleMessageExtractor.Batch)
+
+    abstract fun deduplicate(lastBatch: CradleMessageExtractor.Batch, currentBatch: CradleMessageExtractor.Batch): DeduplicationResult?
 
     abstract fun <T>reorder(collection: Collection<T>): Collection<T>
 
