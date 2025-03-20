@@ -69,7 +69,6 @@ import strikt.assertions.startsWith
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.stream.Stream
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class TestCradleMessageExtractor {
@@ -486,7 +485,7 @@ internal class TestCradleMessageExtractor {
     }
 
     @TestFactory
-    fun `duplicated data`(): List<DynamicTest> {
+    fun `duplicated data inside batch`(): List<DynamicTest> {
         val start = Instant.now()
         val book = "test-book"
         val messages = listOf(
@@ -533,6 +532,91 @@ internal class TestCradleMessageExtractor {
         fun batches(order: Order) = when(order) {
             Order.DIRECT -> listOf(firstBatch, secondBatch,thirdBatch)
             Order.REVERSE -> listOf(thirdBatch, secondBatch, firstBatch)
+        }
+
+        fun messages(order: Order) = when(order) {
+            Order.DIRECT -> messages
+            Order.REVERSE -> messages.reversed()
+        }
+
+        return Order.entries.flatMap { order ->
+            listOf(
+                DynamicTest.dynamicTest("is not reported as unordered for $order order") {
+                    whenever(storage.getGroupedMessageBatches(any())).thenReturn(ImmutableListCradleResult(batches(order)))
+
+                    expectCatching {
+                        extractor.getMessagesGroup(
+                            GroupedMessageFilter.builder()
+                                .bookId(BookId("book")) // Unchecked
+                                .groupName("test") // Unchecked
+                                .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                                .timestampTo().isLessThan(endTimestamp)
+                                .order(order)
+                                .build(), CradleGroupRequest(),
+                            StoredMessageDataSink(),
+                        )
+                    }.isSuccess()
+                },
+                DynamicTest.dynamicTest("is returned without duplicates for $order order") {
+                    whenever(storage.getGroupedMessageBatches(any())).thenReturn(ImmutableListCradleResult(batches(order)))
+
+                    val sink = StoredMessageDataSink()
+                    extractor.getMessagesGroup(
+                        GroupedMessageFilter.builder()
+                            .bookId(BookId("book")) // Unchecked
+                            .groupName("test") // Unchecked
+                            .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                            .timestampTo().isLessThan(endTimestamp)
+                            .order(order)
+                            .build(), CradleGroupRequest(),
+                        sink,
+                    )
+                    expectThat(sink.messages) {
+                        hasSize(messages.size)
+                        containsExactly(messages(order))
+                    }
+                }
+            )
+        }
+
+
+    }
+
+    @TestFactory
+    fun `duplicated data on the edge of batch`(): List<DynamicTest> {
+        val start = Instant.now()
+        val book = "test-book"
+        val messages = listOf(
+            createCradleStoredMessage(
+                book = book,
+                streamName = "test",
+                direction = Direction.SECOND,
+                index = 1,
+                timestamp = start,
+                pageTimestamp = start,
+            ),
+            createCradleStoredMessage(
+                book = book,
+                streamName = "test",
+                direction = Direction.FIRST,
+                index = 2,
+                timestamp = start.plusSeconds(1),
+                pageTimestamp = start,
+            )
+        )
+        val firstBatch = createBatch(
+            messages = messages,
+            book = book,
+            timestamp = start,
+        )
+        val secondBatch = createBatch(
+            messages = messages.subList(1, 2),
+            book = book,
+            timestamp = start,
+        )
+        fun batches(order: Order) = when(order) {
+            Order.DIRECT -> listOf(firstBatch, secondBatch)
+            Order.REVERSE -> listOf(secondBatch, firstBatch)
         }
 
         fun messages(order: Order) = when(order) {
