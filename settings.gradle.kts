@@ -3,11 +3,6 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
         maven {
-            name = "Sonatype_snapshots"
-            url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-        }
-
-        maven {
             name = "Sonatype_releases"
             url = uri("https://s01.oss.sonatype.org/content/repositories/releases/")
         }
