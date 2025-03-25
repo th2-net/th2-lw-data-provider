@@ -42,10 +42,13 @@ subprojects {
         testImplementation("org.apache.logging.log4j:log4j-core") {
             because("logging in testing")
         }
-        implementation(rootProject.libs.junit.jupiter)
-        implementation(rootProject.libs.mockito.kotlin)
-        implementation(rootProject.libs.strikt.core)
-        implementation(rootProject.libs.strikt.jackson)
+        testImplementation(platform(rootProject.libs.junit.bom))
+        testImplementation("org.junit.jupiter:junit-jupiter")
+        testImplementation(rootProject.libs.mockito.kotlin)
+        testImplementation(rootProject.libs.strikt.core)
+        testImplementation(rootProject.libs.strikt.jackson)
+
+        testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     }
 
     tasks.test {
