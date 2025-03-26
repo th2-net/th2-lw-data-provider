@@ -11,7 +11,7 @@ th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = 
 cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", version = "5.5.0-dev" }
 lz4 = { group = "org.lz4", name = "lz4-java", version = "1.8.0" }
 
-kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "6.0.9" }
+kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.5" }
 kotlinx-serialization-json-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json-jvm", version = "1.6.3" }
 
 testcontainers-bom = { group = "org.testcontainers", name = "testcontainers-bom", version = "1.20.6" }
