@@ -12,7 +12,7 @@ cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", vers
 lz4 = { group = "org.lz4", name = "lz4-java", version = "1.8.0" }
 
 kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "6.0.9" }
-kotlinx-serialization-json-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json-jvm", version = "1.6.3" }
+kotlinx-serialization-json-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json-jvm", version = "1.8.0" }
 
 testcontainers-bom = { group = "org.testcontainers", name = "testcontainers-bom", version = "1.20.6" }
 junit-bom = { group = "org.junit", name = "junit-bom", version = "5.12.1" }
