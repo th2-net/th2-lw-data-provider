@@ -1,8 +1,15 @@
-# utils for lw-data-provider (0.0.4)
+# utils for lw-data-provider (0.0.5)
 
 # Release notes:
 
-### 0.0.4
+## 0.0.5
++ Added EventWaiter class 
+ 
+### Updates:
+* common-utils: `2.3.1`
+* kotlin: `2.1.21`
+
+## 0.0.4
 + th2 gradle plugin `0.2.4`
 + common: `5.15.0-dev`
 + th2 grpc common `4.5.0`

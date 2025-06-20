@@ -9,6 +9,7 @@ dependencies {
         exclude(group = "com.exactpro.th2", module = "cradle-core")
         exclude(group = "com.exactpro.th2", module = "cradle-cassandra")
     }
+    implementation(libs.th2.common.utils)
 
     implementation(libs.kotlin.logging)
 
