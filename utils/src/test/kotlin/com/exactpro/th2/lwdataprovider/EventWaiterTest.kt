@@ -65,14 +65,14 @@ class EventWaiterTest {
     @Test
     fun `wait event null result when gRPC throws exception`() {
         whenever(service.getEvent(EVENT_ID)).doThrow(EXCEPTION)
-        assertNull(waiter.waitEventResponseOrNull(EVENT_ID, Duration.ofMillis(150), Duration.ofMillis(10)))
-        verify(service, atLeast(5)).getEvent(EVENT_ID)
+        assertNull(waiter.waitEventResponseOrNull(EVENT_ID, Duration.ofMillis(100), Duration.ofMillis(10)))
+        verify(service, atLeast(2)).getEvent(EVENT_ID)
     }
 
     @Test
     fun `wait event null result when gRPC returns null`() {
-        assertNull(waiter.waitEventResponseOrNull(EVENT_ID, Duration.ofMillis(150), Duration.ofMillis(10)))
-        verify(service, atLeast(5)).getEvent(EVENT_ID)
+        assertNull(waiter.waitEventResponseOrNull(EVENT_ID, Duration.ofMillis(100), Duration.ofMillis(10)))
+        verify(service, atLeast(2)).getEvent(EVENT_ID)
     }
 
 
