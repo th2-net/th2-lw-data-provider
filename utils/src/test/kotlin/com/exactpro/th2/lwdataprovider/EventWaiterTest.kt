@@ -54,7 +54,7 @@ class EventWaiterTest {
         val firstInvoke = AtomicBoolean(true)
         whenever(service.getEvent(EVENT_ID)).thenAnswer {
             if (firstInvoke.compareAndSet(true, false)) {
-                error("test-error")
+                throw EXCEPTION
             }
             return@thenAnswer EVENT_RESPONSE
         }
@@ -64,7 +64,7 @@ class EventWaiterTest {
 
     @Test
     fun `wait event null result when gRPC throws exception`() {
-        whenever(service.getEvent(EVENT_ID)).doThrow(RuntimeException("test-error"))
+        whenever(service.getEvent(EVENT_ID)).doThrow(EXCEPTION)
         assertNull(waiter.waitEventResponseOrNull(EVENT_ID, Duration.ofMillis(150), Duration.ofMillis(10)))
         verify(service, atLeast(5)).getEvent(EVENT_ID)
     }
@@ -86,7 +86,7 @@ class EventWaiterTest {
 
     @Test
     fun `get event null result when gRPC throws exception`() {
-        whenever(service.getEvent(EVENT_ID)).doThrow(RuntimeException("test-error"))
+        whenever(service.getEvent(EVENT_ID)).doThrow(EXCEPTION)
         assertNull(waiter.getEventResponseOrNull(EVENT_ID))
         verify(service).getEvent(EVENT_ID)
     }
@@ -98,6 +98,7 @@ class EventWaiterTest {
     }
 
     companion object {
+        private val EXCEPTION = RuntimeException("test-error")
         private val EVENT_ID = EventID.newBuilder()
             .setBookName("test-book")
             .setScope("test-scope")
