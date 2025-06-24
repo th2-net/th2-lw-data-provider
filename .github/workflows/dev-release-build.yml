@@ -35,6 +35,7 @@ jobs:
     outputs:
       app: ${{ steps.filter.outputs.app }}
       grpc: ${{ steps.filter.outputs.grpc }}
+      utils: ${{ steps.filter.outputs.utils }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
