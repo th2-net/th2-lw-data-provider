@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ class CustomConfigurationClass(
     val maxBufferDecodeQueue: Int? = null,
     val decodingTimeout: Long? = null,
     val responseQueueSize: Int? = null,
+    val responseBufferSize: Int? = null,
     val execThreadPoolSize: Int? = null,
     val convThreadPoolSize: Int? = null,
     val mode: String? = null,
@@ -59,6 +60,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val maxBufferDecodeQueue: Int = VariableBuilder.getVariable(customConfiguration::maxBufferDecodeQueue, 10_000)
     val decodingTimeout: Long = VariableBuilder.getVariable(customConfiguration::decodingTimeout, 60_000)
     val responseQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseQueueSize, 1000)
+    val responseBufferSize: Int = VariableBuilder.getVariable(customConfiguration::responseBufferSize, DEFAULT_BUFFER_SIZE)
     val execThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::execThreadPoolSize, 10)
     val convThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::convThreadPoolSize, 3)
     val batchSize: Int
