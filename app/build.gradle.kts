@@ -5,9 +5,13 @@ plugins {
     alias(libs.plugins.kapt)
     alias(libs.plugins.serialization)
     alias(libs.plugins.th2.component)
+    alias(libs.plugins.jmh)
 }
 
 dependencies {
+    jmh(libs.jmh.core)
+    jmh(libs.jmh.generator.annprocess)
+
     implementation(libs.th2.common) {
         exclude(group = "com.exactpro.th2", module = "cradle-core")
         exclude(group = "com.exactpro.th2", module = "cradle-cassandra")
@@ -63,6 +67,15 @@ dependencies {
     testImplementation("org.testcontainers:cassandra")
 
     testImplementation("com.datastax.oss:java-driver-core")
+}
+
+jmh {
+    zip64 = true
+    fork = 1
+    iterations = 2
+    warmupForks = 1
+    warmupIterations = 2
+    profilers.add("stack")
 }
 
 application {

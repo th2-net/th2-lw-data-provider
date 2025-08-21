@@ -4,6 +4,7 @@ th2-plugin = "0.2.4"
 strikt = "0.34.1"
 javalin = "6.7.0"
 openapi = "6.7.0"
+jmh = "1.37"
 
 [libraries]
 th2-common = { group = "com.exactpro.th2", name = "common", version = "5.15.0-dev" }
@@ -31,6 +32,9 @@ javalin-micrometer = { group = "io.javalin", name = "javalin-micrometer", versio
 
 micrometer-bom = { group = "io.micrometer", name = "micrometer-bom", version = "1.15.3" }
 
+jmh-core = { group = "org.openjdk.jmh", name = "jmh-core", version.ref = "jmh" }
+jmh-generator-annprocess = { group = "org.openjdk.jmh", name = "jmh-generator-annprocess", version.ref = "jmh" }
+
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
@@ -40,3 +44,5 @@ th2-base = { id = "com.exactpro.th2.gradle.base", version.ref = "th2-plugin" }
 th2-publish = { id = "com.exactpro.th2.gradle.publish", version.ref = "th2-plugin" }
 th2-grpc = { id = "com.exactpro.th2.gradle.grpc", version.ref = "th2-plugin" }
 th2-component = { id = "com.exactpro.th2.gradle.component", version.ref = "th2-plugin" }
+
+jmh = { id = "me.champeau.jmh", version = "0.7.3" }

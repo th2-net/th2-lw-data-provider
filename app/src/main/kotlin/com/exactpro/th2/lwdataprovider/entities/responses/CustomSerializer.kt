@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMess
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.numberOfDigits
-import io.javalin.http.util.JsonEscapeUtil
-import java.io.ByteArrayOutputStream
-import java.io.OutputStream
+import io.netty.buffer.ByteBuf
+import io.netty.buffer.Unpooled
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Base64
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.text.Charsets.UTF_8
 import com.exactpro.cradle.utils.EscapeUtils.escape as cradleEscape
 
@@ -80,69 +80,74 @@ private val TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSSSSS
     .withZone(ZoneOffset.UTC)
 private val ESCAPE_CHARACTERS = charArrayOf('\"', '\n', '\r', '\\', '\t', '\b')
 
-fun ProviderMessage53Transport.toJSONByteArray(): ByteArray =
-    ByteArrayOutputStream(1_024 * 2).apply { // TODO: init size
-        write(OPENING_CURLY_BRACE)
+private val bufferPool = ByteBufPool()
+
+fun ProviderMessage53Transport.toJSONByteArray(): ByteArray = bufferPool.withBuffer {
+        writeByte(OPENING_CURLY_BRACE)
         writeTimestamp(TIMESTAMP_FILED, timestamp)
-        write(COMMA)
+        writeByte(COMMA)
         direction?.let {
             writeField(DIRECTION_FILED, direction.name)
-            write(COMMA)
+            writeByte(COMMA)
         }
         writeField(SESSION_ID_FILED, sessionId)
-        write(COMMA)
+        writeByte(COMMA)
         writeAttachedEventIds(attachedEventIds)
         body?.let {
-            write(COMMA)
+            writeByte(COMMA)
             writeBody(body)
         }
         bodyBase64?.let {
-            write(COMMA)
+            writeByte(COMMA)
             writeFieldWithoutEscaping(BODY_BASE_64_FILED, bodyBase64)
         }
-        write(COMMA)
+        writeByte(COMMA)
         writeMessageId(messageId)
-        write(CLOSING_CURLY_BRACE)
-    }.toByteArray()
+        writeByte(CLOSING_CURLY_BRACE)
+    }
 
-fun Event.toJSONByteArray(): ByteArray =
-    ByteArrayOutputStream(1_024 * 2).apply { // TODO: init size
-        write(OPENING_CURLY_BRACE)
-        writeField(EVENT_ID_FILED, eventId)
-        write(COMMA)
-        batchId?.let { writeField(BATCH_ID_FILED, it) } ?: run { writeNull(BATCH_ID_FILED) }
-        write(COMMA)
-        writeField(IS_BATCHED_FILED, isBatched)
-        write(COMMA)
-        writeField(EVENT_NAME_FILED, eventName)
-        write(COMMA)
-        eventType?.let { writeField(EVENT_TYPE_FILED, it) } ?: run { writeNull(EVENT_TYPE_FILED) }
-        write(COMMA)
-        endTimestamp?.let { writeTimestamp(END_TIMESTAMP_FILED, it) } ?: run { writeNull(END_TIMESTAMP_FILED) }
-        write(COMMA)
-        writeTimestamp(START_TIMESTAMP_FILED, startTimestamp)
-        write(COMMA)
-        parentEventId?.let { writeBatchParentEventId(PARENT_EVENT_ID_FILED, it) } ?: run { writeNull(PARENT_EVENT_ID_FILED) }
-        write(COMMA)
-        writeField(SUCCESSFUL_FILED, successful)
-        write(COMMA)
-        writeField(BOOK_ID_FILED, bookId)
-        write(COMMA)
-        writeField(SCOPE_FILED, scope)
-        write(COMMA)
-        if (attachedMessageIds.isNotEmpty()) {
-            writeStringList(ATTACHED_MESSAGE_IDS_FILED, attachedMessageIds)
-        } else {
-            writeEmptyList(ATTACHED_MESSAGE_IDS_FILED)
-        }
-        write(COMMA)
-        if (body != null && body.isNotEmpty()) {
-            writeBody(BODY_FILED, body)
-        } else {
-            writeEmptyList(BODY_FILED)
-        }
-        write(CLOSING_CURLY_BRACE)
-    }.toByteArray()
+fun Event.toJSONByteArray(): ByteArray = bufferPool.withBuffer {
+    writeByte(OPENING_CURLY_BRACE)
+    writeField(EVENT_ID_FILED, eventId)
+    writeByte(COMMA)
+    batchId?.let { writeField(BATCH_ID_FILED, it) } ?: run { writeNull(BATCH_ID_FILED) }
+    writeByte(COMMA)
+    writeField(IS_BATCHED_FILED, isBatched)
+    writeByte(COMMA)
+    writeField(EVENT_NAME_FILED, eventName)
+    writeByte(COMMA)
+    eventType?.let { writeField(EVENT_TYPE_FILED, it) } ?: run { writeNull(EVENT_TYPE_FILED) }
+    writeByte(COMMA)
+    endTimestamp?.let { writeTimestamp(END_TIMESTAMP_FILED, it) } ?: run { writeNull(END_TIMESTAMP_FILED) }
+    writeByte(COMMA)
+    writeTimestamp(START_TIMESTAMP_FILED, startTimestamp)
+    writeByte(COMMA)
+    parentEventId?.let { writeBatchParentEventId(PARENT_EVENT_ID_FILED, it) } ?: run {
+        writeNull(
+            PARENT_EVENT_ID_FILED
+        )
+    }
+    writeByte(COMMA)
+    writeField(SUCCESSFUL_FILED, successful)
+    writeByte(COMMA)
+    writeField(BOOK_ID_FILED, bookId)
+    writeByte(COMMA)
+    writeField(SCOPE_FILED, scope)
+    writeByte(COMMA)
+    if (attachedMessageIds.isNotEmpty()) {
+        writeStringList(ATTACHED_MESSAGE_IDS_FILED, attachedMessageIds)
+    } else {
+        writeEmptyList(ATTACHED_MESSAGE_IDS_FILED)
+    }
+    writeByte(COMMA)
+    val eventBody = body
+    if (eventBody != null && eventBody.isNotEmpty()) {
+        writeBody(BODY_FILED, eventBody)
+    } else {
+        writeEmptyList(BODY_FILED)
+    }
+    writeByte(CLOSING_CURLY_BRACE)
+}
 
 internal fun jsonEscape(value: String): String {
     val noEscapeRequired = value.chars().noneMatch {
@@ -174,17 +179,17 @@ internal fun jsonEscape(value: String): String {
     }
 }
 
-private fun OutputStream.writeMessageId(messageId: StoredMessageId) {
-    write(MESSAGE_ID_FILED)
-    write(COLON)
-    write(DOUBLE_QUOTE)
+private fun ByteBuf.writeMessageId(messageId: StoredMessageId) {
+    writeBytes(MESSAGE_ID_FILED)
+    writeByte(COLON)
+    writeByte(DOUBLE_QUOTE)
     with(messageId) {
-        write(jsonEscape(cradleEscape(bookId.toString())).toByteArray(UTF_8))
-        write(COLON)
-        write(jsonEscape(cradleEscape(sessionAlias)).toByteArray(UTF_8))
-        write(COLON)
-        write(direction.label.toByteArray(UTF_8))
-        write(COLON)
+        writeBytes(jsonEscape(cradleEscape(bookId.toString())).toByteArray(UTF_8))
+        writeByte(COLON)
+        writeBytes(jsonEscape(cradleEscape(sessionAlias)).toByteArray(UTF_8))
+        writeByte(COLON)
+        writeBytes(direction.label.toByteArray(UTF_8))
+        writeByte(COLON)
         TimeUtils.toLocalTimestamp(timestamp).apply {
             writeNumber(year, 4)
             writeTwoDigits(monthValue)
@@ -194,219 +199,240 @@ private fun OutputStream.writeMessageId(messageId: StoredMessageId) {
             writeTwoDigits(second)
             writeNumber(nano, 9)
         }
-        write(COLON)
-        write(sequence.toString().toByteArray(UTF_8))
+        writeByte(COLON)
+        writeBytes(sequence.toString().toByteArray(UTF_8))
     }
-    write(DOUBLE_QUOTE)
+    writeByte(DOUBLE_QUOTE)
 }
 
-private fun OutputStream.writeBody(messages: List<TransportMessageContainer>) {
-    write(BODY_FILED)
-    write(COLON)
-    write(OPENING_SQUARE_BRACE)
+private fun ByteBuf.writeBody(messages: List<TransportMessageContainer>) {
+    writeBytes(BODY_FILED)
+    writeByte(COLON)
+    writeByte(OPENING_SQUARE_BRACE)
     messages.forEachIndexed { index, message ->
         val parsedMessage = message.parsedMessage
         if (!parsedMessage.rawBody.isReadable) {
             error("The ${parsedMessage.id} message can't be serialized because raw data is blank")
         }
         if (index != 0) {
-            write(COMMA)
+            writeByte(COMMA)
         }
-        write(OPENING_CURLY_BRACE)
+        writeByte(OPENING_CURLY_BRACE)
         writeMetadata(parsedMessage)
-        write(COMMA)
+        writeByte(COMMA)
         writeFields(parsedMessage)
-        write(CLOSING_CURLY_BRACE)
+        writeByte(CLOSING_CURLY_BRACE)
     }
-    write(CLOSING_SQUARE_BRACE)
+    writeByte(CLOSING_SQUARE_BRACE)
 }
 
-private fun OutputStream.writeFields(parsedMessage: ParsedMessage) {
-    write(FIELDS_FILED)
-    write(COLON)
-    write(parsedMessage.rawBody.toByteArray())
+private fun ByteBuf.writeFields(parsedMessage: ParsedMessage) {
+    writeBytes(FIELDS_FILED)
+    writeByte(COLON)
+    writeBytes(parsedMessage.rawBody.toByteArray())
 }
 
-private fun OutputStream.writeMetadata(message: ParsedMessage) {
-    write(METADATA_FILED)
-    write(COLON)
-    write(OPENING_CURLY_BRACE)
+private fun ByteBuf.writeMetadata(message: ParsedMessage) {
+    writeBytes(METADATA_FILED)
+    writeByte(COLON)
+    writeByte(OPENING_CURLY_BRACE)
 
     with(message) {
         if (id.subsequence.isNotEmpty()) {
             writeNumberList(SUBSEQUENCE_FILED, id.subsequence)
-            write(COMMA)
+            writeByte(COMMA)
         }
         writeField(MESSAGE_TYPE_FILED, type)
         if (metadata.isNotEmpty()) {
-            write(COMMA)
+            writeByte(COMMA)
             writeMap(PROPERTIES_FILED, metadata)
         }
         if (protocol.isNotBlank()) {
-            write(COMMA)
+            writeByte(COMMA)
             writeField(PROTOCOL_FILED, protocol)
         }
     }
 
-    write(CLOSING_CURLY_BRACE)
+    writeByte(CLOSING_CURLY_BRACE)
 }
 
-private fun OutputStream.writeBatchParentEventId(name: ByteArray, batchEventId: ProviderEventId) {
-    write(name)
-    write(COLON)
-    write(DOUBLE_QUOTE)
+private fun ByteBuf.writeBatchParentEventId(name: ByteArray, batchEventId: ProviderEventId) {
+    writeBytes(name)
+    writeByte(COLON)
+    writeByte(DOUBLE_QUOTE)
     batchEventId.batchId?.let {
         writeEventId(it)
-        write(GREATER_THAN)
+        writeByte(GREATER_THAN)
     }
     writeEventId(batchEventId.eventId)
-    write(DOUBLE_QUOTE)
+    writeByte(DOUBLE_QUOTE)
 }
 
-private fun OutputStream.writeBody(name: ByteArray, value: ByteArray) {
-    write(name)
-    write(COLON)
+private fun ByteBuf.writeBody(name: ByteArray, value: ByteArray) {
+    writeBytes(name)
+    writeByte(COLON)
     if (value.first().toInt().let { it == OPENING_SQUARE_BRACE || it == OPENING_CURLY_BRACE }
         && value.last().toInt().let { it == CLOSING_SQUARE_BRACE || it == CLOSING_CURLY_BRACE }) {
-        write(value)
+        writeBytes(value)
     } else {
-        write(DOUBLE_QUOTE)
-        write(Base64.getEncoder().encode(value))
-        write(DOUBLE_QUOTE)
+        writeByte(DOUBLE_QUOTE)
+        writeBytes(Base64.getEncoder().encode(value))
+        writeByte(DOUBLE_QUOTE)
     }
 }
 
-private fun OutputStream.writeEventId(eventId: StoredTestEventId) {
-    write(jsonEscape(eventId.bookId.name).toByteArray(UTF_8))
-    write(COLON)
-    write(jsonEscape(eventId.scope).toByteArray(UTF_8))
-    write(COLON)
-    write(TIMESTAMP_FORMAT.format(LocalDateTime.ofInstant(eventId.startTimestamp, ZoneOffset.UTC)).toByteArray(UTF_8))
-    write(COLON)
-    write(jsonEscape(eventId.id).toByteArray(UTF_8))
+private fun ByteBuf.writeEventId(eventId: StoredTestEventId) {
+    writeBytes(jsonEscape(eventId.bookId.name).toByteArray(UTF_8))
+    writeByte(COLON)
+    writeBytes(jsonEscape(eventId.scope).toByteArray(UTF_8))
+    writeByte(COLON)
+    writeBytes(TIMESTAMP_FORMAT.format(LocalDateTime.ofInstant(eventId.startTimestamp, ZoneOffset.UTC)).toByteArray(UTF_8))
+    writeByte(COLON)
+    writeBytes(jsonEscape(eventId.id).toByteArray(UTF_8))
 }
 
-private fun OutputStream.writeAttachedEventIds(attachedEventIds: Set<String>) {
-    write(ATTACHED_EVENT_IDS_FILED)
-    write(COLON)
-    write(OPENING_SQUARE_BRACE)
+private fun ByteBuf.writeAttachedEventIds(attachedEventIds: Set<String>) {
+    writeBytes(ATTACHED_EVENT_IDS_FILED)
+    writeByte(COLON)
+    writeByte(OPENING_SQUARE_BRACE)
     attachedEventIds.forEachIndexed { index, eventId ->
         if (index != 0) {
-            write(COMMA)
+            writeByte(COMMA)
         }
-        write(DOUBLE_QUOTE)
-        write(jsonEscape(eventId).toByteArray(UTF_8))
-        write(DOUBLE_QUOTE)
+        writeByte(DOUBLE_QUOTE)
+        writeBytes(jsonEscape(eventId).toByteArray(UTF_8))
+        writeByte(DOUBLE_QUOTE)
     }
-    write(CLOSING_SQUARE_BRACE)
+    writeByte(CLOSING_SQUARE_BRACE)
 
 }
 
-private fun OutputStream.writeTimestamp(name: ByteArray, timestamp: Instant) {
-    write(name)
-    write(COLON)
-    write(OPENING_CURLY_BRACE)
+private fun ByteBuf.writeTimestamp(name: ByteArray, timestamp: Instant) {
+    writeBytes(name)
+    writeByte(COLON)
+    writeByte(OPENING_CURLY_BRACE)
     writeField(EPOCH_SECOND_FILED, timestamp.epochSecond)
-    write(COMMA)
+    writeByte(COMMA)
     writeField(NANO_FILED, timestamp.nano)
-    write(CLOSING_CURLY_BRACE)
+    writeByte(CLOSING_CURLY_BRACE)
 }
 
-private fun OutputStream.writeTwoDigits(value: Int) {
+private fun ByteBuf.writeTwoDigits(value: Int) {
     if (value < 10) {
-        write(ZERO)
+        writeByte(ZERO)
     }
-    write(value.toString().toByteArray(UTF_8))
+    writeBytes(value.toString().toByteArray(UTF_8))
 }
 
-private fun OutputStream.writeNumber(value: Int, size: Int) {
+private fun ByteBuf.writeNumber(value: Int, size: Int) {
     val digits = numberOfDigits(value)
     if (digits < size) {
         repeat(size - digits) {
-            write(ZERO)
+            writeByte(ZERO)
         }
     }
-    write(value.toString().toByteArray(UTF_8))
+    writeBytes(value.toString().toByteArray(UTF_8))
 }
 
-private fun OutputStream.writeFieldWithoutEscaping(name: ByteArray, value: String) {
-    write(name)
-    write(COLON)
-    write(DOUBLE_QUOTE)
-    write(value.toByteArray(UTF_8))
-    write(DOUBLE_QUOTE)
+private fun ByteBuf.writeFieldWithoutEscaping(name: ByteArray, value: String) {
+    writeBytes(name)
+    writeByte(COLON)
+    writeByte(DOUBLE_QUOTE)
+    writeBytes(value.toByteArray(UTF_8))
+    writeByte(DOUBLE_QUOTE)
 }
 
-private fun OutputStream.writeField(name: ByteArray, value: String) = writeFieldWithoutEscaping(name, jsonEscape(value))
-private fun OutputStream.writeField(name: ByteArray, value: Boolean) {
-    write(name)
-    write(COLON)
-    write(if(value) TRUE else FALSE)
+private fun ByteBuf.writeField(name: ByteArray, value: String) = writeFieldWithoutEscaping(name, jsonEscape(value))
+private fun ByteBuf.writeField(name: ByteArray, value: Boolean) {
+    writeBytes(name)
+    writeByte(COLON)
+    writeBytes(if(value) TRUE else FALSE)
 }
-private fun OutputStream.writeField(name: ByteArray, value: Number) {
-    write(name)
-    write(COLON)
-    write(value.toString().toByteArray(UTF_8))
-}
-
-private fun OutputStream.writeField(name: String, value: String) {
-    write(DOUBLE_QUOTE)
-    write(jsonEscape(name).toByteArray(UTF_8))
-    write(DOUBLE_QUOTE)
-    write(COLON)
-    write(DOUBLE_QUOTE)
-    write(jsonEscape(value).toByteArray(UTF_8))
-    write(DOUBLE_QUOTE)
+private fun ByteBuf.writeField(name: ByteArray, value: Number) {
+    writeBytes(name)
+    writeByte(COLON)
+    writeBytes(value.toString().toByteArray(UTF_8))
 }
 
-private fun OutputStream.writeNull(name: ByteArray) {
-    write(name)
-    write(COLON)
-    write(NULL)
+private fun ByteBuf.writeField(name: String, value: String) {
+    writeByte(DOUBLE_QUOTE)
+    writeBytes(jsonEscape(name).toByteArray(UTF_8))
+    writeByte(DOUBLE_QUOTE)
+    writeByte(COLON)
+    writeByte(DOUBLE_QUOTE)
+    writeBytes(jsonEscape(value).toByteArray(UTF_8))
+    writeByte(DOUBLE_QUOTE)
 }
 
-private fun OutputStream.writeEmptyList(name: ByteArray) {
-    write(name)
-    write(COLON)
-    write(OPENING_SQUARE_BRACE)
-    write(CLOSING_SQUARE_BRACE)
+private fun ByteBuf.writeNull(name: ByteArray) {
+    writeBytes(name)
+    writeByte(COLON)
+    writeBytes(NULL)
 }
 
-private fun OutputStream.writeMap(name: ByteArray, value: Map<String, String>) {
-    write(name)
-    write(COLON)
-    write(OPENING_CURLY_BRACE)
+private fun ByteBuf.writeEmptyList(name: ByteArray) {
+    writeBytes(name)
+    writeByte(COLON)
+    writeByte(OPENING_SQUARE_BRACE)
+    writeByte(CLOSING_SQUARE_BRACE)
+}
+
+private fun ByteBuf.writeMap(name: ByteArray, value: Map<String, String>) {
+    writeBytes(name)
+    writeByte(COLON)
+    writeByte(OPENING_CURLY_BRACE)
     value.onEachIndexed { index, entry ->
         if (index != 0) {
-            write(COMMA)
+            writeByte(COMMA)
         }
         writeField(entry.key, entry.value)
     }
-    write(CLOSING_CURLY_BRACE)
+    writeByte(CLOSING_CURLY_BRACE)
 }
 
-private fun OutputStream.writeNumberList(name: ByteArray, value: Collection<Number>) {
-    writeList(name, value) { write(it.toString().toByteArray(UTF_8)) }
+private fun ByteBuf.writeNumberList(name: ByteArray, value: Collection<Number>) {
+    writeList(name, value) { writeBytes(it.toString().toByteArray(UTF_8)) }
 }
 
-private fun OutputStream.writeStringList(name: ByteArray, value: Collection<String>) {
+private fun ByteBuf.writeStringList(name: ByteArray, value: Collection<String>) {
     writeList(name, value) {
-        write(DOUBLE_QUOTE)
-        write(jsonEscape(it).toByteArray(UTF_8))
-        write(DOUBLE_QUOTE)
+        writeByte(DOUBLE_QUOTE)
+        writeBytes(jsonEscape(it).toByteArray(UTF_8))
+        writeByte(DOUBLE_QUOTE)
     }
 }
 
-private fun <T> OutputStream.writeList(name: ByteArray, values: Collection<T>, writeValue: OutputStream.(T) -> Unit) {
-    write(name)
-    write(COLON)
-    write(OPENING_SQUARE_BRACE)
+private fun <T> ByteBuf.writeList(name: ByteArray, values: Collection<T>, writeValue: ByteBuf.(T) -> Unit) {
+    writeBytes(name)
+    writeByte(COLON)
+    writeByte(OPENING_SQUARE_BRACE)
     val lastIndex = values.size - 1
     values.forEachIndexed { index, value ->
         writeValue(value)
         if (lastIndex != index) {
-            write(COMMA)
+            writeByte(COMMA)
         }
     }
-    write(CLOSING_SQUARE_BRACE)
+    writeByte(CLOSING_SQUARE_BRACE)
+}
+
+private class ByteBufPool(
+    private val bufferSize: Int = 1_024 * 2,
+    private val maxPoolSize: Int = 10
+) {
+    private val pool = ConcurrentLinkedQueue<ByteBuf>()
+
+    inline fun withBuffer(builder: ByteBuf.() -> Unit): ByteArray {
+        val buf = pool.poll()?.clear() ?: Unpooled.buffer(bufferSize)
+        try {
+            buf.builder()
+            return buf.toByteArray()
+        } finally {
+            if (pool.size < maxPoolSize) {
+                pool.offer(buf.clear())
+            } else {
+                buf.release()
+            }
+        }
+    }
 }
