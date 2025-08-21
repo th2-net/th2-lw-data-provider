@@ -117,6 +117,7 @@ spec:
 #   batchSizeBytes: 256KB # the max size of the batch in bytes. You can use 'MB,KB' suffixes or a plain int value
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
+#   responseBufferSize: 8192 # output buffer size for download operations
 #   flushSseAfter: 0 # number of SSE emitted before flushing data to the output stream. 0 means flush after each event
 #   gzipCompressionLevel: -1 # integer value of gzip compression level. This option is used when user requests data via HTTP with enabled commpression. 
 #      * -1: default compression level
@@ -224,15 +225,17 @@ spec:
 
 # Release notes:
 
-## 2.15.1
+## 2.16.0
 
 Optimized event / message serialisation
+Added `responseBufferSize` option 
 
 ### Update:
 
 + Updated th2 gradle plugin to 0.3.4
 + Updated common-utils to 2.4.0-dev
 + Update cradle to 5.6.0-dev
++ Update kotlinx-serialization to 1.9.0
 + Update kotlin-logging to 7.0.12
 + Update micrometer to 1.15.3
 
