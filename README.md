@@ -230,6 +230,8 @@ Optimized event / message serialisation
 
 ### Update:
 
++ Updated th2 gradle plugin to 0.3.4
++ Updated common-utils to 2.4.0-dev
 + Update cradle to 5.6.0-dev
 + Update kotlin-logging to 7.0.12
 + Update micrometer to 1.15.3
