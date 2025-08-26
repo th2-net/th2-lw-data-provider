@@ -35,6 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.Base64
 
@@ -130,7 +131,7 @@ internal class TestCustomSerializerKt {
             attachedMessageIds = setOf(
                 "attachedMessage${escapeCharacter}Id",
             ),
-            body = """[{"body":"test-body"}]""".toByteArray(Charsets.UTF_8)
+            body = ByteBuffer.wrap("""[{"body":"test-body"}]""".toByteArray(Charsets.UTF_8))
         )
 
         val jsonBytes = event.toJSONByteArray()

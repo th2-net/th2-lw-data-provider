@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
+import java.nio.ByteBuffer
 import java.time.Instant
 
 data class BaseEventEntity(
@@ -35,7 +36,7 @@ data class BaseEventEntity(
     val bookId: String,
     val scope: String,
     val attachedMessageIds: Set<String> = emptySet(),
-    val body: ByteArray? = null,
+    val body: ByteBuffer? = null,
 ) {
     fun convertToEvent(): Event {
         return Event(
@@ -75,16 +76,13 @@ data class BaseEventEntity(
         if (bookId != other.bookId) return false
         if (scope != other.scope) return false
         if (attachedMessageIds != other.attachedMessageIds) return false
-        if (body != null) {
-            if (other.body == null) return false
-            if (!body.contentEquals(other.body)) return false
-        } else if (other.body != null) return false
+        if (body != other.body) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = type.hashCode()
+        var result = isBatched.hashCode()
         result = 31 * result + fullEventId.hashCode()
         result = 31 * result + (batchId?.hashCode() ?: 0)
         result = 31 * result + isBatched.hashCode()
@@ -97,7 +95,7 @@ data class BaseEventEntity(
         result = 31 * result + bookId.hashCode()
         result = 31 * result + scope.hashCode()
         result = 31 * result + attachedMessageIds.hashCode()
-        result = 31 * result + (body?.contentHashCode() ?: 0)
+        result = 31 * result + (body?.hashCode() ?: 0)
         return result
     }
 }

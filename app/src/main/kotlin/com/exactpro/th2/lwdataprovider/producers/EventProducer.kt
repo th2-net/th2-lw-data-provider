@@ -22,6 +22,7 @@ import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.cradle.testevents.StoredTestEventSingle
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
+import java.nio.ByteBuffer
 import java.util.Collections.emptySet
 
 fun fromSingleEvent(storedEvent: StoredTestEventSingle): BaseEventEntity {
@@ -39,7 +40,7 @@ fun fromSingleEvent(storedEvent: StoredTestEventSingle): BaseEventEntity {
         storedEvent.bookId.name,
         storedEvent.scope,
         loadAttachedMessages(storedEvent.messages),
-        storedEvent.content,
+        storedEvent.content?.let(ByteBuffer::wrap),
     )
 }
 
@@ -66,7 +67,7 @@ fun fromBatchEvent(
         storedEvent.bookId.name,
         storedEvent.scope,
         loadAttachedMessages(storedEvent.messages),
-        storedEvent.content,
+        storedEvent.bufferedContent,
     )
 }
 

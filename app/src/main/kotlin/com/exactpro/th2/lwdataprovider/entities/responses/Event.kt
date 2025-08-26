@@ -30,6 +30,7 @@ import com.google.protobuf.UnsafeByteOperations
 import io.javalin.openapi.OpenApiNullable
 import io.javalin.openapi.OpenApiPropertyType
 import io.javalin.openapi.OpenApiRequired
+import java.nio.ByteBuffer
 import java.time.Instant
 
 data class Event(
@@ -60,7 +61,7 @@ data class Event(
     @get:OpenApiRequired
     @get:OpenApiNullable(nullable = false)
     @get:OpenApiPropertyType(definedBy = Array<Any>::class)
-    val body: ByteArray?
+    val body: ByteBuffer?
 ) {
 
     fun convertToGrpcEventData(): EventResponse {
@@ -98,7 +99,7 @@ data class Event(
         if (bookId != other.bookId) return false
         if (scope != other.scope) return false
         if (attachedMessageIds != other.attachedMessageIds) return false
-        if (!body.contentEquals(other.body)) return false
+        if (body != other.body) return false
 
         return true
     }
@@ -116,7 +117,7 @@ data class Event(
         result = 31 * result + bookId.hashCode()
         result = 31 * result + scope.hashCode()
         result = 31 * result + attachedMessageIds.hashCode()
-        result = 31 * result + body.contentHashCode()
+        result = 31 * result + body.hashCode()
         return result
     }
 

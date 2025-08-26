@@ -25,6 +25,7 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.numberOfDigits
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
+import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -141,7 +142,7 @@ fun Event.toJSONByteArray(): ByteArray = bufferPool.withBuffer {
     }
     writeByte(COMMA)
     val eventBody = body
-    if (eventBody != null && eventBody.isNotEmpty()) {
+    if (eventBody != null && eventBody.remaining() > 0) {
         writeBody(BODY_FILED, eventBody)
     } else {
         writeEmptyList(BODY_FILED)
@@ -273,6 +274,21 @@ private fun ByteBuf.writeBody(name: ByteArray, value: ByteArray) {
     writeByte(COLON)
     if (value.first().toInt().let { it == OPENING_SQUARE_BRACE || it == OPENING_CURLY_BRACE }
         && value.last().toInt().let { it == CLOSING_SQUARE_BRACE || it == CLOSING_CURLY_BRACE }) {
+        writeBytes(value)
+    } else {
+        writeByte(DOUBLE_QUOTE)
+        writeBytes(Base64.getEncoder().encode(value))
+        writeByte(DOUBLE_QUOTE)
+    }
+}
+
+private fun ByteBuf.writeBody(name: ByteArray, value: ByteBuffer) {
+    writeBytes(name)
+    writeByte(COLON)
+    val first = value.get(value.position()).toInt()
+    val last = value.get(value.limit() - 1).toInt()
+    if (first.let { it == OPENING_SQUARE_BRACE || it == OPENING_CURLY_BRACE }
+        && last.let { it == CLOSING_SQUARE_BRACE || it == CLOSING_CURLY_BRACE }) {
         writeBytes(value)
     } else {
         writeByte(DOUBLE_QUOTE)

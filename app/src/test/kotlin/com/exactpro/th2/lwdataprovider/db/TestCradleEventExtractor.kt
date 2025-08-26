@@ -48,6 +48,7 @@ import strikt.api.Assertion
 import strikt.api.expectThat
 import strikt.assertions.get
 import strikt.assertions.isEqualTo
+import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -279,7 +280,7 @@ internal class TestCradleEventExtractor {
         get { eventName } isEqualTo toStore.name
         get { eventType } isEqualTo toStore.type
         get { successful } isEqualTo toStore.isSuccess
-        get { body } isEqualTo (toStore.asSingle().content)
+        get { body } isEqualTo (toStore.asSingle().content?.let(ByteBuffer::wrap))
     }
 
     private fun createRequest(start: Instant?, end: Instant?, limit: Int? = null): SseEventSearchRequest =
