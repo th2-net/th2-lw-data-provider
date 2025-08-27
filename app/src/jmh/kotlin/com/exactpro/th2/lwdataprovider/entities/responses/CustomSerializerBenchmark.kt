@@ -28,6 +28,7 @@ import org.openjdk.jmh.annotations.Scope.Thread
 import org.openjdk.jmh.annotations.Setup
 import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.infra.Blackhole
+import java.nio.ByteBuffer
 import java.time.Instant
 
 @Suppress("unused")
@@ -74,7 +75,7 @@ open class CustomSerializerBenchmark {
                         setOf(
                             "attachedMessageId",
                         ),
-                    body = """["body":"{${RandomStringUtils.insecure().nextAlphabetic(600_000)}"}]""".toByteArray(Charsets.UTF_8),
+                    body = ByteBuffer.wrap("""["body":"{${RandomStringUtils.insecure().nextAlphabetic(600_000)}"}]""".toByteArray(Charsets.UTF_8)),
                 )
         }
     }
