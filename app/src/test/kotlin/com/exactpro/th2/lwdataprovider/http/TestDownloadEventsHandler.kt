@@ -21,6 +21,7 @@ import com.exactpro.cradle.utils.CradleStorageException
 import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventId
 import com.exactpro.th2.lwdataprovider.util.createEventStoredEvent
+import com.exactpro.th2.lwdataprovider.util.createStoredEventSingle
 import com.exactpro.th2.lwdataprovider.util.toStoredEvent
 import io.javalin.http.HttpStatus
 import org.junit.jupiter.api.Test
@@ -59,14 +60,14 @@ class TestDownloadEventsHandler : AbstractHttpHandlerTest<DownloadEventsHandler>
                 *buildList {
                     repeat(6) { index ->
                         add(
-                            createEventStoredEvent(
+                            createStoredEventSingle(
                                 index.toString(),
                                 start,
                                 end,
                                 parentEventId,
                                 scope = "test-scope",
                                 book = "test-book",
-                            ).toStoredEvent()
+                            )
                         )
                     }
                 }.toTypedArray()
@@ -115,14 +116,14 @@ class TestDownloadEventsHandler : AbstractHttpHandlerTest<DownloadEventsHandler>
                 *buildList {
                     repeat(6) { index ->
                         add(
-                            createEventStoredEvent(
+                            createStoredEventSingle(
                                 index.toString(),
                                 start,
                                 end,
                                 parentEventId,
                                 scope = "test-scope",
                                 book = "test-book",
-                            ).toStoredEvent()
+                            )
                         )
                     }
                 }.toTypedArray()
@@ -174,14 +175,14 @@ class TestDownloadEventsHandler : AbstractHttpHandlerTest<DownloadEventsHandler>
                 *buildList {
                     repeat(6) { index ->
                         add(
-                            createEventStoredEvent(
+                            createStoredEventSingle(
                                 index.toString(),
                                 start,
                                 end,
                                 parentEventId,
                                 scope = "test-scope",
                                 book = "test-book",
-                            ).toStoredEvent()
+                            )
                         )
                     }
                 }.toTypedArray()
@@ -254,7 +255,7 @@ class TestDownloadEventsHandler : AbstractHttpHandlerTest<DownloadEventsHandler>
                 *buildList {
                     repeat(6) { index ->
                         add(
-                            createEventStoredEvent(
+                            createStoredEventSingle(
                                 index.toString(),
                                 start,
                                 end,
@@ -263,7 +264,7 @@ class TestDownloadEventsHandler : AbstractHttpHandlerTest<DownloadEventsHandler>
                                 type = eventType,
                                 scope = "test-scope",
                                 book = "test-book",
-                            ).toStoredEvent()
+                            )
                         )
                     }
                 }.toTypedArray()

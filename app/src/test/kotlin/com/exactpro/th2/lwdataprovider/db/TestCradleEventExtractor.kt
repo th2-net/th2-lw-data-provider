@@ -23,6 +23,9 @@ import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.TestEventBatchToStore
 import com.exactpro.cradle.testevents.TestEventToStore
+import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
+import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
+import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
@@ -32,6 +35,9 @@ import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventId
 import com.exactpro.th2.lwdataprovider.util.createEventStoredEvent
+import com.exactpro.th2.lwdataprovider.util.createStoredEvent
+import com.exactpro.th2.lwdataprovider.util.createStoredEventBatch
+import com.exactpro.th2.lwdataprovider.util.createStoredEventSingle
 import com.exactpro.th2.lwdataprovider.util.toStoredEvent
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argThat
@@ -63,9 +69,9 @@ internal class TestCradleEventExtractor {
     fun `returns events for single day`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val toStore = createEventStoredEvent(eventId = "test", start, end)
+        val toStore = createStoredEventSingle(eventId = "test", start, end)
         doReturn(
-            ListCradleResult(arrayListOf(toStore.toStoredEvent()))
+            ListCradleResult(arrayListOf(toStore))
         ).whenever(storage).getTestEvents(argThat {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
@@ -82,18 +88,19 @@ internal class TestCradleEventExtractor {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
         val toStore =
-            createEventStoredEvent("test", start, end, parentEventId = createEventId("batchParent", timestamp = start))
+            createStoredEvent("test", start, end, parentEventId = createEventId("batchParent", timestamp = start))
         val batchId = createEventId("batch", timestamp = start)
         doReturn(
             ListCradleResult(arrayListOf(
-                TestEventBatchToStore.builder(10_000, 1)
-                    .id(batchId)
-                    .parentId(createEventId("batchParent", timestamp = start))
-                    .build().apply {
-                        addTestEvent(toStore)
-                    }.let {
-                        StoredTestEventBatch(it, null)
-                    }
+                createStoredEventBatch(
+                    id = batchId,
+                    parentEventId = createEventId("batchParent", timestamp = start),
+                    events = listOf(
+                        toStore,
+                    )
+                ).let {
+                    LwStoredTestEventBatch(it, null)
+                }
             ))
         ).whenever(storage).getTestEvents(argThat {
             startTimestampFrom.value == start && startTimestampTo.value == end
@@ -110,13 +117,13 @@ internal class TestCradleEventExtractor {
     fun `filters events from batch if start timestamp is not in the range`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val outRange = createEventStoredEvent(
+        val outRange = createStoredEvent(
             "test",
             start.minusSeconds(20),
             end,
             parentEventId = createEventId("batchParent", timestamp = start)
         )
-        val inRange = createEventStoredEvent(
+        val inRange = createStoredEvent(
             "test",
             start.plusSeconds(20),
             end,
@@ -125,14 +132,15 @@ internal class TestCradleEventExtractor {
         val batchId = createEventId("batch", timestamp = start.minusSeconds(60))
         doReturn(
             ListCradleResult(arrayListOf(
-                TestEventBatchToStore.builder(10_000, 1)
-                    .id(batchId)
-                    .parentId(createEventId("batchParent", timestamp = start))
-                    .build().apply {
-                        addTestEvent(outRange)
-                        addTestEvent(inRange)
-                    }.let {
-                        StoredTestEventBatch(it, null)
+                createStoredEventBatch(
+                    id = batchId,
+                    parentEventId = createEventId("batchParent", timestamp = start),
+                    events = listOf(
+                        outRange,
+                        inRange
+                    )
+                ).let {
+                        LwStoredTestEventBatch(it, null)
                     }
             ))
         ).whenever(storage).getTestEvents(argThat {
@@ -150,13 +158,13 @@ internal class TestCradleEventExtractor {
     fun `filters events from batch if start timestamp is not in the range with open end timestamp`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val outRange = createEventStoredEvent(
+        val outRange = createStoredEvent(
             "test",
             start.minusSeconds(20),
             end,
             parentEventId = createEventId("batchParent", timestamp = start)
         )
-        val inRange = createEventStoredEvent(
+        val inRange = createStoredEvent(
             "test",
             start.plusSeconds(20),
             end,
@@ -165,15 +173,16 @@ internal class TestCradleEventExtractor {
         val batchId = createEventId("batch", timestamp = start.minusSeconds(60))
         doReturn(
             ListCradleResult(arrayListOf(
-                TestEventBatchToStore.builder(10_000, 1)
-                    .id(batchId)
-                    .parentId(createEventId("batchParent", timestamp = start))
-                    .build().apply {
-                        addTestEvent(outRange)
-                        addTestEvent(inRange)
-                    }.let {
-                        StoredTestEventBatch(it, null)
-                    }
+                createStoredEventBatch(
+                    id = batchId,
+                    parentEventId = createEventId("batchParent", timestamp = start),
+                    events = listOf(
+                        outRange,
+                        inRange,
+                    )
+                ).let {
+                    LwStoredTestEventBatch(it, null)
+                }
             ))
         ).whenever(storage).getTestEvents(argThat { startTimestampFrom.value == start })
 
@@ -190,11 +199,11 @@ internal class TestCradleEventExtractor {
         val end = Instant.parse("2022-11-15T23:59:59.999999999Z")
         val middle = end.minus(1, ChronoUnit.DAYS)
 
-        val firstToStore = createEventStoredEvent(eventId = "first", start, middle)
-        val secondToStore = createEventStoredEvent(eventId = "second", middle, end)
+        val firstToStore = createStoredEventSingle(eventId = "first", start, middle)
+        val secondToStore = createStoredEventSingle(eventId = "second", middle, end)
 
         doReturn(
-            ListCradleResult(arrayListOf(firstToStore.toStoredEvent(), secondToStore.toStoredEvent()))
+            ListCradleResult(arrayListOf(firstToStore, secondToStore))
         ).whenever(storage).getTestEvents(argThat {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
@@ -213,10 +222,10 @@ internal class TestCradleEventExtractor {
     fun `returns single event`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val toStore = createEventStoredEvent(eventId = "test", start, end)
+        val toStore = createStoredEventSingle(eventId = "test", start, end)
         val eventId = createEventId("test")
         doReturn(
-            toStore.toStoredEvent()
+            toStore
         ).whenever(storage).getTestEvent(eq(eventId))
 
         val sink: EventDataSink<Event> = mock { }
@@ -230,7 +239,7 @@ internal class TestCradleEventExtractor {
     fun `returns single event from batch`() {
         val start = Instant.parse("2022-11-14T00:00:00Z")
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
-        val toStore = createEventStoredEvent(
+        val toStore = createStoredEvent(
             eventId = "test",
             start,
             end,
@@ -238,15 +247,15 @@ internal class TestCradleEventExtractor {
         )
         val batchId = createEventId("batch", timestamp = start)
         doReturn(
-            TestEventBatchToStore.builder(10_000, 1)
-                .id(batchId)
-                .parentId(createEventId("batchParent", timestamp = start))
-                .build().apply {
-                    addTestEvent(toStore)
-                }.let {
-                    StoredTestEventBatch(it, null)
-                }
-
+            createStoredEventBatch(
+                id = batchId,
+                parentEventId = createEventId("batchParent", timestamp = start),
+                events = listOf(
+                    toStore,
+                )
+            ).let {
+                LwStoredTestEventBatch(it, null)
+            }
         ).whenever(storage).getTestEvent(eq(batchId))
 
         val sink: EventDataSink<Event> = mock { }
@@ -281,6 +290,24 @@ internal class TestCradleEventExtractor {
         get { eventType } isEqualTo toStore.type
         get { successful } isEqualTo toStore.isSuccess
         get { body } isEqualTo (toStore.asSingle().content?.let(ByteBuffer::wrap))
+    }
+
+    private fun Assertion.Builder<Event>.isEqualTo(toStore: LwBatchedStoredTestEvent, batchId: StoredTestEventId? = null) {
+        get { eventId } isEqualTo (batchId?.let { "${it}>${toStore.id}" } ?: toStore.id.toString())
+        get { parentEventId } isEqualTo toStore.parentId?.let { ProviderEventId(null, it) }
+        get { eventName } isEqualTo toStore.name
+        get { eventType } isEqualTo toStore.type
+        get { successful } isEqualTo toStore.isSuccess
+        get { body } isEqualTo (toStore.asLwSingle().content)
+    }
+
+    private fun Assertion.Builder<Event>.isEqualTo(toStore: LwStoredTestEventSingle, batchId: StoredTestEventId? = null) {
+        get { eventId } isEqualTo (batchId?.let { "${it}>${toStore.id}" } ?: toStore.id.toString())
+        get { parentEventId } isEqualTo toStore.parentId?.let { ProviderEventId(null, it) }
+        get { eventName } isEqualTo toStore.name
+        get { eventType } isEqualTo toStore.type
+        get { successful } isEqualTo toStore.isSuccess
+        get { body } isEqualTo (toStore.asLwSingle().content)
     }
 
     private fun createRequest(start: Instant?, end: Instant?, limit: Int? = null): SseEventSearchRequest =

@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventStoredEvent
+import com.exactpro.th2.lwdataprovider.util.createStoredEventSingle
 import com.exactpro.th2.lwdataprovider.util.toStoredEvent
 import io.javalin.http.HttpStatus
 import org.junit.jupiter.api.Test
@@ -54,18 +55,18 @@ internal class TestGetEventsServlet : AbstractHttpHandlerTest<GetEventsServlet>(
         val middleA = Instant.parse("2020-10-31T23:59:59.999999999Z")
         val middleB = Instant.parse("2020-11-01T00:00:00Z")
         val end = start.plus(1, ChronoUnit.DAYS)
-        val first = createEventStoredEvent(
+        val first = createStoredEventSingle(
             eventId = "a",
             start = start,
             end = middleA,
         )
-        val second = createEventStoredEvent(
+        val second = createStoredEventSingle(
             eventId = "b",
             start = middleB,
             end = end,
         )
         doReturn(
-            ImmutableListCradleResult(listOf(first.toStoredEvent(), second.toStoredEvent()))
+            ImmutableListCradleResult(listOf(first, second))
         ).whenever(storage).getTestEvents(argThat {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })

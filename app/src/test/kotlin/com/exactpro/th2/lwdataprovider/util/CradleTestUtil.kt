@@ -23,10 +23,16 @@ import com.exactpro.cradle.PageInfo
 import com.exactpro.cradle.messages.MessageToStoreBuilder
 import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
+import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventSingle
 import com.exactpro.cradle.testevents.TestEventSingleToStore
+import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
+import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
+import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
+import com.exactpro.cradle.testevents.lw.LwTestEventBatch
+import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.function.Supplier
 
@@ -82,6 +88,70 @@ fun createEventStoredEvent(
     .success(true)
     .endTimestamp(end)
     .build()
+
+fun createStoredEvent(
+    eventId: String,
+    start: Instant,
+    end: Instant,
+    parentEventId: StoredTestEventId? = null,
+    name: String = "test_event",
+    type: String = "test",
+    scope: String = "test-scope",
+    book: String = "test"
+): LwBatchedStoredTestEvent = LwBatchedStoredTestEvent(
+    StoredTestEventId(BookId(book), scope, start, eventId),
+    name,
+    type,
+    parentEventId,
+    end,
+    true,
+    ByteBuffer.allocate(0),
+    null,
+    null,
+)
+
+fun createStoredEventSingle(
+    eventId: String,
+    start: Instant,
+    end: Instant,
+    parentEventId: StoredTestEventId? = null,
+    messages: Set<StoredMessageId> = emptySet(),
+    name: String = "test_event",
+    type: String = "test",
+    scope: String = "test-scope",
+    book: String = "test"
+): LwStoredTestEventSingle = LwStoredTestEventSingle(
+    StoredTestEventId(BookId(book), scope, start, eventId),
+    name,
+    type,
+    parentEventId,
+    end,
+    true,
+    ByteBuffer.allocate(0),
+    messages,
+    null,
+    null,
+    null,
+)
+
+fun createStoredEventBatch(
+    id: StoredTestEventId,
+    events: Collection<LwBatchedStoredTestEvent>,
+    messages: Map<StoredTestEventId, Set<StoredMessageId>> = emptyMap(),
+    parentEventId: StoredTestEventId? = null,
+    name: String = "test_event_batch",
+    type: String = "test",
+): LwTestEventBatch = LwStoredTestEventBatch(
+    id,
+    name,
+    type,
+    parentEventId,
+    events,
+    messages,
+    null,
+    null,
+    null,
+)
 
 fun TestEventSingleToStore.toStoredEvent(pageID: PageId? = null): StoredTestEventSingle =
     StoredTestEventSingle(this, pageID)

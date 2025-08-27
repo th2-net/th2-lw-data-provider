@@ -113,11 +113,11 @@ class CradleEventExtractor(
                 sink.onError("Event batch is not found with id: '$batchId'", batchId = batchId)
                 return
             }
-            if (testBatch.isSingle) {
+            if (testBatch.isLwSingle) {
                 sink.onError("Event with id: '$batchId' is not a batch. (single event)", id = batchId)
                 return
             }
-            val batch = testBatch.asBatch()
+            val batch = testBatch.asLwBatch()
             val testEvent = batch.getTestEvent(eventId)
             if (testEvent == null) {
                 sink.onError("Event with id: '$eventId' is not found in batch '$batchId'", filter.eventId, batchId)
@@ -132,7 +132,7 @@ class CradleEventExtractor(
                 sink.onError("Event is not found with id: '$eventId'", filter.eventId)
                 return
             }
-            if (testBatch.isBatch) {
+            if (testBatch.isLwBatch) {
                 sink.onError("Event with id: '$eventId' is a batch. (not single event)", filter.eventId)
                 return
             }
@@ -159,10 +159,10 @@ class CradleEventExtractor(
                 { processTestEvent(it, stat, DataFilter.acceptAll(), sink) },
                 { testEvent ->
                     testEvent.run {
-                        if (isBatch) {
-                            asBatch().testEvents.minOf { it.startTimestamp }
+                        if (isLwBatch) {
+                            asLwBatch().testEvents.minOf { it.startTimestamp }
                         } else {
-                            asSingle().startTimestamp
+                            asLwSingle().startTimestamp
                         }
                     }
                 }
@@ -239,8 +239,8 @@ class CradleEventExtractor(
         filter: DataFilter<BaseEventEntity>,
         sink: EventDataSink<Event>
     ) {
-        if (testEvent.isSingle) {
-            val singleEv = testEvent.asSingle()
+        if (testEvent.isLwSingle) {
+            val singleEv = testEvent.asLwSingle()
             val event = fromSingleEvent(singleEv)
             count.total++
             if (!filter.match(event)) {
@@ -248,11 +248,11 @@ class CradleEventExtractor(
             }
             count.singleEvents++
             count.events++
-            count.totalContentSize += singleEv.content.size + event.attachedMessageIds.sumOf { it.length }
+            count.totalContentSize += singleEv.content.remaining() + event.attachedMessageIds.sumOf { it.length }
             sink.onNext(event.convertToEvent())
-        } else if (testEvent.isBatch) {
+        } else if (testEvent.isLwBatch) {
             count.batches++
-            val batch = testEvent.asBatch()
+            val batch = testEvent.asLwBatch()
             val eventsList = batch.testEvents
             for (batchEvent in eventsList) {
                 val batchEventBody = fromBatchEvent(batchEvent, batch)
@@ -262,7 +262,7 @@ class CradleEventExtractor(
                 }
 
                 count.events++
-                count.totalContentSize += batchEvent.content.size + batchEventBody.attachedMessageIds.sumOf { it.length }
+                count.totalContentSize += batchEvent.content.remaining() + batchEventBody.attachedMessageIds.sumOf { it.length }
                 sink.onNext(batchEventBody.convertToEvent())
             }
         }
