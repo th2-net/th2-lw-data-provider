@@ -1,19 +1,19 @@
 [versions]
-kotlin = "2.2.0"
-th2-plugin = "0.3.4"
+kotlin = "2.2.10"
+th2-plugin = "0.3.5"
 strikt = "0.34.1"
 javalin = "6.7.0"
-openapi = "6.7.0"
+openapi = "6.7.0-1"
 jmh = "1.37"
 
 [libraries]
 th2-common = { group = "com.exactpro.th2", name = "common", version = "5.15.0-dev" }
 th2-common-utils = { group = "com.exactpro.th2", name = "common-utils", version = "2.4.0-dev" }
-th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.5.0" }
+th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.7.1" }
 cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", version = "5.6.0-event-serialization-17271401745-eeee33e-SNAPSHOT" }
 lz4 = { group = "org.lz4", name = "lz4-java", version = "1.8.0" }
 
-kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.12" }
+kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.13" }
 kotlinx-serialization-json-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json-jvm", version = "1.9.0" }
 
 testcontainers-bom = { group = "org.testcontainers", name = "testcontainers-bom", version = "1.21.3" }
