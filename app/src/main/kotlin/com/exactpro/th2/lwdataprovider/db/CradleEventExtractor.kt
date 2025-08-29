@@ -206,15 +206,11 @@ class CradleEventExtractor(
             }
         }
 
-        for (testEvent in storage.getTestEvents(cradleFilter)) {
-            // do noting
+        val testEvents = measure("init_request") { storage.getTestEvents(cradleFilter) }
+        processEvents(testEvents.asIterableWithMeasurements("event", dataMeasurement), sink, counter) { event ->
+            compareStart(event) && compareEnd(event)
+                    && filter.match(event)
         }
-
-//        val testEvents = measure("init_request") { storage.getTestEvents(cradleFilter) }
-//        processEvents(testEvents.asIterableWithMeasurements("event", dataMeasurement), sink, counter) { event ->
-//            compareStart(event) && compareEnd(event)
-//                    && filter.match(event)
-//        }
         logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms" }
         sink.canceled?.apply {
             logger.info { "Loading events stopped: $message" }
