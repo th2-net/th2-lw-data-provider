@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.metrics
 
+import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.db.Measurement
 import io.prometheus.client.CollectorRegistry
@@ -30,13 +31,21 @@ class DataMeasurementSummary private constructor(
     ).labelNames("action")
         .register(registry)
 
-    override fun start(name: String): Measurement {
-        return MeasurementImpl(name, stepMetrics.labels(name).startTimer())
-    }
+    override fun start(name: String): Measurement = MeasurementImpl(name, stepMetrics.labels(name).startTimer())
+
+    override fun child(name: String): ChildDataMeasurement = ChildDataMeasurementSummary(name,stepMetrics)
 
     companion object {
         @JvmStatic
         fun create(registry: CollectorRegistry, name: String): DataMeasurement =
             DataMeasurementSummary(name, registry)
+
+        private class ChildDataMeasurementSummary(
+            private val name: String,
+            summary: Summary
+        ): ChildDataMeasurement {
+            private val child: Summary.Child = summary.labels(name)
+            override fun start(): Measurement = MeasurementImpl(name, child.startTimer())
+        }
     }
 }
