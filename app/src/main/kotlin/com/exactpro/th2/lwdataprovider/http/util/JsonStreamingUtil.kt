@@ -62,11 +62,13 @@ fun writeJsonStream(
 
     val output = ctx.res().outputStream.buffered(bufferSize)
     try {
+        val awaitConvertToJsonMeasurement = dataMeasurement.child("await_convert_to_json")
+        val processSseEventMeasurement = dataMeasurement.child("process_sse_event")
         do {
-            dataMeasurement.start("process_sse_event").use {
+            processSseEventMeasurement.start().use {
                 val nextEvent = queue.take()
                 ResponseQueue.currentSize(matchedPath, queue.size)
-                val sseEvent = dataMeasurement.start("await_convert_to_json").use { nextEvent.get() }
+                val sseEvent = awaitConvertToJsonMeasurement.start().use { nextEvent.get() }
                 if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
                     // something happened during request
                     status = HttpStatus.INTERNAL_SERVER_ERROR

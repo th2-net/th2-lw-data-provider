@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
+import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
@@ -90,7 +91,11 @@ internal class TestSearchMessagesHandler {
         on { storage } doReturn storage
     }
 
+    private val childMeasurement: ChildDataMeasurement = mock {
+        on { start() } doReturn mock { }
+    }
     private val measurement: DataMeasurement = mock {
+        on { child(any()) } doReturn childMeasurement
         on { start(any()) } doReturn mock { }
     }
 
