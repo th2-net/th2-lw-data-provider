@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ import com.exactpro.th2.lwdataprovider.db.util.withMeasurements
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.producers.fromBatchEvent
@@ -184,21 +183,21 @@ class CradleEventExtractor(
         startTimestamp: Instant,
         endTimestamp: Instant?,
         sink: EventDataSink<Event>,
-        filter: DataFilter<BaseEventEntity>,
+        filter: DataFilter<StoredTestEvent>,
         filterSupplier: (Instant, Instant?) -> TestEventFilter,
     ) {
         val counter = ProcessingInfo()
         val startTime = System.currentTimeMillis()
         val cradleFilter = filterSupplier(startTimestamp, endTimestamp)
         val order = requireNotNull(cradleFilter.order) { "order is null" }
-        fun compareStart(event: BaseEventEntity): Boolean {
+        fun compareStart(event: StoredTestEvent): Boolean {
             return when (order) {
                 Order.DIRECT -> event.startTimestamp >= startTimestamp
                 Order.REVERSE -> event.startTimestamp <= startTimestamp
             }
         }
 
-        fun compareEnd(event: BaseEventEntity): Boolean {
+        fun compareEnd(event: StoredTestEvent): Boolean {
             if (endTimestamp == null) return true
             return when (order) {
                 Order.DIRECT -> event.startTimestamp < endTimestamp
@@ -222,7 +221,7 @@ class CradleEventExtractor(
         testEvents: Iterable<StoredTestEvent>,
         sink: EventDataSink<Event>,
         count: ProcessingInfo,
-        filter: DataFilter<BaseEventEntity>,
+        filter: DataFilter<StoredTestEvent>,
     ) {
         for (testEvent in testEvents) {
             processTestEvent(testEvent, count, filter, sink)
@@ -236,16 +235,16 @@ class CradleEventExtractor(
     private fun processTestEvent(
         testEvent: StoredTestEvent,
         count: ProcessingInfo,
-        filter: DataFilter<BaseEventEntity>,
+        filter: DataFilter<StoredTestEvent>,
         sink: EventDataSink<Event>
     ) {
         if (testEvent.isLwSingle) {
             val singleEv = testEvent.asLwSingle()
-            val event = fromSingleEvent(singleEv)
             count.total++
-            if (!filter.match(event)) {
+            if (!filter.match(singleEv)) {
                 return
             }
+            val event = fromSingleEvent(singleEv)
             count.singleEvents++
             count.events++
             count.totalContentSize += singleEv.content.remaining() + event.attachedMessageIds.sumOf { it.length }
@@ -255,11 +254,11 @@ class CradleEventExtractor(
             val batch = testEvent.asLwBatch()
             val eventsList = batch.testEvents
             for (batchEvent in eventsList) {
-                val batchEventBody = fromBatchEvent(batchEvent, batch)
                 count.total++
-                if (!filter.match(batchEventBody)) {
+                if (!filter.match(batchEvent)) {
                     continue
                 }
+                val batchEventBody = fromBatchEvent(batchEvent, batch)
 
                 count.events++
                 count.totalContentSize += batchEvent.content.remaining() + batchEventBody.attachedMessageIds.sumOf { it.length }

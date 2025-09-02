@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 
 package com.exactpro.th2.lwdataprovider.filter.events.impl
 
-import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
+import com.exactpro.cradle.testevents.StoredTestEvent
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 
 class EventSimpleFilter(
     private val values: Collection<String>,
     private val negative: Boolean,
     private val conjunct: Boolean,
-    private val accessor: BaseEventEntity.() -> String,
-) : DataFilter<BaseEventEntity> {
-    override fun match(data: BaseEventEntity): Boolean = data.accessor().let { type ->
+    private val accessor: StoredTestEvent.() -> String,
+) : DataFilter<StoredTestEvent> {
+    override fun match(data: StoredTestEvent): Boolean = data.accessor().let { type ->
         val predicate: (String) -> Boolean = { it.equals(type, ignoreCase = true) }
         values.run { if (conjunct) all(predicate) else any(predicate) }.xor(negative)
     }

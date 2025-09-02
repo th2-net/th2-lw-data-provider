@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 
 package com.exactpro.th2.lwdataprovider.filter.events
 
-import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
+import com.exactpro.cradle.testevents.StoredTestEvent
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.filter.FilterFactory
 import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 import com.exactpro.th2.lwdataprovider.filter.JoinedDataFilter
 import com.exactpro.th2.lwdataprovider.filter.events.impl.EventSimpleFilter
 
-object EventsFilterFactory : FilterFactory<BaseEventEntity> {
-    override fun create(requests: Collection<FilterRequest>): DataFilter<BaseEventEntity> =
+object EventsFilterFactory : FilterFactory<StoredTestEvent> {
+    override fun create(requests: Collection<FilterRequest>): DataFilter<StoredTestEvent> =
         if (requests.isEmpty()) {
             DataFilter.acceptAll()
         } else {
@@ -32,13 +32,13 @@ object EventsFilterFactory : FilterFactory<BaseEventEntity> {
         }
 }
 
-private fun Collection<FilterRequest>.toFilters(): Collection<DataFilter<BaseEventEntity>> = map {
+private fun Collection<FilterRequest>.toFilters(): Collection<DataFilter<StoredTestEvent>> = map {
     when (it.name) {
-        "type" -> it.toSimpleFilter { eventType }
-        "name" -> it.toSimpleFilter { eventName }
+        "type" -> it.toSimpleFilter { type }
+        "name" -> it.toSimpleFilter { name }
         else -> error("unsupported filter ${it.name}")
     }
 }
 
-private fun FilterRequest.toSimpleFilter(accessor: BaseEventEntity.() -> String): DataFilter<BaseEventEntity> =
+private fun FilterRequest.toSimpleFilter(accessor: StoredTestEvent.() -> String): DataFilter<StoredTestEvent> =
     EventSimpleFilter(values, negative, conjunct, accessor)

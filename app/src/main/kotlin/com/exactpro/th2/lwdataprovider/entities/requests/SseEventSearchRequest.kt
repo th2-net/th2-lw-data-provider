@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
+import com.exactpro.cradle.testevents.StoredTestEvent
 import com.exactpro.th2.dataprovider.lw.grpc.EventSearchRequest
-import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation.*
+import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation.PREVIOUS
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.GrpcFilterConverter
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
 import com.exactpro.th2.lwdataprovider.entities.requests.util.getInitEndTimestamp
 import com.exactpro.th2.lwdataprovider.entities.requests.util.invalidRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.toCradle
@@ -36,7 +36,7 @@ class SseEventSearchRequest(
     val searchDirection: SearchDirection,
     val resultCountLimit: Int?,
     endTimestamp: Instant?,
-    val filter: DataFilter<BaseEventEntity> = DataFilter.acceptAll(),
+    val filter: DataFilter<StoredTestEvent> = DataFilter.acceptAll(),
     val bookId: BookId,
     val scope: String,
 ) {
