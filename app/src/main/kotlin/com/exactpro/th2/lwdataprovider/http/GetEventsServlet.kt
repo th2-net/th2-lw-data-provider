@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,6 +77,8 @@ class GetEventsServlet(
                 description = "end timestamp for search", example = HttpServer.TIME_EXAMPLE),
             OpenApiParam("parentEvent", type = String::class,
                 description = "parent event id for search", example = "testEventId123"),
+            OpenApiParam("rootOnly", type = Boolean::class,
+                description = "root only event for search", example = "false"),
             OpenApiParam("searchDirection", type = SearchDirection::class,
                 description = "defines the order of the events", example = "next"),
             OpenApiParam("resultCountLimit", type = Int::class,
@@ -143,6 +145,8 @@ class GetEventsServlet(
             .allowNullable().get(),
         parentEvent = ctx.queryParamAsClass<ProviderEventId>("parentEvent")
             .allowNullable().get(),
+        rootOnly = ctx.queryParamAsClass<Boolean>("rootOnly")
+            .getOrDefault(false),
         searchDirection = ctx.queryParamAsClass<SearchDirection>("searchDirection")
             .getOrDefault(SearchDirection.next),
         resultCountLimit = ctx.queryParamAsClass<Int>("resultCountLimit")

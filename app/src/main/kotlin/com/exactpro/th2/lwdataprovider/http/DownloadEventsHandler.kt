@@ -67,6 +67,8 @@ class DownloadEventsHandler(
                 description = "end timestamp for search. Epoch time in milliseconds"),
             OpenApiParam(PARENT_EVENT_PARAM, type = String::class,
                 description = "parent event id for search", example = "testEventId123"),
+            OpenApiParam(ROOT_ONLY_PARAM, type = Boolean::class,
+                description = "root only event for search. If true, the '$PARENT_EVENT_PARAM' is ignored", example = "false"),
             OpenApiParam(BOOK_ID_PARAM, required = true, example = "bookId123",
                 description = "book ID for requested scope"),
             OpenApiParam(SCOPE_PARAM, type = String::class, required = true,
@@ -107,6 +109,8 @@ class DownloadEventsHandler(
             .allowNullable().get(),
         parentEvent = ctx.queryParamAsClass<ProviderEventId>(PARENT_EVENT_PARAM)
             .allowNullable().get(),
+        rootOnly = ctx.queryParamAsClass<Boolean>(ROOT_ONLY_PARAM)
+            .getOrDefault(false),
         searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
             .getOrDefault(SearchDirection.next),
         resultCountLimit = ctx.queryParamAsClass<Int>(LIMIT)
@@ -139,6 +143,7 @@ class DownloadEventsHandler(
     companion object {
         private const val START_TIMESTAMP_PARAM = "startTimestamp"
         private const val END_TIMESTAMP_PARAM = "endTimestamp"
+        private const val ROOT_ONLY_PARAM = "rootOnly"
         private const val PARENT_EVENT_PARAM = "parentEvent"
         private const val BOOK_ID_PARAM = "bookId"
         private const val SCOPE_PARAM = "scope"

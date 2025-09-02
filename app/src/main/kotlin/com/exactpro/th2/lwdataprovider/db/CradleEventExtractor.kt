@@ -75,6 +75,9 @@ class CradleEventExtractor(
                             end?.also { startTimestampFrom().isGreaterThan(it) }
                         }
                     }
+                    if (filter.rootOnly) {
+                        root()
+                    }
                 }
                 .order(
                     when (filter.searchDirection) {

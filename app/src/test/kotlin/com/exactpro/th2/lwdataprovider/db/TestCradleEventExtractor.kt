@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,7 @@ package com.exactpro.th2.lwdataprovider.db
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
-import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.TestEventBatchToStore
-import com.exactpro.cradle.testevents.TestEventToStore
 import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
 import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
 import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
@@ -34,11 +31,9 @@ import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventId
-import com.exactpro.th2.lwdataprovider.util.createEventStoredEvent
 import com.exactpro.th2.lwdataprovider.util.createStoredEvent
 import com.exactpro.th2.lwdataprovider.util.createStoredEventBatch
 import com.exactpro.th2.lwdataprovider.util.createStoredEventSingle
-import com.exactpro.th2.lwdataprovider.util.toStoredEvent
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.argumentCaptor
@@ -54,7 +49,6 @@ import strikt.api.Assertion
 import strikt.api.expectThat
 import strikt.assertions.get
 import strikt.assertions.isEqualTo
-import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -283,15 +277,6 @@ internal class TestCradleEventExtractor {
         )
     }
 
-    private fun Assertion.Builder<Event>.isEqualTo(toStore: TestEventToStore, batchId: StoredTestEventId? = null) {
-        get { eventId } isEqualTo (batchId?.let { "${it}>${toStore.id}" } ?: toStore.id.toString())
-        get { parentEventId } isEqualTo toStore.parentId?.let { ProviderEventId(null, it) }
-        get { eventName } isEqualTo toStore.name
-        get { eventType } isEqualTo toStore.type
-        get { successful } isEqualTo toStore.isSuccess
-        get { body } isEqualTo (toStore.asSingle().content?.let(ByteBuffer::wrap))
-    }
-
     private fun Assertion.Builder<Event>.isEqualTo(toStore: LwBatchedStoredTestEvent, batchId: StoredTestEventId? = null) {
         get { eventId } isEqualTo (batchId?.let { "${it}>${toStore.id}" } ?: toStore.id.toString())
         get { parentEventId } isEqualTo toStore.parentId?.let { ProviderEventId(null, it) }
@@ -315,6 +300,7 @@ internal class TestCradleEventExtractor {
             startTimestamp = start,
             endTimestamp = end,
             parentEvent = null,
+            rootOnly = false,
             resultCountLimit = limit,
             searchDirection = SearchDirection.next,
             bookId = BookId("test"),

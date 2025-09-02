@@ -39,6 +39,7 @@ class SseEventSearchRequest(
     val filter: DataFilter<StoredTestEvent> = DataFilter.acceptAll(),
     val bookId: BookId,
     val scope: String,
+    val rootOnly: Boolean,
 ) {
 
     val startTimestamp: Instant
@@ -53,6 +54,7 @@ class SseEventSearchRequest(
     constructor(parameters: Map<String, List<String>>) : this(
         startTimestamp = parameters["startTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         parentEvent = parameters["parentEvent"]?.firstOrNull()?.let { ProviderEventId(it) },
+        rootOnly = parameters["rootOnly"]?.firstOrNull()?.toBoolean() ?: false,
         searchDirection = parameters["searchDirection"]?.firstOrNull()?.let(SearchDirection::valueOf) ?: SearchDirection.next,
         endTimestamp = parameters["endTimestamp"]?.firstOrNull()?.let { Instant.ofEpochMilli(it.toLong()) },
         resultCountLimit = parameters["resultCountLimit"]?.firstOrNull()?.toInt(),
@@ -71,6 +73,7 @@ class SseEventSearchRequest(
         parentEvent = if (request.hasParentEvent()) {
             ProviderEventId(request.parentEvent.id)
         } else null,
+        rootOnly = request.rootOnly,
         searchDirection = request.searchDirection.let {
             when (it) {
                 PREVIOUS -> SearchDirection.previous

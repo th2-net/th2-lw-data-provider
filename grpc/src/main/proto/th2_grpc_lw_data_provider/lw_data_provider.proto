@@ -136,6 +136,7 @@ message EventSearchRequest {
   google.protobuf.Timestamp end_timestamp = 2; // unix timestamp - Sets the timestamp to which the search will be performed, starting with 'start_timestamp'. When 'search_direction' is previous, end_timestamp must be less than start_timestamp. By default it is absent (the search is carried out endlessly into the past or into the future).
 
   EventID parent_event = 3; // Match events to the specified parent. Only the immediate children of the specified event will be returned.
+  bool root_only = 9; // Match root events. If true, the parent_event is ignored
   TimeRelation search_direction = 4; // Sets the lookup direction. Can be used for pagination. Set by default to NEXT.
 
   google.protobuf.Int32Value result_count_limit = 5; // Sets the maximum amount of events to return. By default it is absent (unlimited).

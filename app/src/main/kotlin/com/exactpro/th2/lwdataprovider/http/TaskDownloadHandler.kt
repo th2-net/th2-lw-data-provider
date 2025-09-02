@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -427,6 +427,7 @@ class TaskDownloadHandler(
             startTimestamp = startTimestamp,
             endTimestamp = endTimestamp,
             parentEvent = parentEvent?.let(::ProviderEventId),
+            rootOnly = rootOnly,
             bookId = bookID,
             scope = scope,
             searchDirection = searchDirection,
@@ -512,6 +513,7 @@ class TaskDownloadHandler(
         limit: Int? = null,
         searchDirection: SearchDirection = SearchDirection.next,
         val parentEvent: String? = null,
+        val rootOnly: Boolean = false,
         @get:OpenApiPropertyType(definedBy = Array<FilterRequest>::class, nullability = Nullability.NULLABLE)
         val filters: Collection<FilterRequest> = emptyList()
     ): CreateTaskRequest(
