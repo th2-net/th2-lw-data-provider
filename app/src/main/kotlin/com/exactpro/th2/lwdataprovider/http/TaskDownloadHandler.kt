@@ -239,7 +239,7 @@ class TaskDownloadHandler(
                 }
                 is EventTaskInfo -> {
                     val handler = HttpGenericResponseHandler(
-                        queue, sseResponseBuilder, convExecutor, dataMeasurement,
+                        queue, sseResponseBuilder, { it.run() }, dataMeasurement,
                         LwEvent::eventId,
                         SseResponseBuilder::build
                     )

@@ -130,7 +130,7 @@ class DownloadEventsHandler(
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val handler = HttpGenericResponseHandler(
-            queue, sseResponseBuilder, convExecutor, dataMeasurement,
+            queue, sseResponseBuilder, { it.run() }, dataMeasurement,
             LwEvent::eventId,
             SseResponseBuilder::build
         )
