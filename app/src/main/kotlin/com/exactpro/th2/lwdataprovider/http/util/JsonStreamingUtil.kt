@@ -63,11 +63,13 @@ fun writeJsonStream(
     val output = ctx.res().outputStream.buffered(bufferSize)
     try {
         val awaitConvertToJsonMeasurement = dataMeasurement.child("await_convert_to_json")
+        val awaitNextMeasurement = dataMeasurement.child("await_next_sse_event")
         val processSseEventMeasurement = dataMeasurement.child("process_sse_event")
+        val writeSseEventMeasurement = dataMeasurement.child("write_sse_event")
         val escaper = MapEscaper()
         do {
             processSseEventMeasurement.start().use {
-                val nextEvent = queue.take()
+                val nextEvent = awaitNextMeasurement.start().use { queue.take() }
                 ResponseQueue.currentSize(matchedPath, queue.size)
                 val sseEvent = awaitConvertToJsonMeasurement.start().use { nextEvent.get() }
                 if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
@@ -89,8 +91,10 @@ fun writeJsonStream(
                         logger.debug {
                             "Write event to output: " // FIXME: log data
                         }
-                        sseEvent.writeData(output, escaper)
-                        output.write('\n'.code)
+                        writeSseEventMeasurement.start().use {
+                            sseEvent.writeData(output, escaper)
+                            output.write('\n'.code)
+                        }
                         dataSent++
                     }
                 }
