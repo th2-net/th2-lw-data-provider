@@ -17,12 +17,11 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
+import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.apache.commons.lang3.StringUtils.abbreviate
 import java.util.concurrent.BlockingQueue
 import java.util.function.Consumer
 import java.util.function.Supplier
@@ -35,11 +34,11 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
 
         val matchedPath = ctx().matchedPath()
         var dataSent = 0
+        val escaper = MapEscaper()
         try {
             while (true) {
                 val supplier = queue.take()
                 ResponseQueue.currentSize(matchedPath, queue.size)
-                // com.exactpro.th2.lwdataprovider.http.HttpMessagesRequestHandler$$Lambda$812.0x00000008007db440.get ()	156,703 ms (58.9%)	2,673 ms (2.7%)
                 val event = supplier.get()
                 if (terminated()) {
                     K_LOGGER.info { "Request is terminated. Clear queue and stop processing" }
@@ -49,7 +48,8 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
                 HttpWriteMetrics.measureWrite(matchedPath) {
                     sendEvent(
                         event.event.typeName,
-                        event.data,
+                        event,
+                        escaper,
                         event.metadata,
                     )
                 }
@@ -62,8 +62,7 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
                     flush()
                 }
                 K_LOGGER.debug {
-                    val abbreviate = abbreviate(event.data.toString(DATA_CHARSET), 50)
-                    "Sent sse event: type ${event.event}, metadata ${event.metadata}, data $abbreviate"
+                    "Sent sse event: type ${event.event}, metadata ${event.metadata}" // FIXME: print data
                 }
                 if (event.event == EventType.CLOSE) {
                     return

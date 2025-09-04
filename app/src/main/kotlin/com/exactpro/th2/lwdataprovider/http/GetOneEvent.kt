@@ -22,6 +22,7 @@ import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import io.javalin.Javalin
@@ -89,7 +90,7 @@ class GetOneEvent(
             sseResponseBuilder,
             Runnable::run,
             dataMeasurement,
-            Event::eventId,
+            LwEvent::eventId,
             SseResponseBuilder::build
         )
         var request: GetEventRequest? = null

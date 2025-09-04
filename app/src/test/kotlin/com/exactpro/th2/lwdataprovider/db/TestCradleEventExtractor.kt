@@ -23,11 +23,10 @@ import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
 import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
 import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
-import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventId
@@ -70,9 +69,9 @@ internal class TestCradleEventExtractor {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
 
-        val sink: EventDataSink<Event> = mock { }
+        val sink: EventDataSink<LwEvent> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
-        val event = argumentCaptor<Event>()
+        val event = argumentCaptor<LwEvent>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(toStore)
     }
@@ -100,9 +99,9 @@ internal class TestCradleEventExtractor {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
 
-        val sink: EventDataSink<Event> = mock { }
+        val sink: EventDataSink<LwEvent> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
-        val event = argumentCaptor<Event>()
+        val event = argumentCaptor<LwEvent>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(toStore, batchId)
     }
@@ -141,9 +140,9 @@ internal class TestCradleEventExtractor {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
 
-        val sink: EventDataSink<Event> = mock { }
+        val sink: EventDataSink<LwEvent> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
-        val event = argumentCaptor<Event>()
+        val event = argumentCaptor<LwEvent>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(inRange, batchId)
     }
@@ -180,9 +179,9 @@ internal class TestCradleEventExtractor {
             ))
         ).whenever(storage).getTestEvents(argThat { startTimestampFrom.value == start })
 
-        val sink: EventDataSink<Event> = mock { }
+        val sink: EventDataSink<LwEvent> = mock { }
         extractor.getEvents(createRequest(start, null, limit = 1), sink)
-        val event = argumentCaptor<Event>()
+        val event = argumentCaptor<LwEvent>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(inRange, batchId)
     }
@@ -202,9 +201,9 @@ internal class TestCradleEventExtractor {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
 
-        val sink: EventDataSink<Event> = mock { }
+        val sink: EventDataSink<LwEvent> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
-        val event = argumentCaptor<Event>()
+        val event = argumentCaptor<LwEvent>()
         verify(sink, times(2)).onNext(event.capture())
         expectThat(event.allValues) {
             get(0).isEqualTo(firstToStore)
@@ -222,9 +221,9 @@ internal class TestCradleEventExtractor {
             toStore
         ).whenever(storage).getTestEvent(eq(eventId))
 
-        val sink: EventDataSink<Event> = mock { }
+        val sink: EventDataSink<LwEvent> = mock { }
         extractor.getSingleEvents(GetEventRequest(null, eventId.toString()), sink)
-        val event = argumentCaptor<Event>()
+        val event = argumentCaptor<LwEvent>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(toStore)
     }
@@ -252,23 +251,23 @@ internal class TestCradleEventExtractor {
             }
         ).whenever(storage).getTestEvent(eq(batchId))
 
-        val sink: EventDataSink<Event> = mock { }
+        val sink: EventDataSink<LwEvent> = mock { }
         extractor.getSingleEvents(GetEventRequest(batchId.toString(), toStore.id.toString()), sink)
-        val event = argumentCaptor<Event>()
+        val event = argumentCaptor<LwEvent>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(toStore, batchId)
     }
 
     @Test
     fun `reports unknown event`() {
-        val sink: EventDataSink<Event> = mock { }
+        val sink: EventDataSink<LwEvent> = mock { }
         extractor.getSingleEvents(
             GetEventRequest(
                 null,
                 createEventId("test", timestamp = Instant.ofEpochSecond(1)).toString()
             ), sink
         )
-        val event = argumentCaptor<Event>()
+        val event = argumentCaptor<LwEvent>()
         verify(sink, never()).onNext(event.capture())
         verify(sink).onError(
             eq("Event is not found with id: 'test:test-scope:19700101000001000000000:test'"),
@@ -277,22 +276,25 @@ internal class TestCradleEventExtractor {
         )
     }
 
-    private fun Assertion.Builder<Event>.isEqualTo(toStore: LwBatchedStoredTestEvent, batchId: StoredTestEventId? = null) {
-        get { eventId } isEqualTo (batchId?.let { "${it}>${toStore.id}" } ?: toStore.id.toString())
-        get { parentEventId } isEqualTo toStore.parentId?.let { ProviderEventId(null, it) }
-        get { eventName } isEqualTo toStore.name
-        get { eventType } isEqualTo toStore.type
-        get { successful } isEqualTo toStore.isSuccess
-        get { body } isEqualTo (toStore.asLwSingle().content)
+    private fun Assertion.Builder<LwEvent>.isEqualTo(
+        toStore: LwBatchedStoredTestEvent,
+        batchId: StoredTestEventId? = null
+    ) {
+        get { this.batchId } isEqualTo batchId
+        get { this.eventId } isEqualTo toStore.id
+        get { this.event.parentId } isEqualTo toStore.parentId
+        get { this.event.name } isEqualTo toStore.name
+        get { this.event.type } isEqualTo toStore.type
+        get { this.event.isSuccess } isEqualTo toStore.isSuccess
+        get { this.event.content } isEqualTo (toStore.content)
     }
 
-    private fun Assertion.Builder<Event>.isEqualTo(toStore: LwStoredTestEventSingle, batchId: StoredTestEventId? = null) {
-        get { eventId } isEqualTo (batchId?.let { "${it}>${toStore.id}" } ?: toStore.id.toString())
-        get { parentEventId } isEqualTo toStore.parentId?.let { ProviderEventId(null, it) }
-        get { eventName } isEqualTo toStore.name
-        get { eventType } isEqualTo toStore.type
-        get { successful } isEqualTo toStore.isSuccess
-        get { body } isEqualTo (toStore.asLwSingle().content)
+    private fun Assertion.Builder<LwEvent>.isEqualTo(
+        toStore: LwStoredTestEventSingle,
+        batchId: StoredTestEventId? = null
+    ) {
+        get { this.batchId } isEqualTo batchId
+        get { this.event } isEqualTo toStore
     }
 
     private fun createRequest(start: Instant?, end: Instant?, limit: Int? = null): SseEventSearchRequest =

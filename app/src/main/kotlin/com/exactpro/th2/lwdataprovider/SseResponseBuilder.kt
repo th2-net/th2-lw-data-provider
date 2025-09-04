@@ -21,6 +21,7 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
@@ -51,7 +52,7 @@ class SseResponseBuilder(
         return SseEvent.build(jacksonMapper, lastIdInStream)
     }
 
-    fun build(event: Event, lastEventId: Long): SseEvent {
+    fun build(event: LwEvent, lastEventId: Long): SseEvent {
         return SseEvent.build(event, lastEventId)
     }
 

@@ -32,6 +32,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.producers.fromBatchEvent
 import com.exactpro.th2.lwdataprovider.producers.fromSingleEvent
@@ -60,7 +61,7 @@ class CradleEventExtractor(
         return storage.getScopes(bookId, Interval(start, end))
     }
 
-    fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<Event>) {
+    fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<LwEvent>) {
         val commonFilterSupplier: (start: Instant, end: Instant?) -> TestEventFilterBuilder = { start, end ->
             TestEventFilter.builder()
                 .apply {
@@ -105,7 +106,7 @@ class CradleEventExtractor(
         }
     }
 
-    fun getSingleEvents(filter: GetEventRequest, sink: EventDataSink<Event>) {
+    fun getSingleEvents(filter: GetEventRequest, sink: EventDataSink<LwEvent>) {
         logger.info { "Extracting single event $filter" }
         val batchId = filter.batchId
         val eventId = StoredTestEventId.fromString(filter.eventId)
@@ -125,9 +126,8 @@ class CradleEventExtractor(
                 sink.onError("Event with id: '$eventId' is not found in batch '$batchId'", filter.eventId, batchId)
                 return
             }
-            val batchEventBody = fromBatchEvent(testEvent, batch)
-
-            sink.onNext(batchEventBody.convertToEvent())
+            val event = LwEvent(testEvent, batch.id)
+            sink.onNext(event)
         } else {
             val testBatch = measure("single_event") { storage.getTestEvent(eventId) }
             if (testBatch == null) {
@@ -147,7 +147,7 @@ class CradleEventExtractor(
         endTimestamp: Instant,
         syncInterval: Duration,
         scopesByBook: Map<BookId, Set<String>>,
-        sink: EventDataSink<Event>,
+        sink: EventDataSink<LwEvent>,
     ) {
         data class BookScope(val bookId: BookId, val scope: String)
 
@@ -185,7 +185,7 @@ class CradleEventExtractor(
     private fun getEventByDates(
         startTimestamp: Instant,
         endTimestamp: Instant?,
-        sink: EventDataSink<Event>,
+        sink: EventDataSink<LwEvent>,
         filter: DataFilter<StoredTestEvent>,
         filterSupplier: (Instant, Instant?) -> TestEventFilter,
     ) {
@@ -213,7 +213,9 @@ class CradleEventExtractor(
             compareStart(event) && compareEnd(event)
                     && filter.match(event)
         }
-        logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms" }
+        logger.info {
+            "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"
+        }
         sink.canceled?.apply {
             logger.info { "Loading events stopped: $message" }
             return
@@ -222,7 +224,7 @@ class CradleEventExtractor(
 
     private fun processEvents(
         testEvents: Iterable<StoredTestEvent>,
-        sink: EventDataSink<Event>,
+        sink: EventDataSink<LwEvent>,
         count: ProcessingInfo,
         filter: DataFilter<StoredTestEvent>,
     ) {
@@ -239,7 +241,7 @@ class CradleEventExtractor(
         testEvent: StoredTestEvent,
         count: ProcessingInfo,
         filter: DataFilter<StoredTestEvent>,
-        sink: EventDataSink<Event>
+        sink: EventDataSink<LwEvent>
     ) {
         if (testEvent.isLwSingle) {
             val singleEv = testEvent.asLwSingle()
@@ -247,11 +249,11 @@ class CradleEventExtractor(
             if (!filter.match(singleEv)) {
                 return
             }
-            val event = fromSingleEvent(singleEv)
+            val event = LwEvent(singleEv)
             count.singleEvents++
             count.events++
-            count.totalContentSize += singleEv.content.remaining() + event.attachedMessageIds.sumOf { it.length }
-            sink.onNext(event.convertToEvent())
+            count.totalContentSize += singleEv.content.remaining() + event.attachedMessageIds.size // FIXME: calculate length
+            sink.onNext(event)
         } else if (testEvent.isLwBatch) {
             count.batches++
             val batch = testEvent.asLwBatch()
@@ -261,11 +263,11 @@ class CradleEventExtractor(
                 if (!filter.match(batchEvent)) {
                     continue
                 }
-                val batchEventBody = fromBatchEvent(batchEvent, batch)
+                val event = LwEvent(batchEvent, batch.id)
 
                 count.events++
-                count.totalContentSize += batchEvent.content.remaining() + batchEventBody.attachedMessageIds.sumOf { it.length }
-                sink.onNext(batchEventBody.convertToEvent())
+                count.totalContentSize += batchEvent.content.remaining() + event.attachedMessageIds.size // FIXME: calculate length
+                sink.onNext(event)
             }
         }
     }

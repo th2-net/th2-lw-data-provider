@@ -35,7 +35,9 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
             val event = supplier.get()
             status(statusFromEventType(event))
                 .defaultHeaders()
-                .result(event.data)
+                .apply {
+                    event.writeData(outputStream())
+                }
 
         } catch (e: Exception) {
             status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -22,6 +22,7 @@ import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Instant
 import java.util.concurrent.Executor
@@ -38,7 +39,7 @@ class SearchEventsHandler(
     fun loadScopes(bookId: BookId, start: Instant, end: Instant): Iterator<String> =
         cradle.getScopes(bookId, start, end)
 
-    fun loadEvents(request: SseEventSearchRequest, requestContext: ResponseHandler<Event>) {
+    fun loadEvents(request: SseEventSearchRequest, requestContext: ResponseHandler<LwEvent>) {
         threadPool.execute {
             SingleTypeDataSink(requestContext, request.resultCountLimit).use {
                 try {
@@ -51,7 +52,7 @@ class SearchEventsHandler(
         }
     }
 
-    fun loadOneEvent(request: GetEventRequest, requestContext: ResponseHandler<Event>) {
+    fun loadOneEvent(request: GetEventRequest, requestContext: ResponseHandler<LwEvent>) {
 
         threadPool.execute {
             SingleTypeDataSink(requestContext, limit = null).use {

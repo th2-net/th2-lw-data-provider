@@ -26,6 +26,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
@@ -127,7 +128,7 @@ class GetEventsServlet(
             sseResponseBuilder,
             convExecutor,
             dataMeasurement,
-            Event::eventId,
+            LwEvent::eventId,
             SseResponseBuilder::build
         )
         sseClient.onClose(reqContext::cancel)

@@ -47,7 +47,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SsePageInfosSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -88,7 +88,7 @@ open class GrpcDataProviderImpl(
 
         val queue = ArrayBlockingQueue<GrpcEvent>(5)
         val requestParams = GetEventRequest.fromEventID(request)
-        val handler = GrpcHandler<Event>(queue) { GrpcEvent(event = it.convertToGrpcEventData()) }
+        val handler = GrpcHandler<LwEvent>(queue) { GrpcEvent(event = it.toGrpcEventResponse()) }
         searchEventsHandler.loadOneEvent(requestParams, handler)
         processSingle(responseObserver, handler, queue) {
             it.event?.let { event -> responseObserver.onNext(event) }
@@ -136,7 +136,7 @@ open class GrpcDataProviderImpl(
         val requestParams = SseEventSearchRequest(request)
         LOGGER.info { "Loading events $requestParams" }
 
-        val handler = GrpcHandler<Event>(queue) { GrpcEvent(event = it.convertToGrpcEventData()) }
+        val handler = GrpcHandler<LwEvent>(queue) { GrpcEvent(event = it.toGrpcEventResponse()) }
         searchEventsHandler.loadEvents(requestParams, handler)
         processResponse(responseObserver, queue, handler) {
             if (it.event != null) {

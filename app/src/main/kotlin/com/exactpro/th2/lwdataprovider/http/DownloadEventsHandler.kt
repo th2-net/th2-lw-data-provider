@@ -26,6 +26,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
@@ -130,7 +131,7 @@ class DownloadEventsHandler(
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
         val handler = HttpGenericResponseHandler(
             queue, sseResponseBuilder, convExecutor, dataMeasurement,
-            Event::eventId,
+            LwEvent::eventId,
             SseResponseBuilder::build
         )
         keepAliveHandler.addKeepAliveData(handler).use {

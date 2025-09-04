@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
+import com.exactpro.th2.lwdataprovider.Escaper
+import com.exactpro.th2.lwdataprovider.Writeable
 import jakarta.servlet.http.HttpServletResponse
 import java.io.BufferedOutputStream
 import java.io.IOException
@@ -38,7 +40,12 @@ class Emitter(
     var closed = false
         private set
 
-    fun emit(event: String, data: ByteArray, id: String?): Unit = lock.withLock {
+    fun emit(
+        event: String,
+        writeable: Writeable,
+        escaper: Escaper,
+        id: String?
+    ): Unit = lock.withLock {
         try {
             if (id != null) {
                 write("id: $id$NEW_LINE")
@@ -46,14 +53,14 @@ class Emitter(
             write("event: $event$NEW_LINE")
 
             write("data: ")
-            write(data)
+            writeable.writeData(outputStream, escaper)
             write(NEW_LINE)
 
             write(NEW_LINE)
             if (autoFlush) {
                 flush()
             }
-        } catch (ignored: IOException) {
+        } catch (_: IOException) {
             closed = true
         }
     }
@@ -62,7 +69,7 @@ class Emitter(
         try {
             outputStream.flush()
             response.flushBuffer()
-        } catch (ignored: IOException) {
+        } catch (_: IOException) {
             closed = true
         }
     }

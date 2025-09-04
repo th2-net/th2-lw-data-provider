@@ -30,6 +30,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
@@ -239,7 +240,7 @@ class TaskDownloadHandler(
                 is EventTaskInfo -> {
                     val handler = HttpGenericResponseHandler(
                         queue, sseResponseBuilder, convExecutor, dataMeasurement,
-                        Event::eventId,
+                        LwEvent::eventId,
                         SseResponseBuilder::build
                     )
                     if (!taskInfo.attachHandler(handler)) return@execute TaskState.AlreadyInProgress
@@ -358,7 +359,7 @@ class TaskDownloadHandler(
         ) : TaskState()
         data class EventsReady(
             val info: EventTaskInfo,
-            val handler: HttpGenericResponseHandler<Event>,
+            val handler: HttpGenericResponseHandler<LwEvent>,
             val queue: ArrayBlockingQueue<Supplier<SseEvent>>,
         ) : TaskState()
     }

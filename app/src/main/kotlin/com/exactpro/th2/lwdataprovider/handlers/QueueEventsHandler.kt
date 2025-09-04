@@ -28,6 +28,7 @@ import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.EventDataSink
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueEventsScopeRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.handlers.util.BookScope
 import com.google.protobuf.UnsafeByteOperations
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -91,7 +92,7 @@ private class EventQueueDataSink(
     private val handler: ResponseHandler<EventsLoadStatistic>,
     private val maxBatchSize: Int,
     private val onBatch: (EventBatch) -> Unit,
-) : EventDataSink<Event> {
+) : EventDataSink<LwEvent> {
     private val countByScope = hashMapOf<BookScope, Long>()
     private val batchBuilder = EventBatch.newBuilder()
     override val canceled: CancellationReason?
@@ -100,9 +101,9 @@ private class EventQueueDataSink(
             else -> null
         }
 
-    override fun onNext(data: Event) {
+    override fun onNext(data: LwEvent) {
         countByScope.merge(BookScope(data.scope, BookId(data.bookId)), 1L, Long::plus)
-        batchBuilder.addEvents(data.toGrpc())
+        batchBuilder.addEvents(data.toGrpcEvent())
         if (batchBuilder.eventsCount >= maxBatchSize) {
             processBatch(batchBuilder)
         }
@@ -127,21 +128,4 @@ private class EventQueueDataSink(
         builder.clear()
     }
 
-}
-
-private fun Event.toGrpc(): CommonGrpcEvent {
-    return CommonGrpcEvent.newBuilder()
-        .setId(EventUtils.toEventID(startTimestamp, bookId, scope, shortEventId))
-        .setName(eventName)
-        .setType(eventType)
-        .setStatus(if (successful) EventStatus.SUCCESS else EventStatus.FAILED)
-        .setBody(UnsafeByteOperations.unsafeWrap(body))
-        .also { event ->
-            endTimestamp?.also { event.endTimestamp = it.toTimestamp() }
-            parentEventId?.also { event.parentId = Event.convertToEventIdProto(it) }
-            if (attachedMessageIds.isNotEmpty()) {
-                event.addAllAttachedMessageIds(Event.convertMessageIdToProto(attachedMessageIds))
-            }
-        }
-        .build()
 }

@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.http.util
 
 import com.exactpro.th2.lwdataprovider.EventType
+import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
@@ -28,7 +29,6 @@ import io.github.oshai.kotlinlogging.KLogger
 import io.javalin.http.Context
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
-import org.apache.commons.lang3.StringUtils
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
@@ -64,6 +64,7 @@ fun writeJsonStream(
     try {
         val awaitConvertToJsonMeasurement = dataMeasurement.child("await_convert_to_json")
         val processSseEventMeasurement = dataMeasurement.child("process_sse_event")
+        val escaper = MapEscaper()
         do {
             processSseEventMeasurement.start().use {
                 val nextEvent = queue.take()
@@ -86,11 +87,9 @@ fun writeJsonStream(
 
                     else -> {
                         logger.debug {
-                            "Write event to output: ${
-                                StringUtils.abbreviate(sseEvent.data.toString(SseEvent.DATA_CHARSET), 100)
-                            }"
+                            "Write event to output: " // FIXME: log data
                         }
-                        output.write(sseEvent.data)
+                        sseEvent.writeData(output, escaper)
                         output.write('\n'.code)
                         dataSent++
                     }

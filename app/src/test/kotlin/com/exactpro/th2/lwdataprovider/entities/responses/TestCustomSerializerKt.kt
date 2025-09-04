@@ -17,11 +17,16 @@
 package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.BookId
+import com.exactpro.cradle.PageId
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
+import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
+import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
+import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.fasterxml.jackson.databind.json.JsonMapper
@@ -35,9 +40,11 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.Base64
+import kotlin.text.Charsets.UTF_8
 
 internal class TestCustomSerializerKt {
     private val mapper = JsonMapper()
@@ -91,9 +98,11 @@ internal class TestCustomSerializerKt {
             ),
         )
 
-        val jsonBytes = message.toJSONByteArray()
+        val out = ByteArrayOutputStream()
+        val escaper = MapEscaper()
+        message.writeJsonData(out, escaper)
 
-        assertDoesNotThrow { mapper.readTree(jsonBytes) }
+        assertDoesNotThrow { mapper.readTree(out.toByteArray()) }
     }
 
     @ParameterizedTest(name = "char `{0}` does not cause problems")
@@ -102,47 +111,53 @@ internal class TestCustomSerializerKt {
     @MethodSource("unicodeChars")
     fun `writes Event as valid json`(escapeCharacter: Char) {
         val timestamp = Instant.now()
-        val event = Event(
-            eventId = "event${escapeCharacter}Id",
-            batchId = "batch${escapeCharacter}Id",
-            shortEventId = "shortEvent${escapeCharacter}Id",
-            isBatched = true,
-            eventName = "event${escapeCharacter}Name",
-            eventType = "event${escapeCharacter}Type",
-            endTimestamp = timestamp,
-            startTimestamp = timestamp,
-            parentEventId = ProviderEventId(
-                batchId = StoredTestEventId(
-                    BookId("book${escapeCharacter}Id"),
-                    "scope${escapeCharacter}",
-                    timestamp,
-                    "id${escapeCharacter}"
+        val bookId = BookId("book${escapeCharacter}Id")
+        val scope = "scope${escapeCharacter}"
+        val eventId = StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id")
+        val batchId = StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id")
+        val event = LwEvent(
+            event = LwBatchedStoredTestEvent(
+                eventId,
+                "event${escapeCharacter}Name",
+                "event${escapeCharacter}Type",
+                StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id"),
+                timestamp,
+                    true,
+                ByteBuffer.wrap("""[{"body":"test-body"}]""".toByteArray(Charsets.UTF_8)),
+                    LwStoredTestEventBatch(
+                        batchId,
+                        "test-batch-name",
+                        "test-batch-type",
+                        StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id"),
+                        emptyList<LwBatchedStoredTestEvent>(),
+                        mapOf(
+                            eventId to setOf(
+                                StoredMessageId(bookId, "attachedMessage${escapeCharacter}Id", com.exactpro.cradle.Direction.SECOND,
+                                    timestamp, 0L)
+                            )
+                        ),
+                        PageId(bookId, timestamp, ""),
+                        "",
+                        timestamp
+                    ),
+                    PageId(bookId, timestamp, ""),
                 ),
-                eventId = StoredTestEventId(
-                    BookId("book${escapeCharacter}Id"),
-                    "scope${escapeCharacter}",
-                    timestamp,
-                    "id${escapeCharacter}"
-                ),
-            ),
-            successful = true,
-            bookId = "book${escapeCharacter}Id",
-            scope = "scope${escapeCharacter}",
-            attachedMessageIds = setOf(
-                "attachedMessage${escapeCharacter}Id",
-            ),
-            body = ByteBuffer.wrap("""[{"body":"test-body"}]""".toByteArray(Charsets.UTF_8))
+            batchId = batchId,
+            parentBatchId = batchId,
         )
 
-        val jsonBytes = event.toJSONByteArray()
+        val out = ByteArrayOutputStream()
+        val escaper = MapEscaper()
+        event.writeJsonData(out, escaper)
 
-        assertDoesNotThrow { mapper.readTree(jsonBytes) }
+        assertDoesNotThrow { mapper.readTree(out.toByteArray()) }
     }
 
     @ParameterizedTest(name = "char `{0}` escaped as `{1}`")
     @MethodSource("escapedResults")
     fun `test json escape result`(char: Char, escaped: String) {
-        expectThat(jsonEscape("$char")).isEqualTo(escaped)
+
+        expectThat(MapEscaper().escape("$char", false)).isEqualTo(escaped.toByteArray(UTF_8))
     }
 
     companion object {
