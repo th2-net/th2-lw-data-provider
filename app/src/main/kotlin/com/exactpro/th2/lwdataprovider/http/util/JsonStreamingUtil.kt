@@ -60,7 +60,13 @@ fun writeJsonStream(
         }
     }
 
-    val output = ctx.res().outputStream.buffered(bufferSize)
+    val output = ctx.res().outputStream.let {
+        if (bufferSize > 0) {
+            it.buffered(bufferSize)
+        } else {
+            it
+        }
+    }
     try {
         val awaitConvertToJsonMeasurement = dataMeasurement.child("await_convert_to_json")
         val awaitNextMeasurement = dataMeasurement.child("await_next_sse_event")

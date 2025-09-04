@@ -21,7 +21,6 @@ import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
 import com.exactpro.th2.lwdataprovider.Escaper
-import com.exactpro.th2.lwdataprovider.entities.responses.ser.numberOfDigits
 import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.time.Instant
@@ -47,9 +46,8 @@ private val OPENING_CURLY_BRACE = "{".toByteArray(UTF_8).first().toInt()
 private val CLOSING_CURLY_BRACE = "}".toByteArray(UTF_8).first().toInt()
 private val OPENING_SQUARE_BRACE = "[".toByteArray(UTF_8).first().toInt()
 private val CLOSING_SQUARE_BRACE = "]".toByteArray(UTF_8).first().toInt()
-private val GREATER_THAN = ">".toByteArray(UTF_8).first().toInt()
 private val DOUBLE_QUOTE = """"""".toByteArray(UTF_8).first().toInt()
-private val DIVIDER = ">".toByteArray(UTF_8).first().toInt()
+private val ID_DIVIDER = ">".toByteArray(UTF_8).first().toInt()
 
 private val TIMESTAMP_FILED = """"timestamp"""".toByteArray(UTF_8)
 private val EPOCH_SECOND_FILED = """"epochSecond"""".toByteArray(UTF_8)
@@ -276,7 +274,7 @@ private fun OutputStream.writeEventIdField(name: ByteArray, batchEventId: Stored
     write(DOUBLE_QUOTE)
     if (batchEventId != null) {
         writeEventId(batchEventId, escaper)
-        write(DIVIDER)
+        write(ID_DIVIDER)
     }
     writeEventId(eventId, escaper)
     write(DOUBLE_QUOTE)
@@ -334,16 +332,6 @@ private fun OutputStream.writeNineDigits(value: Int) {
 private fun OutputStream.writeTwoDigits(value: Int) {
     if (value < 10) {
         write(ZERO)
-    }
-    write(value.toString().toByteArray(UTF_8))
-}
-
-private fun OutputStream.writeNumber(value: Int, size: Int) {
-    val digits = numberOfDigits(value)
-    if (digits < size) {
-        repeat(size - digits) {
-            write(ZERO)
-        }
     }
     write(value.toString().toByteArray(UTF_8))
 }
@@ -409,7 +397,7 @@ private fun OutputStream.writeNumberList(name: ByteArray, value: Collection<Numb
     writeList(name, value) { write(it.toString().toByteArray(UTF_8)) }
 }
 
-private fun <T> OutputStream.writeList(name: ByteArray, values: Collection<T>, writeValue: OutputStream.(T) -> Unit) {
+private inline fun <T> OutputStream.writeList(name: ByteArray, values: Collection<T>, writeValue: OutputStream.(T) -> Unit) {
     write(name)
     write(COLON)
     write(OPENING_SQUARE_BRACE)
