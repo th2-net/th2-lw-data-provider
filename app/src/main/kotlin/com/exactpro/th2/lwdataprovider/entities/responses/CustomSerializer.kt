@@ -18,7 +18,6 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.utils.TimeUtils
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
 import com.exactpro.th2.lwdataprovider.Escaper
@@ -27,7 +26,6 @@ import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import java.util.*
 import kotlin.text.Charsets.UTF_8
 import com.exactpro.cradle.utils.EscapeUtils.escape as cradleEscape
@@ -35,6 +33,13 @@ import com.exactpro.cradle.utils.EscapeUtils.escape as cradleEscape
 private val COMMA = ",".toByteArray(UTF_8).first().toInt()
 private val COLON = ":".toByteArray(UTF_8).first().toInt()
 private val ZERO = "0".toByteArray(UTF_8).first().toInt()
+private val ZERO2 = "00".toByteArray(UTF_8)
+private val ZERO3 = "000".toByteArray(UTF_8)
+private val ZERO4 = "0000".toByteArray(UTF_8)
+private val ZERO5 = "00000".toByteArray(UTF_8)
+private val ZERO6 = "000000".toByteArray(UTF_8)
+private val ZERO7 = "0000000".toByteArray(UTF_8)
+private val ZERO8 = "00000000".toByteArray(UTF_8)
 private val NULL = "null".toByteArray(UTF_8)
 private val TRUE = "true".toByteArray(UTF_8)
 private val FALSE = "false".toByteArray(UTF_8)
@@ -74,9 +79,6 @@ private val SUCCESSFUL_FILED = """"successful"""".toByteArray(UTF_8)
 private val BOOK_ID_FILED = """"bookId"""".toByteArray(UTF_8)
 private val SCOPE_FILED = """"scope"""".toByteArray(UTF_8)
 private val ATTACHED_MESSAGE_IDS_FILED = """"attachedMessageIds"""".toByteArray(UTF_8)
-
-private val TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSSSSSSSS")
-    .withZone(ZoneOffset.UTC)
 
 fun ProviderMessage53Transport.writeJsonData(out: OutputStream, escaper: Escaper): Unit = with(out) {
     write(OPENING_CURLY_BRACE)
@@ -150,15 +152,7 @@ private fun OutputStream.writeMessageId(messageId: StoredMessageId, escaper: Esc
         write(COLON)
         write(direction.label.toByteArray(UTF_8))
         write(COLON)
-        TimeUtils.toLocalTimestamp(timestamp).apply {
-            writeNumber(year, 4)
-            writeTwoDigits(monthValue)
-            writeTwoDigits(dayOfMonth)
-            writeTwoDigits(hour)
-            writeTwoDigits(minute)
-            writeTwoDigits(second)
-            writeNumber(nano, 9)
-        }
+        writeTimestamp(timestamp)
         write(COLON)
         write(sequence.toString().toByteArray(UTF_8))
     }
@@ -259,9 +253,21 @@ private fun OutputStream.writeEventId(eventId: StoredTestEventId, escaper: Escap
     write(COLON)
     write(escaper.escape(eventId.scope, true))
     write(COLON)
-    write(TIMESTAMP_FORMAT.format(eventId.startTimestamp).toByteArray(UTF_8))
+    writeTimestamp(eventId.startTimestamp)
     write(COLON)
     write(escaper.escape(eventId.id, false))
+}
+
+private fun OutputStream.writeTimestamp(timestamp: Instant) {
+    timestamp.atZone(ZoneOffset.UTC).apply {
+        writeFourDigits(year)
+        writeTwoDigits(monthValue)
+        writeTwoDigits(dayOfMonth)
+        writeTwoDigits(hour)
+        writeTwoDigits(minute)
+        writeTwoDigits(second)
+        writeNineDigits(nano)
+    }
 }
 
 private fun OutputStream.writeEventIdField(name: ByteArray, batchEventId: StoredTestEventId?, eventId: StoredTestEventId, escaper: Escaper) {
@@ -300,6 +306,29 @@ private fun OutputStream.writeTimestamp(name: ByteArray, timestamp: Instant) {
     write(COMMA)
     writeField(NANO_FILED, timestamp.nano)
     write(CLOSING_CURLY_BRACE)
+}
+
+private fun OutputStream.writeFourDigits(value: Int) {
+    when {
+        value < 10 -> write(ZERO3)
+        value < 100 -> write(ZERO2)
+        value < 1000 -> write(ZERO)
+    }
+    write(value.toString().toByteArray(UTF_8))
+}
+
+private fun OutputStream.writeNineDigits(value: Int) {
+    when {
+        value < 10 -> write(ZERO8)
+        value < 100 -> write(ZERO7)
+        value < 1000 -> write(ZERO6)
+        value < 10000 -> write(ZERO5)
+        value < 100000 -> write(ZERO4)
+        value < 1000000 -> write(ZERO3)
+        value < 10000000 -> write(ZERO2)
+        value < 100000000 -> write(ZERO)
+    }
+    write(value.toString().toByteArray(UTF_8))
 }
 
 private fun OutputStream.writeTwoDigits(value: Int) {
