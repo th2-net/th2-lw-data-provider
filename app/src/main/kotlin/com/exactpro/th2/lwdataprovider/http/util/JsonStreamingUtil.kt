@@ -60,13 +60,21 @@ fun writeJsonStream(
         }
     }
 
-    val output = ctx.res().outputStream.buffered(bufferSize)
+    val output = ctx.res().outputStream.let {
+        if (bufferSize > 0) {
+            it.buffered(bufferSize)
+        } else {
+            it
+        }
+    }
     try {
         val awaitConvertToJsonMeasurement = dataMeasurement.child("await_convert_to_json")
+        val awaitNextMeasurement = dataMeasurement.child("await_next_sse_event")
         val processSseEventMeasurement = dataMeasurement.child("process_sse_event")
+        val writeSseEventMeasurement = dataMeasurement.child("write_sse_event")
         do {
             processSseEventMeasurement.start().use {
-                val nextEvent = queue.take()
+                val nextEvent = awaitNextMeasurement.start().use { queue.take() }
                 ResponseQueue.currentSize(matchedPath, queue.size)
                 val sseEvent = awaitConvertToJsonMeasurement.start().use { nextEvent.get() }
                 if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
@@ -90,8 +98,10 @@ fun writeJsonStream(
                                 StringUtils.abbreviate(sseEvent.data.toString(SseEvent.DATA_CHARSET), 100)
                             }"
                         }
-                        output.write(sseEvent.data)
-                        output.write('\n'.code)
+                        writeSseEventMeasurement.start().use {
+                            output.write(sseEvent.data)
+                            output.write('\n'.code)
+                        }
                         dataSent++
                     }
                 }
