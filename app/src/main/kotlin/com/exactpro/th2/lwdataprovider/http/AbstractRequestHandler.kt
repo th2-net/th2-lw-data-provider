@@ -36,7 +36,7 @@ abstract class AbstractRequestHandler : Handler, JavalinHandler {
             status(statusFromEventType(event))
                 .defaultHeaders()
                 .apply {
-                    event.writeData(outputStream())
+                    event.writeData(outputStream(),)
                 }
 
         } catch (e: Exception) {

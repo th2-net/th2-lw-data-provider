@@ -49,7 +49,6 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
                     sendEvent(
                         event.event.typeName,
                         event,
-                        escaper,
                         event.metadata,
                     )
                 }

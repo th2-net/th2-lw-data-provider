@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.Escaper
 import com.exactpro.th2.lwdataprovider.Writeable
 import jakarta.servlet.http.HttpServletResponse
 import java.io.BufferedOutputStream
@@ -43,7 +42,6 @@ class Emitter(
     fun emit(
         event: String,
         writeable: Writeable,
-        escaper: Escaper,
         id: String?
     ): Unit = lock.withLock {
         try {
@@ -53,7 +51,7 @@ class Emitter(
             write("event: $event$NEW_LINE")
 
             write("data: ")
-            writeable.writeData(outputStream, escaper)
+            writeable.writeData(outputStream)
             write(NEW_LINE)
 
             write(NEW_LINE)

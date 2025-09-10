@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,15 +22,16 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
 import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
-import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
+import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
+import com.exactpro.th2.lwdataprovider.DummyEscaper
 import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
-import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.fasterxml.jackson.databind.json.JsonMapper
 import io.netty.buffer.Unpooled
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.params.ParameterizedTest
@@ -40,10 +41,12 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.time.Instant
-import java.util.Base64
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.*
 import kotlin.text.Charsets.UTF_8
 
 internal class TestCustomSerializerKt {
@@ -98,11 +101,9 @@ internal class TestCustomSerializerKt {
             ),
         )
 
-        val out = ByteArrayOutputStream()
-        val escaper = MapEscaper()
-        message.writeJsonData(out, escaper)
+        val buf = message.writeJsonData(Unpooled.buffer(), DummyEscaper)
 
-        assertDoesNotThrow { mapper.readTree(out.toByteArray()) }
+        assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
     }
 
     @ParameterizedTest(name = "char `{0}` does not cause problems")
@@ -146,11 +147,9 @@ internal class TestCustomSerializerKt {
             parentBatchId = batchId,
         )
 
-        val out = ByteArrayOutputStream()
-        val escaper = MapEscaper()
-        event.writeJsonData(out, escaper)
+        val buf = event.writeJsonData(Unpooled.buffer(), DummyEscaper)
 
-        assertDoesNotThrow { mapper.readTree(out.toByteArray()) }
+        assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
     }
 
     @ParameterizedTest(name = "char `{0}` escaped as `{1}`")
@@ -158,6 +157,17 @@ internal class TestCustomSerializerKt {
     fun `test json escape result`(char: Char, escaped: String) {
 
         expectThat(MapEscaper().escape("$char", false)).isEqualTo(escaped.toByteArray(UTF_8))
+    }
+
+    @Test
+    fun `test put timestamp`() {
+        val now = Instant.now()
+        val buffer = ByteBuffer.allocate(23).apply {
+            putTimestamp(now)
+            flip()
+        }
+        val formater = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSSSSSSSS").withZone(ZoneOffset.UTC)
+        assertEquals(formater.format(now), String(buffer.array()))
     }
 
     companion object {

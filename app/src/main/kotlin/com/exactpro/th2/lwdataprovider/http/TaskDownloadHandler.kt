@@ -19,6 +19,7 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.Direction
 import com.exactpro.th2.common.event.EventUtils
+import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -29,9 +30,10 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.ProviderMessageStream
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.HeapBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
+import com.exactpro.th2.lwdataprovider.entities.responses.UnpooledBufPool
 import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -220,62 +222,69 @@ class TaskDownloadHandler(
     private fun executeTask(context: Context) {
         val taskID = TaskID.create(context.pathParam(TASK_ID))
         LOGGER.info { "Executing task $taskID" }
-        val taskState: TaskState = taskManager.execute(taskID) { taskInfo ->
-            if (taskInfo == null) {
-                return@execute TaskState.NotFound
-            }
-            val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-            when(taskInfo) {
-                is MessageTaskInfo -> {
-                    val handler = HttpMessagesRequestHandler(
-                        queue, sseResponseBuilder, convExecutor, dataMeasurement,
-                        maxMessagesPerRequest = configuration.bufferPerQuery,
-                        responseFormats = taskInfo.request.responseFormats
-                            ?: configuration.responseFormats,
-                        failFast = taskInfo.request.failFast,
-                    )
-                    if (!taskInfo.attachHandler(handler)) return@execute TaskState.AlreadyInProgress
-                    TaskState.MessagesReady(taskInfo, handler, queue)
-                }
-                is EventTaskInfo -> {
-                    val handler = HttpGenericResponseHandler(
-                        queue, sseResponseBuilder, { it.run() }, dataMeasurement,
-                        LwEvent::eventId,
-                        SseResponseBuilder::build
-                    )
-                    if (!taskInfo.attachHandler(handler)) return@execute TaskState.AlreadyInProgress
-                    TaskState.EventsReady(taskInfo, handler, queue)
-                }
-            }
-        }
-        when (taskState) {
-            TaskState.AlreadyInProgress -> {
-                LOGGER.error { "Task $taskID already in progress" }
-                context.status(HttpStatus.CONFLICT)
-                    .json(ErrorMessage("task with id '${taskID.id}' already in progress"))
-            }
+        HeapBufferPool().use { bufferPool ->
+            MapEscaper().use { escaper ->
+                val responseBuilder = sseResponseBuilder.create(bufferPool, escaper)
+                val taskState: TaskState = taskManager.execute(taskID) { taskInfo ->
+                    if (taskInfo == null) {
+                        return@execute TaskState.NotFound
+                    }
+                    val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
 
-            TaskState.NotFound -> {
-                LOGGER.error { "Task $taskID not found" }
-                context.status(HttpStatus.NOT_FOUND)
-                    .json(ErrorMessage("task with id '${taskID.id}' is not found"))
-            }
+                    when (taskInfo) {
+                        is MessageTaskInfo -> {
+                            val handler = HttpMessagesRequestHandler(
+                                queue, responseBuilder, convExecutor, dataMeasurement,
+                                maxMessagesPerRequest = configuration.bufferPerQuery,
+                                responseFormats = taskInfo.request.responseFormats
+                                    ?: configuration.responseFormats,
+                                failFast = taskInfo.request.failFast,
+                            )
+                            if (!taskInfo.attachHandler(handler)) return@execute TaskState.AlreadyInProgress
+                            TaskState.MessagesReady(taskInfo, handler, queue)
+                        }
 
-            is TaskState.MessagesReady -> {
-                val (taskInfo, handler, queue) = taskState
-                keepAliveHandler.addKeepAliveData(handler).use {
-                    searchMessagesHandler.loadMessageGroups(taskInfo.request, handler, dataMeasurement)
-                    writeJsonStream(context, queue, handler, dataMeasurement, LOGGER, taskInfo)
-                    LOGGER.info { "Message task $taskID completed with status ${taskInfo.status}" }
+                        is EventTaskInfo -> {
+                            val handler = HttpGenericResponseHandler(
+                                queue, responseBuilder, { it.run() }, dataMeasurement,
+                                LwEvent::eventId,
+                                SseResponseBuilder::build
+                            )
+                            if (!taskInfo.attachHandler(handler)) return@execute TaskState.AlreadyInProgress
+                            TaskState.EventsReady(taskInfo, handler, queue)
+                        }
+                    }
                 }
-            }
+                when (taskState) {
+                    TaskState.AlreadyInProgress -> {
+                        LOGGER.error { "Task $taskID already in progress" }
+                        context.status(HttpStatus.CONFLICT)
+                            .json(ErrorMessage("task with id '${taskID.id}' already in progress"))
+                    }
 
-            is TaskState.EventsReady -> {
-                val (taskInfo, handler, queue) = taskState
-                keepAliveHandler.addKeepAliveData(handler).use {
-                    searchEventsHandler.loadEvents(taskInfo.request, handler)
-                    writeJsonStream(context, queue, handler, dataMeasurement, LOGGER)
-                    LOGGER.info { "Event task $taskID completed with status ${taskInfo.status}" }
+                    TaskState.NotFound -> {
+                        LOGGER.error { "Task $taskID not found" }
+                        context.status(HttpStatus.NOT_FOUND)
+                            .json(ErrorMessage("task with id '${taskID.id}' is not found"))
+                    }
+
+                    is TaskState.MessagesReady -> {
+                        val (taskInfo, handler, queue) = taskState
+                        keepAliveHandler.addKeepAliveData(handler).use {
+                            searchMessagesHandler.loadMessageGroups(taskInfo.request, handler, dataMeasurement)
+                            writeJsonStream(context, queue, handler, dataMeasurement, LOGGER, taskInfo)
+                            LOGGER.info { "Message task $taskID completed with status ${taskInfo.status}" }
+                        }
+                    }
+
+                    is TaskState.EventsReady -> {
+                        val (taskInfo, handler, queue) = taskState
+                        keepAliveHandler.addKeepAliveData(handler).use {
+                            searchEventsHandler.loadEvents(taskInfo.request, handler)
+                            writeJsonStream(context, queue, handler, dataMeasurement, LOGGER)
+                            LOGGER.info { "Event task $taskID completed with status ${taskInfo.status}" }
+                        }
+                    }
                 }
             }
         }

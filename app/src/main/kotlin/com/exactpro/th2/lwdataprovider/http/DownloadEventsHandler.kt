@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.BookId
+import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -25,6 +26,7 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
+import com.exactpro.th2.lwdataprovider.entities.responses.HeapBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
@@ -129,15 +131,26 @@ class DownloadEventsHandler(
         val request = createRequest(ctx)
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val handler = HttpGenericResponseHandler(
-            queue, sseResponseBuilder, { it.run() }, dataMeasurement,
-            LwEvent::eventId,
-            SseResponseBuilder::build
-        )
-        keepAliveHandler.addKeepAliveData(handler).use {
-            searchEventsHandler.loadEvents(request, handler)
-            writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER, bufferSize = configuration.responseBufferSize)
-            LOGGER.info { "Processing download events request finished" }
+        HeapBufferPool().use { bufferPool ->
+            MapEscaper().use { escaper ->
+                val handler = HttpGenericResponseHandler(
+                    queue, sseResponseBuilder.create(bufferPool, escaper), convExecutor, dataMeasurement,
+                    LwEvent::eventId,
+                    SseResponseBuilder::build
+                )
+                keepAliveHandler.addKeepAliveData(handler).use {
+                    searchEventsHandler.loadEvents(request, handler)
+                    writeJsonStream(
+                        ctx,
+                        queue,
+                        handler,
+                        dataMeasurement,
+                        LOGGER,
+                        bufferSize = configuration.responseBufferSize
+                    )
+                    LOGGER.info { "Processing download events request finished" }
+                }
+            }
         }
     }
 

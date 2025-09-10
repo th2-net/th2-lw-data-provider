@@ -17,22 +17,49 @@
 package com.exactpro.th2.lwdataprovider
 
 import kotlin.text.Charsets.UTF_8
+import kotlin.text.toByteArray
 
-fun interface Escaper {
+interface Escaper {
     fun escape(value: String, hold: Boolean): ByteArray
+    fun escapeStr(value: String, hold: Boolean): String
 }
 
-class MapEscaper : Escaper {
-    private val holder = mutableMapOf<String, ByteArray>()
+object DummyEscaper : Escaper {
+    override fun escape(value: String, hold: Boolean): ByteArray = jsonEscape(value).toByteArray(UTF_8)
+    override fun escapeStr(value: String, hold: Boolean): String {
+        TODO("Not yet implemented")
+    }
+
+}
+
+class MapEscaper(
+    private val holder: MutableMap<String, ByteArray> = mutableMapOf(),
+    private val holder2: MutableMap<String, String> = mutableMapOf()
+) : Escaper, AutoCloseable {
     override fun escape(value: String, hold: Boolean): ByteArray {
         if (hold) {
-            return holder.computeIfAbsent(value, ::jsonEscape)
+            return holder.computeIfAbsent(value) {
+                jsonEscape(value).toByteArray(UTF_8)
+            }
+        }
+        return jsonEscape(value).toByteArray(UTF_8)
+    }
+
+    override fun escapeStr(value: String, hold: Boolean): String {
+        if (hold) {
+            return holder2.computeIfAbsent(value) {
+                jsonEscape(value)
+            }
         }
         return jsonEscape(value)
     }
+
+    override fun close() {
+        holder.clear()
+    }
 }
 
-fun jsonEscape(value: String): ByteArray {
+fun jsonEscape(value: String): String {
     for (ch in value) {
         when (ch.code) {
             0 -> return execEscape(value)
@@ -72,10 +99,10 @@ fun jsonEscape(value: String): ByteArray {
             '\u007f'.code -> return execEscape(value)
         }
     }
-    return value.toByteArray(UTF_8)
+    return value
 }
 
-private fun execEscape(value: String): ByteArray {
+private fun execEscape(value: String): String {
     return buildString(value.length) {
         for (ch in value) {
             when (ch) {
@@ -117,5 +144,5 @@ private fun execEscape(value: String): ByteArray {
                 else -> append(ch)
             }
         }
-    }.toByteArray(UTF_8)
+    }
 }

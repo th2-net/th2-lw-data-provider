@@ -16,7 +16,6 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
-import com.exactpro.th2.lwdataprovider.Escaper
 import com.exactpro.th2.lwdataprovider.Writeable
 import io.javalin.http.Context
 import io.javalin.util.JavalinLogger
@@ -77,9 +76,9 @@ class SseClient internal constructor(
         JavalinLogger.info("Sse client ${ctx.url()} has been closed")
     }
 
-    fun sendEvent(event: String, writeable: Writeable, escaper: Escaper, id: String? = null) {
+    fun sendEvent(event: String, writeable: Writeable, id: String? = null) {
         if (terminated.get()) return logTerminated()
-        emitter.emit(event, writeable, escaper, id)
+        emitter.emit(event, writeable, id)
         emitted++
         @Suppress("ConvertTwoComparisonsToRangeCheck")
         if (flushAfter > 0 && emitted >= flushAfter) {

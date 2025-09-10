@@ -22,6 +22,7 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
 import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
+import com.exactpro.th2.lwdataprovider.DummyEscaper
 import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import org.apache.commons.lang3.RandomStringUtils
@@ -42,13 +43,18 @@ import java.time.Instant
 open class CustomSerializerBenchmark {
     @State(Thread)
     open class Simple {
+        val bufPool = UnpooledBufPool()
+        val buf = ByteBuffer.allocate(1_024 * 1_024)
         val escaper = MapEscaper()
+
+        val timestamp = Instant.now()
+        val bookId = BookId("benchmark-batch-id")
+        val msgId = StoredMessageId(bookId, "benchmark-session-alias", com.exactpro.cradle.Direction.SECOND,
+            timestamp, 0L)
         lateinit var largeEvent: LwEvent
 
         @Setup
         open fun init() {
-            val timestamp = Instant.now()
-            val bookId = BookId("benchmark-batch-id")
             val pageId = PageId(bookId, timestamp, "")
             val scope = "benchmark-scope"
             val eventId = StoredTestEventId(bookId, scope, timestamp, "benchmark-event-id")
@@ -70,8 +76,7 @@ open class CustomSerializerBenchmark {
                         emptyList<LwBatchedStoredTestEvent>(),
                         mapOf(
                             eventId to setOf(
-                                StoredMessageId(bookId, "benchmark-session-alias", com.exactpro.cradle.Direction.SECOND,
-                                    timestamp, 0L)
+                                msgId
                             )
                         ),
                         pageId,
@@ -86,12 +91,30 @@ open class CustomSerializerBenchmark {
         }
     }
 
+//    @Benchmark
+//    @BenchmarkMode(Mode.Throughput)
+//    fun benchmarkIncrementTotalMetricsOldVsSimpleBatch(
+//        state: Simple,
+//    ) {
+//        state.bufPool.release(state.largeEvent.writeJsonData(state.bufPool.acquire(), state.escaper))
+//    }
+
+//    @Benchmark
+//    @BenchmarkMode(Mode.Throughput)
+//    fun benchmarkIncrementTotalMetricsOldVsSimpleBatch(
+//        state: Simple,
+//    ) {
+//        state.largeEvent.putJsonData(state.buf, state.escaper)
+//        state.buf.clear()
+//    }
+
     @Benchmark
     @BenchmarkMode(Mode.Throughput)
     fun benchmarkIncrementTotalMetricsOldVsSimpleBatch(
         state: Simple,
     ) {
-        state.largeEvent.writeJsonData(BlackholeOutputStream, state.escaper)
+        state.buf.putMessageId(state.msgId, state.escaper)
+        state.buf.clear()
     }
 
     companion object {

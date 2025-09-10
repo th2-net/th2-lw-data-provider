@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,8 +70,8 @@ class HttpServer(private val context: Context) {
         val keepAliveHandler = this.context.keepAliveHandler
 
         val sseResponseBuilder = SseResponseBuilder(
-            jacksonMapper,
-            if (configuration.listOfMessageAsSingleMessage) {
+            jacksonMapper = jacksonMapper,
+            responseFactory = if (configuration.listOfMessageAsSingleMessage) {
                 if (configuration.useTransportMode) {
                     MessageProducer53Transport.Companion::createMessage
                 } else {

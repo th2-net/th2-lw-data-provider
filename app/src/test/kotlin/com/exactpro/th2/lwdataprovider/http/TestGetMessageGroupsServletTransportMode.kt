@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ internal class TestGetMessageGroupsServletTransportMode : AbstractHttpHandlerTes
         )
 
     override val sseResponseBuilder =
-        SseResponseBuilder(context.jacksonMapper, MessageProducer53Transport.Companion::createMessage)
+        SseResponseBuilder(jacksonMapper = context.jacksonMapper, responseFactory = MessageProducer53Transport.Companion::createMessage)
 
     override fun createHandler(): GetMessageGroupsServlet {
         return GetMessageGroupsServlet(
