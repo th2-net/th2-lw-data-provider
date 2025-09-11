@@ -133,7 +133,8 @@ class TestResponseMessage {
 
     @Test
     fun `custom to byte array message without optional field serialisation`() {
-        val buf = messageWithoutOptionalFields.writeJsonData(Unpooled.buffer(), DummyEscaper)
+        val buf = Unpooled.buffer()
+        messageWithoutOptionalFields.serializeJsonData(create(buf, DummyEscaper))
         assertEquals(jsonMessageWithoutOptionalFields, String(buf.toByteArray()))
     }
 
@@ -159,7 +160,8 @@ class TestResponseMessage {
 
     @Test
     fun `custom to byte array full message serialisation`() {
-        val buf = fullMessage.writeJsonData(Unpooled.buffer(), DummyEscaper)
+        val buf = Unpooled.buffer()
+        fullMessage.serializeJsonData(create(buf, DummyEscaper))
         assertEquals(jsonFullMessage, String(buf.toByteArray()))
     }
 }

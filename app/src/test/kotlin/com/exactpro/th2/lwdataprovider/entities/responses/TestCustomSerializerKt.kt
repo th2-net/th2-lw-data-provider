@@ -30,9 +30,8 @@ import com.exactpro.th2.lwdataprovider.DummyEscaper
 import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import com.fasterxml.jackson.databind.json.JsonMapper
+import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -43,9 +42,6 @@ import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import java.nio.ByteBuffer
 import java.time.Instant
-import java.time.ZoneId
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import java.util.*
 import kotlin.text.Charsets.UTF_8
 
@@ -101,7 +97,8 @@ internal class TestCustomSerializerKt {
             ),
         )
 
-        val buf = message.writeJsonData(Unpooled.buffer(), DummyEscaper)
+        val buf = Unpooled.buffer()
+        message.serializeJsonData(create(buf, DummyEscaper))
 
         assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
     }
@@ -124,7 +121,7 @@ internal class TestCustomSerializerKt {
                 StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id"),
                 timestamp,
                     true,
-                ByteBuffer.wrap("""[{"body":"test-body"}]""".toByteArray(Charsets.UTF_8)),
+                ByteBuffer.wrap("""[{"body":"test-body"}]""".toByteArray(UTF_8)),
                     LwStoredTestEventBatch(
                         batchId,
                         "test-batch-name",
@@ -147,7 +144,8 @@ internal class TestCustomSerializerKt {
             parentBatchId = batchId,
         )
 
-        val buf = event.writeJsonData(Unpooled.buffer(), DummyEscaper)
+        val buf: ByteBuf = Unpooled.buffer()
+        event.serializeJsonData(create(buf, DummyEscaper))
 
         assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
     }
@@ -157,17 +155,6 @@ internal class TestCustomSerializerKt {
     fun `test json escape result`(char: Char, escaped: String) {
 
         expectThat(MapEscaper().escape("$char", false)).isEqualTo(escaped.toByteArray(UTF_8))
-    }
-
-    @Test
-    fun `test put timestamp`() {
-        val now = Instant.now()
-        val buffer = ByteBuffer.allocate(23).apply {
-            putTimestamp(now)
-            flip()
-        }
-        val formater = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSSSSSSSS").withZone(ZoneOffset.UTC)
-        assertEquals(formater.format(now), String(buffer.array()))
     }
 
     companion object {
