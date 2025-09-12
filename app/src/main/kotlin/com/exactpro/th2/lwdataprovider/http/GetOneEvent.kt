@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.EventSchema
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.failureReason
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import io.javalin.Javalin
@@ -67,7 +67,7 @@ class GetOneEvent(
             OpenApiResponse(
                 status = "200",
                 content = [
-                    OpenApiContent(from = Event::class)
+                    OpenApiContent(from = EventSchema::class)
                 ],
             ),
             OpenApiResponse(
@@ -90,7 +90,7 @@ class GetOneEvent(
             sseResponseBuilder,
             Runnable::run,
             dataMeasurement,
-            LwEvent::eventId,
+            Event::eventId,
             SseResponseBuilder::build
         )
         var request: GetEventRequest? = null

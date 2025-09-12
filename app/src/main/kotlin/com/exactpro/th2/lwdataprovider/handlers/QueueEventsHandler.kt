@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,7 @@
 package com.exactpro.th2.lwdataprovider.handlers
 
 import com.exactpro.cradle.BookId
-import com.exactpro.th2.common.event.EventUtils
 import com.exactpro.th2.common.grpc.EventBatch
-import com.exactpro.th2.common.grpc.EventStatus
-import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.common.schema.message.MessageRouter
 import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.db.CancellationReason
@@ -28,13 +25,10 @@ import com.exactpro.th2.lwdataprovider.db.CradleEventExtractor
 import com.exactpro.th2.lwdataprovider.db.EventDataSink
 import com.exactpro.th2.lwdataprovider.entities.requests.QueueEventsScopeRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.handlers.util.BookScope
-import com.google.protobuf.UnsafeByteOperations
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.apache.commons.lang3.StringUtils.isBlank
 import java.util.concurrent.Executor
-import com.exactpro.th2.common.grpc.Event as CommonGrpcEvent
 
 class QueueEventsHandler(
     private val extractor: CradleEventExtractor,
@@ -92,7 +86,7 @@ private class EventQueueDataSink(
     private val handler: ResponseHandler<EventsLoadStatistic>,
     private val maxBatchSize: Int,
     private val onBatch: (EventBatch) -> Unit,
-) : EventDataSink<LwEvent> {
+) : EventDataSink<Event> {
     private val countByScope = hashMapOf<BookScope, Long>()
     private val batchBuilder = EventBatch.newBuilder()
     override val canceled: CancellationReason?
@@ -101,7 +95,7 @@ private class EventQueueDataSink(
             else -> null
         }
 
-    override fun onNext(data: LwEvent) {
+    override fun onNext(data: Event) {
         countByScope.merge(BookScope(data.scope, BookId(data.bookId)), 1L, Long::plus)
         batchBuilder.addEvents(data.toGrpcEvent())
         if (batchBuilder.eventsCount >= maxBatchSize) {

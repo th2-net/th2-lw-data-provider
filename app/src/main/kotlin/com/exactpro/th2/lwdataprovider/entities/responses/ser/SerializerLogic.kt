@@ -22,9 +22,13 @@ import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction.IN
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction.OUT
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
+import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
 import com.exactpro.th2.lwdataprovider.entities.responses.TransportMessageContainer
+import io.javalin.openapi.OpenApiNullable
+import io.javalin.openapi.OpenApiPropertyType
+import io.javalin.openapi.OpenApiRequired
 import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.ZoneOffset
@@ -61,7 +65,42 @@ fun ProviderMessage53Transport.serializeJsonData(serializer: Serializer<*>): Uni
     }
 }
 
-fun LwEvent.serializeJsonData(serializer: Serializer<*>): Unit = with(serializer) {
+@Suppress("DataClassPrivateConstructor", "DATA_CLASS_COPY_VISIBILITY_WILL_BE_CHANGED_WARNING")
+data class EventSchema private constructor(
+    //** full event id  */
+    val eventId: String,
+    @get:OpenApiRequired
+    @get:OpenApiPropertyType(definedBy = String::class)
+    val batchId: String?,
+    /** last part of event id. it doesn't consider in equal and hashCode methods */
+    val shortEventId: String,
+    val isBatched: Boolean,
+    val eventName: String,
+    @get:OpenApiRequired
+    @get:OpenApiPropertyType(definedBy = String::class)
+    val eventType: String?,
+    @get:OpenApiRequired
+    @get:OpenApiPropertyType(definedBy = Instant::class)
+    val endTimestamp: Instant?,
+    val startTimestamp: Instant,
+    @get:OpenApiRequired
+    @get:OpenApiPropertyType(definedBy = String::class)
+    val parentEventId: ProviderEventId?,
+    val successful: Boolean,
+    val bookId: String,
+    val scope: String,
+    val attachedMessageIds: Set<String>,
+
+    @get:OpenApiRequired
+    @get:OpenApiNullable(nullable = false)
+    @get:OpenApiPropertyType(definedBy = Array<Any>::class)
+    val body: ByteBuffer?
+)
+
+/**
+ * Serialize [Event] to JSON (the schema is described by [EventSchema] class)
+ */
+fun Event.serializeJsonData(serializer: Serializer<*>): Unit = with(serializer) {
     obj {
         filedStr(EntityField.EVENT_ID) { compositeEventId(batchId, eventId) }.char(JsonChar.COMMA)
         filed(EntityField.BATCH_ID) {
@@ -234,4 +273,3 @@ private inline fun <T> Collection<T>.iterate(handleGap: () -> Unit, handleValue:
 private inline fun <K, V> Map<K, V>.iterate(handleGap: () -> Unit, handleEntry: (entry: Map.Entry<K, V>) -> Unit) {
     entries.iterate(handleGap, handleEntry)
 }
-

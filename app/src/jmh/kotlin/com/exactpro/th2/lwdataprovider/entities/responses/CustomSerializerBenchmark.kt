@@ -53,7 +53,7 @@ open class CustomSerializerBenchmark {
         val bookId = BookId("benchmark-batch-id")
         val msgId = StoredMessageId(bookId, "benchmark-session-alias", Direction.SECOND,
             timestamp, 0L)
-        lateinit var largeEvent: LwEvent
+        lateinit var largeEvent: Event
 
         @Setup
         open fun init() {
@@ -61,7 +61,7 @@ open class CustomSerializerBenchmark {
             val scope = "benchmark-scope"
             val eventId = StoredTestEventId(bookId, scope, timestamp, "benchmark-event-id")
             val batchId = StoredTestEventId(bookId, scope, timestamp, "benchmark-batch-event-id")
-            largeEvent = LwEvent(
+            largeEvent = Event(
                 event = LwBatchedStoredTestEvent(
                     eventId,
                     "benchmark-name",

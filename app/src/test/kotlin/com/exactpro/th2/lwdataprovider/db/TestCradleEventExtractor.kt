@@ -26,7 +26,7 @@ import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.util.DummyDataMeasurement
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventId
@@ -69,9 +69,9 @@ internal class TestCradleEventExtractor {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
 
-        val sink: EventDataSink<LwEvent> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
-        val event = argumentCaptor<LwEvent>()
+        val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(toStore)
     }
@@ -99,9 +99,9 @@ internal class TestCradleEventExtractor {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
 
-        val sink: EventDataSink<LwEvent> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
-        val event = argumentCaptor<LwEvent>()
+        val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(toStore, batchId)
     }
@@ -140,9 +140,9 @@ internal class TestCradleEventExtractor {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
 
-        val sink: EventDataSink<LwEvent> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
-        val event = argumentCaptor<LwEvent>()
+        val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(inRange, batchId)
     }
@@ -179,9 +179,9 @@ internal class TestCradleEventExtractor {
             ))
         ).whenever(storage).getTestEvents(argThat { startTimestampFrom.value == start })
 
-        val sink: EventDataSink<LwEvent> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getEvents(createRequest(start, null, limit = 1), sink)
-        val event = argumentCaptor<LwEvent>()
+        val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(inRange, batchId)
     }
@@ -201,9 +201,9 @@ internal class TestCradleEventExtractor {
             startTimestampFrom.value == start && startTimestampTo.value == end
         })
 
-        val sink: EventDataSink<LwEvent> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getEvents(createRequest(start, end), sink)
-        val event = argumentCaptor<LwEvent>()
+        val event = argumentCaptor<Event>()
         verify(sink, times(2)).onNext(event.capture())
         expectThat(event.allValues) {
             get(0).isEqualTo(firstToStore)
@@ -221,9 +221,9 @@ internal class TestCradleEventExtractor {
             toStore
         ).whenever(storage).getTestEvent(eq(eventId))
 
-        val sink: EventDataSink<LwEvent> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getSingleEvents(GetEventRequest(null, eventId.toString()), sink)
-        val event = argumentCaptor<LwEvent>()
+        val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(toStore)
     }
@@ -251,23 +251,23 @@ internal class TestCradleEventExtractor {
             }
         ).whenever(storage).getTestEvent(eq(batchId))
 
-        val sink: EventDataSink<LwEvent> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getSingleEvents(GetEventRequest(batchId.toString(), toStore.id.toString()), sink)
-        val event = argumentCaptor<LwEvent>()
+        val event = argumentCaptor<Event>()
         verify(sink).onNext(event.capture())
         expectThat(event.lastValue).isEqualTo(toStore, batchId)
     }
 
     @Test
     fun `reports unknown event`() {
-        val sink: EventDataSink<LwEvent> = mock { }
+        val sink: EventDataSink<Event> = mock { }
         extractor.getSingleEvents(
             GetEventRequest(
                 null,
                 createEventId("test", timestamp = Instant.ofEpochSecond(1)).toString()
             ), sink
         )
-        val event = argumentCaptor<LwEvent>()
+        val event = argumentCaptor<Event>()
         verify(sink, never()).onNext(event.capture())
         verify(sink).onError(
             eq("Event is not found with id: 'test:test-scope:19700101000001000000000:test'"),
@@ -276,7 +276,7 @@ internal class TestCradleEventExtractor {
         )
     }
 
-    private fun Assertion.Builder<LwEvent>.isEqualTo(
+    private fun Assertion.Builder<Event>.isEqualTo(
         toStore: LwBatchedStoredTestEvent,
         batchId: StoredTestEventId? = null
     ) {
@@ -289,7 +289,7 @@ internal class TestCradleEventExtractor {
         get { this.event.content } isEqualTo (toStore.content)
     }
 
-    private fun Assertion.Builder<LwEvent>.isEqualTo(
+    private fun Assertion.Builder<Event>.isEqualTo(
         toStore: LwStoredTestEventSingle,
         batchId: StoredTestEventId? = null
     ) {

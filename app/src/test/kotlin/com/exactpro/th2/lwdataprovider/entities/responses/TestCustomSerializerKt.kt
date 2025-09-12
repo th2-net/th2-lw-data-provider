@@ -114,7 +114,7 @@ internal class TestCustomSerializerKt {
         val scope = "scope${escapeCharacter}"
         val eventId = StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id")
         val batchId = StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id")
-        val event = LwEvent(
+        val event = Event(
             event = LwBatchedStoredTestEvent(
                 eventId,
                 "event${escapeCharacter}Name",

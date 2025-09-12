@@ -501,5 +501,4 @@ private class SizeSerializer(
     ) = this.also {
         _size += name.bytes.size + 1 + (if (value) JsonString.TRUE else JsonString.FALSE).bytes.size
     }
-
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.ByteBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
@@ -72,7 +72,7 @@ sealed class SseEvent(
     class EventData(
         private val bufPool: ByteBufferPool,
         escaper: Escaper,
-        event: LwEvent,
+        event: Event,
         override val metadata: String,
     ) : SseEvent(EventType.EVENT) {
         private val buf: ByteBuffer = serialize(bufPool.acquire(calculateSize(event::serializeJsonData)), escaper, event::serializeJsonData)
@@ -188,7 +188,7 @@ sealed class SseEvent(
         fun build(
             bufPool: ByteBufferPool,
             escaper: Escaper,
-            event: LwEvent,
+            event: Event,
             counter: Long
         ): SseEvent {
             return EventData(

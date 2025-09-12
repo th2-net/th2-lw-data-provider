@@ -32,14 +32,11 @@ import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
-import com.exactpro.th2.lwdataprovider.producers.fromBatchEvent
-import com.exactpro.th2.lwdataprovider.producers.fromSingleEvent
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
 import java.time.Instant
-import java.util.Collections
+import java.util.*
 import kotlin.system.measureTimeMillis
 
 
@@ -61,7 +58,7 @@ class CradleEventExtractor(
         return storage.getScopes(bookId, Interval(start, end))
     }
 
-    fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<LwEvent>) {
+    fun getEvents(filter: SseEventSearchRequest, sink: EventDataSink<Event>) {
         val commonFilterSupplier: (start: Instant, end: Instant?) -> TestEventFilterBuilder = { start, end ->
             TestEventFilter.builder()
                 .apply {
@@ -106,7 +103,7 @@ class CradleEventExtractor(
         }
     }
 
-    fun getSingleEvents(filter: GetEventRequest, sink: EventDataSink<LwEvent>) {
+    fun getSingleEvents(filter: GetEventRequest, sink: EventDataSink<Event>) {
         logger.info { "Extracting single event $filter" }
         val batchId = filter.batchId
         val eventId = StoredTestEventId.fromString(filter.eventId)
@@ -126,7 +123,7 @@ class CradleEventExtractor(
                 sink.onError("Event with id: '$eventId' is not found in batch '$batchId'", filter.eventId, batchId)
                 return
             }
-            val event = LwEvent(testEvent, batch.id)
+            val event = Event(testEvent, batch.id)
             sink.onNext(event)
         } else {
             val testBatch = measure("single_event") { storage.getTestEvent(eventId) }
@@ -147,7 +144,7 @@ class CradleEventExtractor(
         endTimestamp: Instant,
         syncInterval: Duration,
         scopesByBook: Map<BookId, Set<String>>,
-        sink: EventDataSink<LwEvent>,
+        sink: EventDataSink<Event>,
     ) {
         data class BookScope(val bookId: BookId, val scope: String)
 
@@ -185,7 +182,7 @@ class CradleEventExtractor(
     private fun getEventByDates(
         startTimestamp: Instant,
         endTimestamp: Instant?,
-        sink: EventDataSink<LwEvent>,
+        sink: EventDataSink<Event>,
         filter: DataFilter<StoredTestEvent>,
         filterSupplier: (Instant, Instant?) -> TestEventFilter,
     ) {
@@ -224,7 +221,7 @@ class CradleEventExtractor(
 
     private fun processEvents(
         testEvents: Iterable<StoredTestEvent>,
-        sink: EventDataSink<LwEvent>,
+        sink: EventDataSink<Event>,
         count: ProcessingInfo,
         filter: DataFilter<StoredTestEvent>,
     ) {
@@ -241,7 +238,7 @@ class CradleEventExtractor(
         testEvent: StoredTestEvent,
         count: ProcessingInfo,
         filter: DataFilter<StoredTestEvent>,
-        sink: EventDataSink<LwEvent>
+        sink: EventDataSink<Event>
     ) {
         if (testEvent.isLwSingle) {
             val singleEv = testEvent.asLwSingle()
@@ -249,7 +246,7 @@ class CradleEventExtractor(
             if (!filter.match(singleEv)) {
                 return
             }
-            val event = LwEvent(singleEv)
+            val event = Event(singleEv)
             count.singleEvents++
             count.events++
             count.totalContentSize += singleEv.content.remaining() + event.attachedMessageIds.size // FIXME: calculate length
@@ -263,7 +260,7 @@ class CradleEventExtractor(
                 if (!filter.match(batchEvent)) {
                     continue
                 }
-                val event = LwEvent(batchEvent, batch.id)
+                val event = Event(batchEvent, batch.id)
 
                 count.events++
                 count.totalContentSize += batchEvent.content.remaining() + event.attachedMessageIds.size // FIXME: calculate length

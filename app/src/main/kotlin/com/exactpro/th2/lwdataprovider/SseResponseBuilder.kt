@@ -23,7 +23,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.ser.ByteBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.DummyBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.HeapBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
 import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
@@ -56,7 +56,7 @@ class SseResponseBuilder(
         return SseEvent.build(jacksonMapper, lastIdInStream)
     }
 
-    fun build(event: LwEvent, lastEventId: Long): SseEvent {
+    fun build(event: Event, lastEventId: Long): SseEvent {
         return SseEvent.build(bufPool, escaper, event, lastEventId)
     }
 

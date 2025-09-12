@@ -25,8 +25,8 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.EventSchema
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.http.JavalinHandler.Companion.customSse
@@ -109,7 +109,7 @@ class GetEventsServlet(
             OpenApiResponse(
                 status = "200",
                 content = [
-                    OpenApiContent(from = Event::class, mimeType = "text/event-stream"),
+                    OpenApiContent(from = EventSchema::class, mimeType = "text/event-stream"),
                 ],
                 description = "event entity",
             )
@@ -128,7 +128,7 @@ class GetEventsServlet(
             sseResponseBuilder,
             convExecutor,
             dataMeasurement,
-            LwEvent::eventId,
+            Event::eventId,
             SseResponseBuilder::build
         )
         sseClient.onClose(reqContext::cancel)

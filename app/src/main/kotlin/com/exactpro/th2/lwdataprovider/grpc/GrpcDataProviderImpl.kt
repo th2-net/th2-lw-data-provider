@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SseMessageSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SsePageInfosSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -88,7 +88,7 @@ open class GrpcDataProviderImpl(
 
         val queue = ArrayBlockingQueue<GrpcEvent>(5)
         val requestParams = GetEventRequest.fromEventID(request)
-        val handler = GrpcHandler<LwEvent>(queue) { GrpcEvent(event = it.toGrpcEventResponse()) }
+        val handler = GrpcHandler<Event>(queue) { GrpcEvent(event = it.toGrpcEventResponse()) }
         searchEventsHandler.loadOneEvent(requestParams, handler)
         processSingle(responseObserver, handler, queue) {
             it.event?.let { event -> responseObserver.onNext(event) }
@@ -136,7 +136,7 @@ open class GrpcDataProviderImpl(
         val requestParams = SseEventSearchRequest(request)
         LOGGER.info { "Loading events $requestParams" }
 
-        val handler = GrpcHandler<LwEvent>(queue) { GrpcEvent(event = it.toGrpcEventResponse()) }
+        val handler = GrpcHandler<Event>(queue) { GrpcEvent(event = it.toGrpcEventResponse()) }
         searchEventsHandler.loadEvents(requestParams, handler)
         processResponse(responseObserver, queue, handler) {
             if (it.event != null) {

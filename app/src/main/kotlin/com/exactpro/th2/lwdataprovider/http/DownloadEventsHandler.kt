@@ -27,8 +27,8 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.HeapBufferPool
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.EventSchema
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
-import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
@@ -101,7 +101,8 @@ class DownloadEventsHandler(
         methods = [HttpMethod.GET],
         responses = [
             OpenApiResponse(status = "200", content = [
-                OpenApiContent(from = Event::class, mimeType = JSON_STREAM_CONTENT_TYPE)
+
+                OpenApiContent(from = EventSchema::class, mimeType = JSON_STREAM_CONTENT_TYPE)
             ])
         ]
     )
@@ -135,7 +136,7 @@ class DownloadEventsHandler(
             MapEscaper().use { escaper ->
                 val handler = HttpGenericResponseHandler(
                     queue, sseResponseBuilder.create(bufferPool, escaper), convExecutor, dataMeasurement,
-                    LwEvent::eventId,
+                    Event::eventId,
                     SseResponseBuilder::build
                 )
                 keepAliveHandler.addKeepAliveData(handler).use {
