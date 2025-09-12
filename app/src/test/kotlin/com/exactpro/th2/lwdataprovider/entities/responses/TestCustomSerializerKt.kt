@@ -29,6 +29,8 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArra
 import com.exactpro.th2.lwdataprovider.DummyEscaper
 import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.serialize
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.serializeJsonData
 import com.fasterxml.jackson.databind.json.JsonMapper
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled

@@ -28,6 +28,8 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMess
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
 import com.exactpro.th2.lwdataprovider.DummyEscaper
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction.IN
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.serialize
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.serializeJsonData
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import kotlinx.serialization.ExperimentalSerializationApi

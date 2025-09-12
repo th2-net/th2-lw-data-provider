@@ -24,6 +24,11 @@ import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
 import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
 import com.exactpro.th2.lwdataprovider.MapEscaper
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.HeapBufferPool
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.UnpooledBufPool
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.calculateSize
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.serialize
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.serializeJsonData
 import org.apache.commons.lang3.RandomStringUtils
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode

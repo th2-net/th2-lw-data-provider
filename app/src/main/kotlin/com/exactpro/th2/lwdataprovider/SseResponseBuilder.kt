@@ -19,9 +19,9 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
-import com.exactpro.th2.lwdataprovider.entities.responses.ByteBufferPool
-import com.exactpro.th2.lwdataprovider.entities.responses.DummyBufferPool
-import com.exactpro.th2.lwdataprovider.entities.responses.HeapBufferPool
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.ByteBufferPool
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.DummyBufferPool
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.HeapBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo

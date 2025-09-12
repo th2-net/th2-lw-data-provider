@@ -14,18 +14,9 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.lwdataprovider.entities.responses
+package com.exactpro.th2.lwdataprovider.entities.responses.ser
 
 import com.exactpro.th2.lwdataprovider.Escaper
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.CLOSING_CURLY_BRACE
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.CLOSING_SQUARE_BRACE
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.COLON
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.DOUBLE_QUOTE
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.OPENING_CURLY_BRACE
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.OPENING_SQUARE_BRACE
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonString.FALSE
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonString.TRUE
-import com.exactpro.th2.lwdataprovider.entities.responses.SpecialChar.ZERO
 import io.netty.buffer.ByteBuf
 import java.nio.ByteBuffer
 import java.util.Base64
@@ -168,25 +159,25 @@ private class ByteBufferSerializer(
 
     override fun obj(block: ByteBufferSerializer.() -> Unit) = this.also {
         with(buffer) {
-            put(OPENING_CURLY_BRACE.byte)
+            put(JsonChar.OPENING_CURLY_BRACE.byte)
             block()
-            put(CLOSING_CURLY_BRACE.byte)
+            put(JsonChar.CLOSING_CURLY_BRACE.byte)
         }
     }
 
     override fun arr(block: ByteBufferSerializer.() -> Unit) = this.also {
         with(buffer) {
-            put(OPENING_SQUARE_BRACE.byte)
+            put(JsonChar.OPENING_SQUARE_BRACE.byte)
             it.block()
-            put(CLOSING_SQUARE_BRACE.byte)
+            put(JsonChar.CLOSING_SQUARE_BRACE.byte)
         }
     }
 
     override fun valueStr(value: ByteBufferSerializer.() -> Unit) = this.also {
         with(buffer) {
-            put(DOUBLE_QUOTE.byte)
+            put(JsonChar.DOUBLE_QUOTE.byte)
             value()
-            put(DOUBLE_QUOTE.byte)
+            put(JsonChar.DOUBLE_QUOTE.byte)
         }
     }
 
@@ -237,7 +228,7 @@ private class ByteBufferSerializer(
     override fun filed(name: SerializableString, value: ByteBufferSerializer.() -> Unit) = this.also {
         with(buffer) {
             put(name.bytes)
-            put(COLON.byte)
+            put(JsonChar.COLON.byte)
             value()
         }
     }
@@ -245,18 +236,18 @@ private class ByteBufferSerializer(
     override fun filedStr(name: SerializableString, value: ByteBufferSerializer.() -> Unit) = this.also {
         with(buffer) {
             put(name.bytes)
-            put(COLON.byte)
-            put(DOUBLE_QUOTE.byte)
+            put(JsonChar.COLON.byte)
+            put(JsonChar.DOUBLE_QUOTE.byte)
             value()
-            put(DOUBLE_QUOTE.byte)
+            put(JsonChar.DOUBLE_QUOTE.byte)
         }
     }
 
     override fun filedBool(name: SerializableString, value: Boolean) = this.also {
         with(buffer) {
             put(name.bytes)
-            put(COLON.byte)
-            put(if (value) TRUE.bytes else FALSE.bytes)
+            put(JsonChar.COLON.byte)
+            put(if (value) JsonString.TRUE.bytes else JsonString.FALSE.bytes)
         }
     }
 
@@ -266,9 +257,9 @@ private class ByteBufferSerializer(
             var dividend = value
             while (divisor != 0) {
                 if (dividend < divisor) {
-                    put(ZERO.byte)
+                    put(SpecialChar.ZERO.byte)
                 } else {
-                    put((ZERO.int + dividend / divisor).toByte())
+                    put((SpecialChar.ZERO.int + dividend / divisor).toByte())
                     dividend %= divisor
                 }
                 divisor /= 10
@@ -291,25 +282,25 @@ private class ByteBufSerializer(
 
     override fun obj(block: ByteBufSerializer.() -> Unit) = this.also {
         with(buf) {
-            writeByte(OPENING_CURLY_BRACE.int)
+            writeByte(JsonChar.OPENING_CURLY_BRACE.int)
             block()
-            writeByte(CLOSING_CURLY_BRACE.int)
+            writeByte(JsonChar.CLOSING_CURLY_BRACE.int)
         }
     }
 
     override fun arr(block: ByteBufSerializer.() -> Unit) = this.also {
         with(buf) {
-            writeByte(OPENING_SQUARE_BRACE.int)
+            writeByte(JsonChar.OPENING_SQUARE_BRACE.int)
             it.block()
-            writeByte(CLOSING_SQUARE_BRACE.int)
+            writeByte(JsonChar.CLOSING_SQUARE_BRACE.int)
         }
     }
 
     override fun valueStr(value: ByteBufSerializer.() -> Unit) = this.also {
         with(buf) {
-            writeByte(DOUBLE_QUOTE.int)
+            writeByte(JsonChar.DOUBLE_QUOTE.int)
             value()
-            writeByte(DOUBLE_QUOTE.int)
+            writeByte(JsonChar.DOUBLE_QUOTE.int)
         }
     }
 
@@ -364,7 +355,7 @@ private class ByteBufSerializer(
     override fun filed(name: SerializableString, value: ByteBufSerializer.() -> Unit) = this.also {
         with(buf) {
             writeBytes(name.bytes)
-            writeByte(COLON.int)
+            writeByte(JsonChar.COLON.int)
             value()
         }
     }
@@ -372,18 +363,18 @@ private class ByteBufSerializer(
     override fun filedStr(name: SerializableString, value: ByteBufSerializer.() -> Unit) = this.also {
         with(buf) {
             writeBytes(name.bytes)
-            writeByte(COLON.int)
-            writeByte(DOUBLE_QUOTE.int)
+            writeByte(JsonChar.COLON.int)
+            writeByte(JsonChar.DOUBLE_QUOTE.int)
             value()
-            writeByte(DOUBLE_QUOTE.int)
+            writeByte(JsonChar.DOUBLE_QUOTE.int)
         }
     }
 
     override fun filedBool(name: SerializableString, value: Boolean) = this.also {
         with(buf) {
             writeBytes(name.bytes)
-            writeByte(COLON.int)
-            writeBytes(if (value) TRUE.bytes else FALSE.bytes)
+            writeByte(JsonChar.COLON.int)
+            writeBytes(if (value) JsonString.TRUE.bytes else JsonString.FALSE.bytes)
         }
     }
 
@@ -393,9 +384,9 @@ private class ByteBufSerializer(
             var dividend = value
             while (divisor != 0) {
                 if (dividend < divisor) {
-                    writeByte(ZERO.int)
+                    writeByte(SpecialChar.ZERO.int)
                 } else {
-                    writeByte((ZERO.int + dividend / divisor))
+                    writeByte((SpecialChar.ZERO.int + dividend / divisor))
                     dividend %= divisor
                 }
                 divisor /= 10
@@ -508,7 +499,7 @@ private class SizeSerializer(
         name: SerializableString,
         value: Boolean
     ) = this.also {
-        _size += name.bytes.size + 1 + (if (value) TRUE else FALSE).bytes.size
+        _size += name.bytes.size + 1 + (if (value) JsonString.TRUE else JsonString.FALSE).bytes.size
     }
 
 }

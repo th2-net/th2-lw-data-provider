@@ -26,7 +26,7 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
-import com.exactpro.th2.lwdataprovider.entities.responses.HeapBufferPool
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.HeapBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.LwEvent
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory

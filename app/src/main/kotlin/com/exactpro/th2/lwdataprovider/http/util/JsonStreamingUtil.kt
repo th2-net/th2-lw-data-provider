@@ -19,7 +19,7 @@ package com.exactpro.th2.lwdataprovider.http.util
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
-import com.exactpro.th2.lwdataprovider.entities.responses.UnpooledBufPool
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.UnpooledBufPool
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
