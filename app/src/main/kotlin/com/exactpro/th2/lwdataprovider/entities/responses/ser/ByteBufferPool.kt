@@ -21,22 +21,28 @@ import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentLinkedQueue
 
 interface ByteBufferPool {
-    fun acquire(): ByteBuffer
+    fun acquire(size: Int): ByteBuffer
     fun release(buffer: ByteBuffer)
 }
 
 object DummyBufferPool : ByteBufferPool {
-    override fun acquire(): ByteBuffer = ByteBuffer.allocate(1_024 * 1_024)
+    override fun acquire(size: Int): ByteBuffer = ByteBuffer.allocate(size)
 
     override fun release(buffer: ByteBuffer) {}
 }
 
-class HeapBufferPool(
-    private val bufferSize: Int = 1_024 * 1_024,
-) : ByteBufferPool, AutoCloseable {
+class HeapBufferPool: ByteBufferPool, AutoCloseable {
     private val pool = ConcurrentLinkedQueue<ByteBuffer>()
 
-    override fun acquire(): ByteBuffer = pool.poll()?.clear() ?: ByteBuffer.allocate(bufferSize)
+    override fun acquire(size: Int): ByteBuffer {
+        return pool.poll()?.let {
+            if (it.limit() < size) {
+                ByteBuffer.allocate(size)
+            } else {
+                it.clear()
+            }
+        } ?: ByteBuffer.allocate(size)
+    }
 
     override fun release(buffer: ByteBuffer) {
         pool.offer(buffer.clear())

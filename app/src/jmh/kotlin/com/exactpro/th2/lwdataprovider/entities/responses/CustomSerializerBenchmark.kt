@@ -98,7 +98,7 @@ open class CustomSerializerBenchmark {
     fun benchmarkSerializeEventUsingByteBuffer(
         state: Simple,
     ) {
-        val buffer = serialize(state.bufferPool.acquire(), state.escaper, state.largeEvent::serializeJsonData)
+        val buffer = serialize(state.bufferPool.acquire(1_024 * 1_024), state.escaper, state.largeEvent::serializeJsonData)
         state.bufferPool.release(buffer)
     }
 
@@ -107,7 +107,7 @@ open class CustomSerializerBenchmark {
     fun benchmarkSerializeEventUsingByteBuf(
         state: Simple,
     ) {
-        val buf = serialize(state.bufPool.acquire(), state.escaper, state.largeEvent::serializeJsonData)
+        val buf = serialize(state.bufPool.acquire(1_024 * 2), state.escaper, state.largeEvent::serializeJsonData)
         state.bufPool.release(buf)
     }
 

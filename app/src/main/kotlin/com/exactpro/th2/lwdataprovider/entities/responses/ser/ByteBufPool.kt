@@ -22,12 +22,12 @@ import java.lang.AutoCloseable
 import java.util.concurrent.ConcurrentLinkedQueue
 
 interface ByteBufPool {
-    fun acquire(): ByteBuf
+    fun acquire(size: Int): ByteBuf
     fun release(buf: ByteBuf)
 }
 
 object DummyBufPool : ByteBufPool {
-    override fun acquire(): ByteBuf = Unpooled.buffer(1_024 * 2)
+    override fun acquire(size: Int): ByteBuf = Unpooled.buffer(size)
 
     override fun release(buf: ByteBuf) {}
 }
@@ -37,7 +37,13 @@ class UnpooledBufPool(
 ) : ByteBufPool, AutoCloseable {
     private val pool = ConcurrentLinkedQueue<ByteBuf>()
 
-    override fun acquire(): ByteBuf = pool.poll()?.clear() ?: Unpooled.buffer(bufferSize)
+    override fun acquire(size: Int): ByteBuf {
+        return pool.poll()?.let {
+            it.clear().apply {
+                if (it.capacity() < size) { it.ensureWritable(size) }
+            }
+        } ?: Unpooled.buffer(bufferSize)
+    }
 
     override fun release(buf: ByteBuf) {
         if (!pool.offer(buf.clear())) {
@@ -47,7 +53,7 @@ class UnpooledBufPool(
 
     override fun close() {
         while (pool.isNotEmpty()) {
-            acquire().release()
+            acquire(0).release()
         }
     }
 }
