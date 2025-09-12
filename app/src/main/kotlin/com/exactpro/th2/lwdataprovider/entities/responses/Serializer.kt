@@ -20,21 +20,18 @@ import com.exactpro.th2.lwdataprovider.Escaper
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.CLOSING_CURLY_BRACE
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.CLOSING_SQUARE_BRACE
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.COLON
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.COMMA
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.DOUBLE_QUOTE
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.OPENING_CURLY_BRACE
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.OPENING_SQUARE_BRACE
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonString.FALSE
-import com.exactpro.th2.lwdataprovider.entities.responses.JsonString.NULL
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonString.TRUE
-import com.exactpro.th2.lwdataprovider.entities.responses.SpecialChar.GREATER_THAN
-import com.exactpro.th2.lwdataprovider.entities.responses.SpecialChar.ONE
-import com.exactpro.th2.lwdataprovider.entities.responses.SpecialChar.TWO
 import com.exactpro.th2.lwdataprovider.entities.responses.SpecialChar.ZERO
 import io.netty.buffer.ByteBuf
 import java.nio.ByteBuffer
+import java.util.Base64
+import kotlin.math.ceil
+import kotlin.math.pow
 import kotlin.text.Charsets.UTF_8
-import kotlin.text.toByteArray
 
 interface SerializableChar {
     val int: Int
@@ -45,7 +42,7 @@ interface SerializableString {
     val bytes: ByteArray
 }
 
-private enum class SpecialChar(char: Char) : SerializableChar {
+enum class SpecialChar(char: Char) : SerializableChar {
     GREATER_THAN('>'),
     ZERO('0'),
     ONE('1'),
@@ -117,10 +114,12 @@ enum class EntityField(
     override val bytes = srt.toByteArray(UTF_8)
 }
 
-enum class NumberLength(internal val divisor: Int) {
-    TWO(10),
-    FOUR(1_000),
-    NINE(100_000_000),
+enum class NumberLength(internal val length: Int) {
+    TWO_DIGITS(2),
+    FOUR_DIGITS(4),
+    NINE_DIGITS(9);
+    internal val divisor: Int = 10.0.pow(length - 1).toInt()
+
 }
 
 @DslMarker
@@ -129,16 +128,9 @@ annotation class SerializerDsl
 @SerializerDsl
 sealed interface Serializer<S : Serializer<S>> {
     fun serialize(block: S.() -> Unit)
+
     fun obj(block: S.() -> Unit): S
     fun arr(block: S.() -> Unit): S
-
-    fun colon(): S
-    fun comma(): S
-    fun nul(): S
-
-    fun greaterThan(): S
-    fun one(): S
-    fun two(): S
 
     fun valueStr(value: S.() -> Unit): S
 
@@ -152,13 +144,16 @@ sealed interface Serializer<S : Serializer<S>> {
     fun numAsStr(value: Int, length: NumberLength): S
     fun numAsStr(value: Int): S
     fun numAsStr(value: Long): S
+    fun base64Str(value: ByteBuffer): S
 
     fun filed(name: SerializableString, value: S.() -> Unit): S
     fun filedStr(name: SerializableString, value: S.() -> Unit): S
     fun filedBool(name: SerializableString, value: Boolean): S
 }
 
-fun create(buffer: ByteBuffer, escaper: Escaper): Serializer<*> = ByteBufferSerializer(buffer, escaper)
+fun serialize(buffer: ByteBuffer, escaper: Escaper, block: (Serializer<*>) -> Unit): ByteBuffer = buffer.apply {
+    ByteBufferSerializer(this, escaper).serialize(block)
+}
 
 @Suppress("UNCHECKED_CAST")
 private class ByteBufferSerializer(
@@ -174,7 +169,7 @@ private class ByteBufferSerializer(
     override fun obj(block: ByteBufferSerializer.() -> Unit) = this.also {
         with(buffer) {
             put(OPENING_CURLY_BRACE.byte)
-            it.block()
+            block()
             put(CLOSING_CURLY_BRACE.byte)
         }
     }
@@ -185,30 +180,6 @@ private class ByteBufferSerializer(
             it.block()
             put(CLOSING_SQUARE_BRACE.byte)
         }
-    }
-
-    override fun colon() = this.also {
-        buffer.put(COLON.byte)
-    }
-
-    override fun comma() = this.also {
-        buffer.put(COMMA.byte)
-    }
-
-    override fun nul() = this.also {
-        buffer.put(NULL.bytes)
-    }
-
-    override fun greaterThan() = this.also {
-        buffer.put(GREATER_THAN.byte)
-    }
-
-    override fun one() = this.also {
-        buffer.put(ONE.byte)
-    }
-
-    override fun two() = this.also {
-        buffer.put(TWO.byte)
     }
 
     override fun valueStr(value: ByteBufferSerializer.() -> Unit) = this.also {
@@ -259,6 +230,10 @@ private class ByteBufferSerializer(
         buffer.put(value.toString().toByteArray(UTF_8))
     }
 
+    override fun base64Str(value: ByteBuffer) = this.also {
+        buffer.put(Base64.getEncoder().encode(value))
+    }
+
     override fun filed(name: SerializableString, value: ByteBufferSerializer.() -> Unit) = this.also {
         with(buffer) {
             put(name.bytes)
@@ -302,7 +277,9 @@ private class ByteBufferSerializer(
     }
 }
 
-fun create(buf: ByteBuf, escaper: Escaper): Serializer<*> = ByteBufSerializer(buf, escaper)
+fun serialize(buf: ByteBuf, escaper: Escaper, block: (Serializer<*>) -> Unit): ByteBuf = buf.apply {
+    ByteBufSerializer(this, escaper).serialize(block)
+}
 
 @Suppress("UNCHECKED_CAST")
 private class ByteBufSerializer(
@@ -310,14 +287,12 @@ private class ByteBufSerializer(
     private val escaper: Escaper
 ) : Serializer<ByteBufSerializer> {
 
-    override fun serialize(block: ByteBufSerializer.() -> Unit) {
-        this.block()
-    }
+    override fun serialize(block: ByteBufSerializer.() -> Unit) = block()
 
     override fun obj(block: ByteBufSerializer.() -> Unit) = this.also {
         with(buf) {
             writeByte(OPENING_CURLY_BRACE.int)
-            it.block()
+            block()
             writeByte(CLOSING_CURLY_BRACE.int)
         }
     }
@@ -328,30 +303,6 @@ private class ByteBufSerializer(
             it.block()
             writeByte(CLOSING_SQUARE_BRACE.int)
         }
-    }
-
-    override fun colon() = this.also {
-        buf.writeByte(COLON.int)
-    }
-
-    override fun comma() = this.also {
-        buf.writeByte(COMMA.int)
-    }
-
-    override fun nul() = this.also {
-        buf.writeBytes(NULL.bytes)
-    }
-
-    override fun greaterThan() = this.also {
-        buf.writeByte(GREATER_THAN.int)
-    }
-
-    override fun one() = this.also {
-        buf.writeByte(ONE.int)
-    }
-
-    override fun two() = this.also {
-        buf.writeByte(TWO.int)
     }
 
     override fun valueStr(value: ByteBufSerializer.() -> Unit) = this.also {
@@ -406,6 +357,10 @@ private class ByteBufSerializer(
         buf.writeCharSequence(value.toString(), UTF_8)
     }
 
+    override fun base64Str(value: ByteBuffer) = this.also {
+        buf.writeBytes(Base64.getEncoder().encode(value))
+    }
+
     override fun filed(name: SerializableString, value: ByteBufSerializer.() -> Unit) = this.also {
         with(buf) {
             writeBytes(name.bytes)
@@ -447,4 +402,113 @@ private class ByteBufSerializer(
             }
         }
     }
+}
+
+/**
+ * Calculates approximate size of serialised data multiply by factor
+ */
+fun calculateSize(block: (Serializer<*>) -> Unit): Int = SizeSerializer().apply {
+    serialize(block)
+}.size
+
+private class SizeSerializer(
+    private val factor: Double = 1.3
+): Serializer<SizeSerializer> {
+    private var _size: Int = 0
+
+    val size: Int
+        get() = (_size * factor).toInt()
+
+    init {
+        require(factor > 1.0) {
+            "factor '${factor}' can't be less than 1.0"
+        }
+    }
+
+    override fun serialize(block: SizeSerializer.() -> Unit) = block()
+
+    override fun obj(block: SizeSerializer.() -> Unit) = this.also {
+        _size += 2
+        block()
+    }
+
+    override fun arr(block: SizeSerializer.() -> Unit) = this.also {
+        _size += 2
+        block()
+    }
+
+    override fun valueStr(value: SizeSerializer.() -> Unit) = this.also {
+        _size += 2
+        value()
+    }
+
+    override fun str(value: SerializableString) = this.also {
+        _size += value.bytes.size
+    }
+
+    override fun str(value: String) = this.also {
+        _size += value.length // size in characters != size in bytes (UTF_8)
+    }
+
+    override fun char(value: SerializableChar) = this.also {
+        _size += 1
+    }
+
+    override fun bytes(buffer: ByteBuffer) = this.also {
+        _size += buffer.remaining()
+    }
+
+    override fun bytes(buf: ByteBuf) = this.also {
+        _size += buf.readableBytes()
+    }
+
+    override fun escapeStr(
+        value: String,
+        remember: Boolean
+    ) = this.also {
+        _size += value.length // size in characters != size in bytes (UTF_8)
+    }
+
+    override fun numAsStr(
+        value: Int,
+        length: NumberLength
+    ) = this.also {
+        _size += length.length
+    }
+
+    override fun numAsStr(value: Int) = this.also {
+        _size += 11 // used max value to improve performance
+    }
+
+    override fun numAsStr(value: Long) = this.also {
+        _size += 20 // used max value to improve performance
+    }
+
+    override fun base64Str(value: ByteBuffer) = this.also {
+        _size += (4 * ceil((value.remaining() / 3).toDouble())).toInt()
+    }
+
+    override fun filed(
+        name: SerializableString,
+        value: SizeSerializer.() -> Unit
+    ) = this.also {
+        _size += name.bytes.size + 1
+        value()
+    }
+
+    override fun filedStr(
+        name: SerializableString,
+        value: SizeSerializer.() -> Unit
+    ) = this.also {
+        _size += name.bytes.size + 3
+        value()
+    }
+
+    override fun filedBool(
+        name: SerializableString,
+        value: Boolean
+    ) = this.also {
+        _size += name.bytes.size + 1 + (if (value) TRUE else FALSE).bytes.size
+    }
+
 }

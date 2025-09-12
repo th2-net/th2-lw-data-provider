@@ -51,88 +51,89 @@ import com.exactpro.th2.lwdataprovider.entities.responses.EntityField.SUCCESSFUL
 import com.exactpro.th2.lwdataprovider.entities.responses.EntityField.TIMESTAMP
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.CLOSING_CURLY_BRACE
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.CLOSING_SQUARE_BRACE
+import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.COLON
+import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.COMMA
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.OPENING_CURLY_BRACE
 import com.exactpro.th2.lwdataprovider.entities.responses.JsonChar.OPENING_SQUARE_BRACE
-import com.exactpro.th2.lwdataprovider.entities.responses.NumberLength.FOUR
-import com.exactpro.th2.lwdataprovider.entities.responses.NumberLength.NINE
-import com.exactpro.th2.lwdataprovider.entities.responses.NumberLength.TWO
+import com.exactpro.th2.lwdataprovider.entities.responses.JsonString.NULL
+import com.exactpro.th2.lwdataprovider.entities.responses.NumberLength.FOUR_DIGITS
+import com.exactpro.th2.lwdataprovider.entities.responses.NumberLength.NINE_DIGITS
+import com.exactpro.th2.lwdataprovider.entities.responses.NumberLength.TWO_DIGITS
+import com.exactpro.th2.lwdataprovider.entities.responses.SpecialChar.GREATER_THAN
+import com.exactpro.th2.lwdataprovider.entities.responses.SpecialChar.ONE
+import com.exactpro.th2.lwdataprovider.entities.responses.SpecialChar.TWO
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import java.lang.AutoCloseable
 import java.nio.ByteBuffer
 import java.time.Instant
 import java.time.ZoneOffset
-import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
 private val SPACE = ' '.code.toByte()
 private val TAB = '\t'.code.toByte()
 
-fun ProviderMessage53Transport.serializeJsonData(serializer: Serializer<*>): Unit = serializer.serialize {
+fun ProviderMessage53Transport.serializeJsonData(serializer: Serializer<*>): Unit = with(serializer) {
     obj {
-        filed(TIMESTAMP) { timestampObj(timestamp) }.comma()
+        filed(TIMESTAMP) { timestampObj(timestamp) }.char(COMMA)
         direction?.let {
             filedStr(DIRECTION) {
                 when (direction) {
                     IN -> str(SpecialString.IN)
                     OUT -> str(SpecialString.OUT)
                 }
-            }.comma()
+            }.char(COMMA)
         }
-        filedStr(SESSION_ID) { escapeStr(sessionId, true) }.comma()
+        filedStr(SESSION_ID) { escapeStr(sessionId, true) }.char(COMMA)
         filed(ATTACHED_EVENT_IDS) {
             arr {
-                val lastIndex = attachedEventIds.size - 1
-                attachedEventIds.forEachIndexed { index, id ->
-                    valueStr { escapeStr(id, false) }
-                    if (lastIndex != index) { comma() }
+                attachedEventIds.iterate({ char(COMMA) }) {
+                    valueStr { escapeStr(it, false) }
                 }
             }
-        }.comma()
+        }.char(COMMA)
         body?.let {
-            filed(BODY) { body(body) }.comma()
+            filed(BODY) { body(body) }.char(COMMA)
         }
         bodyBase64?.let {
-            filedStr(BODY_BASE_64) { str(bodyBase64) }.comma()
+            filedStr(BODY_BASE_64) { str(bodyBase64) }.char(COMMA)
         }
         filedStr(MESSAGE_ID) { messageId(messageId) }
     }
 }
 
-fun LwEvent.serializeJsonData(serializer: Serializer<*>): Unit = serializer.serialize {
+fun LwEvent.serializeJsonData(serializer: Serializer<*>): Unit = with(serializer) {
     obj {
-        filedStr(EVENT_ID) { compositeEventId(batchId, eventId) }.comma()
+        filedStr(EVENT_ID) { compositeEventId(batchId, eventId) }.char(COMMA)
         filed(BATCH_ID) {
             batchId?.let { valueStr { simpleEventId(it) } }
-                ?: run { nul() }
-        }.comma()
-        filedBool(IS_BATCHED, isBatched).comma()
-        filedStr(EVENT_NAME) { escapeStr(event.name, false) }.comma()
+                ?: run { str(NULL) }
+        }.char(COMMA)
+        filedBool(IS_BATCHED, isBatched).char(COMMA)
+        filedStr(EVENT_NAME) { escapeStr(event.name, false) }.char(COMMA)
         filed(EVENT_TYPE) {
             event.type?.let { valueStr { escapeStr(it, false) } }
-                ?: run { nul() }
-        }.comma()
+                ?: run { str(NULL) }
+        }.char(COMMA)
         filed(END_TIMESTAMP) {
             event.endTimestamp?.let { timestampObj(it) }
-                ?: run { nul() }
-        }.comma()
-        filed(START_TIMESTAMP) { timestampObj(event.id.startTimestamp) }.comma()
+                ?: run { str(NULL) }
+        }.char(COMMA)
+        filed(START_TIMESTAMP) { timestampObj(event.id.startTimestamp) }.char(COMMA)
         filed(PARENT_EVENT_ID) {
             event.parentId?.let { valueStr { compositeEventId(parentBatchId, it) } }
-                ?: run { nul() }
-        }.comma()
-        filedBool(SUCCESSFUL, event.isSuccess).comma()
-        filedStr(BOOK_ID) { escapeStr(event.id.bookId.name, true) }.comma()
-        filedStr(SCOPE) { escapeStr(event.id.scope, true) }.comma()
+                ?: run { str(NULL) }
+        }.char(COMMA)
+        filedBool(SUCCESSFUL, event.isSuccess).char(COMMA)
+        filedStr(BOOK_ID) { escapeStr(event.id.bookId.name, true) }.char(COMMA)
+        filedStr(SCOPE) { escapeStr(event.id.scope, true) }.char(COMMA)
         filed(ATTACHED_MESSAGE_IDS) {
             arr {
-                val lastIndex = attachedMessageIds.size - 1
-                attachedMessageIds.forEachIndexed { index, id ->
-                    valueStr { messageId(id) }
-                    if (lastIndex != index) { comma() }
+                attachedMessageIds.iterate({ char(COMMA) }) {
+                    valueStr { messageId(it) }
                 }
             }
-        }.comma()
+        }.char(COMMA)
         filed(BODY) {
             if (event.content != null && event.content.remaining() > 0) {
                 body(event.content)
@@ -145,35 +146,33 @@ fun LwEvent.serializeJsonData(serializer: Serializer<*>): Unit = serializer.seri
 
 private fun Serializer<*>.messageId(messageId: StoredMessageId) {
     with(messageId) {
-        escapeStr(bookId.name, true).colon()
-        escapeStr(sessionAlias, true).colon()
+        escapeStr(bookId.name, true).char(COLON)
+        escapeStr(sessionAlias, true).char(COLON)
         when(direction) {
-            Direction.FIRST -> one()
-            Direction.SECOND -> two()
+            Direction.FIRST -> char(ONE)
+            Direction.SECOND -> char(TWO)
             else -> escapeStr(direction.label, true)
-        }.colon()
-        timestampStr(timestamp).colon()
+        }.char(COLON)
+        timestampStr(timestamp).char(COLON)
         numAsStr(sequence)
     }
 }
 
 private fun Serializer<*>.body(messages: List<TransportMessageContainer>) {
     arr {
-        val lastIndex = messages.size - 1
-        messages.forEachIndexed { index, message ->
-            val parsedMessage = message.parsedMessage
+        messages.iterate({ char(COMMA) }) {
+            val parsedMessage = it.parsedMessage
             if (!parsedMessage.rawBody.isReadable) {
                 error("The ${parsedMessage.id} message can't be serialized because raw data is blank")
             }
             obj {
                 filed(METADATA) {
                     metadata(parsedMessage)
-                }.comma()
+                }.char(COMMA)
                 filed(FIELDS) {
                     bytes(parsedMessage.rawBody)
                 }
             }
-            if (lastIndex != index) { comma() }
         }
     }
 }
@@ -184,31 +183,27 @@ private fun Serializer<*>.metadata(message: ParsedMessage) {
             if (id.subsequence.isNotEmpty()) {
                 filed(SUBSEQUENCE) {
                     arr {
-                        val lastIndex = id.subsequence.size - 1
-                        id.subsequence.forEachIndexed { index, subseq ->
-                            numAsStr(subseq)
-                            if (index != lastIndex) { comma() }
+                        id.subsequence.iterate({ char(COMMA) }) {
+                            numAsStr(it)
                         }
                     }
-                }.comma()
+                }.char(COMMA)
             }
             filedStr(MESSAGE_TYPE) { escapeStr(type, false) }
             if (metadata.isNotEmpty()) {
-                comma()
+                char(COMMA)
                 filed(PROPERTIES) {
                     obj {
-                        val lastIndex = metadata.size - 1
-                        metadata.onEachIndexed { index, entity ->
-                            valueStr { escapeStr(entity.key) }
-                                .colon()
-                                .valueStr { escapeStr(entity.value) }
-                            if (index != lastIndex) { comma() }
+                        metadata.iterate({ char(COMMA) }) {
+                            valueStr { escapeStr(it.key) }
+                                .char(COLON)
+                                .valueStr { escapeStr(it.value) }
                         }
                     }
                 }
             }
             if (protocol.isNotBlank()) {
-                comma()
+                char(COMMA)
                 filedStr(PROTOCOL) { escapeStr(protocol, true) }
             }
         }
@@ -230,47 +225,55 @@ private fun Serializer<*>.body(value: ByteBuffer) {
     } else {
         valueStr {
             value.mark()
-            bytes(Base64.getEncoder().encode(value))
+            base64Str(value)
             value.reset()
         }
     }
 }
 
-private fun Serializer<*>.simpleEventId(eventId: StoredTestEventId) {
-    escapeStr(eventId.bookId.name, true)
-    colon()
-    escapeStr(eventId.scope, true)
-    colon()
-    timestampStr(eventId.startTimestamp)
-    colon()
+private fun Serializer<*>.simpleEventId(eventId: StoredTestEventId) = this.also {
+    escapeStr(eventId.bookId.name, true).char(COLON)
+    escapeStr(eventId.scope, true).char(COLON)
+    timestampStr(eventId.startTimestamp).char(COLON)
     escapeStr(eventId.id)
 }
 
 private fun Serializer<*>.timestampStr(timestamp: Instant): Serializer<*> = this.also {
     timestamp.atZone(ZoneOffset.UTC).apply {
-        numAsStr(year, FOUR)
-        numAsStr(monthValue, TWO)
-        numAsStr(dayOfMonth, TWO)
-        numAsStr(hour, TWO)
-        numAsStr(minute, TWO)
-        numAsStr(second, TWO)
-        numAsStr(nano, NINE)
+        numAsStr(year, FOUR_DIGITS)
+        numAsStr(monthValue, TWO_DIGITS)
+        numAsStr(dayOfMonth, TWO_DIGITS)
+        numAsStr(hour, TWO_DIGITS)
+        numAsStr(minute, TWO_DIGITS)
+        numAsStr(second, TWO_DIGITS)
+        numAsStr(nano, NINE_DIGITS)
     }
 }
 
 private fun Serializer<*>.timestampObj(timestamp: Instant) {
     obj {
-        filed(EPOCH_SECOND) { numAsStr(timestamp.epochSecond) }.comma()
+        filed(EPOCH_SECOND) { numAsStr(timestamp.epochSecond) }.char(COMMA)
         filed(NANO) { numAsStr(timestamp.nano) }
     }
 }
 
 private fun Serializer<*>.compositeEventId(batchEventId: StoredTestEventId?, eventId: StoredTestEventId) {
     if (batchEventId != null) {
-        simpleEventId(batchEventId)
-        greaterThan()
+        simpleEventId(batchEventId).char(GREATER_THAN)
     }
     simpleEventId(eventId)
+}
+
+private inline fun <T> Collection<T>.iterate(handleGap: () -> Unit, handleValue: (value: T) -> Unit) {
+    val lastIndex = size - 1
+    forEachIndexed { index, value ->
+        handleValue(value)
+        if (lastIndex != index) { handleGap() }
+    }
+}
+
+private inline fun <K, V> Map<K, V>.iterate(handleGap: () -> Unit, handleEntry: (entry: Map.Entry<K, V>) -> Unit) {
+    entries.iterate(handleGap, handleEntry)
 }
 
 interface ByteBufPool {

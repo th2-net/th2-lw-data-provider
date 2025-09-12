@@ -97,8 +97,7 @@ internal class TestCustomSerializerKt {
             ),
         )
 
-        val buf = Unpooled.buffer()
-        message.serializeJsonData(create(buf, DummyEscaper))
+        val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, message::serializeJsonData)
 
         assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
     }
@@ -144,9 +143,7 @@ internal class TestCustomSerializerKt {
             parentBatchId = batchId,
         )
 
-        val buf: ByteBuf = Unpooled.buffer()
-        event.serializeJsonData(create(buf, DummyEscaper))
-
+        val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, event::serializeJsonData)
         assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
     }
 

@@ -26,7 +26,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
-import com.exactpro.th2.lwdataprovider.entities.responses.create
+import com.exactpro.th2.lwdataprovider.entities.responses.serialize
 import com.exactpro.th2.lwdataprovider.entities.responses.serializeJsonData
 import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -74,11 +74,7 @@ sealed class SseEvent(
         event: LwEvent,
         override val metadata: String,
     ) : SseEvent(EventType.EVENT) {
-        private val buf: ByteBuffer = bufPool.acquire()
-
-        init {
-            event.serializeJsonData(create(buf, escaper))
-        }
+        private val buf: ByteBuffer = serialize(bufPool.acquire(), escaper, event::serializeJsonData)
 
         override fun writeData(
             out: OutputStream
@@ -107,8 +103,7 @@ sealed class SseEvent(
                     array = JSON.encodeToByteArray(ProviderMessage53.serializer(), message)
                 }
                 is ProviderMessage53Transport -> {
-                    buf = bufferPool.acquire()
-                    message.serializeJsonData(create(buf, escaper))
+                    buf = serialize(bufferPool.acquire(), escaper, message::serializeJsonData)
                     array = null
 
                 }

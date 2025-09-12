@@ -28,6 +28,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMess
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
 import com.exactpro.th2.lwdataprovider.DummyEscaper
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction.IN
+import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -133,8 +134,7 @@ class TestResponseMessage {
 
     @Test
     fun `custom to byte array message without optional field serialisation`() {
-        val buf = Unpooled.buffer()
-        messageWithoutOptionalFields.serializeJsonData(create(buf, DummyEscaper))
+        val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, messageWithoutOptionalFields::serializeJsonData)
         assertEquals(jsonMessageWithoutOptionalFields, String(buf.toByteArray()))
     }
 
@@ -160,8 +160,7 @@ class TestResponseMessage {
 
     @Test
     fun `custom to byte array full message serialisation`() {
-        val buf = Unpooled.buffer()
-        fullMessage.serializeJsonData(create(buf, DummyEscaper))
+        val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, fullMessage::serializeJsonData)
         assertEquals(jsonFullMessage, String(buf.toByteArray()))
     }
 }

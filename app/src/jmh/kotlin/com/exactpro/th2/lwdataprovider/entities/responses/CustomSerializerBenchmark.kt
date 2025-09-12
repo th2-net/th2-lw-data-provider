@@ -93,8 +93,7 @@ open class CustomSerializerBenchmark {
     fun benchmarkSerializeEventUsingByteBuffer(
         state: Simple,
     ) {
-        val buffer = state.bufferPool.acquire()
-        state.largeEvent.serializeJsonData(create(buffer, state.escaper))
+        val buffer = serialize(state.bufferPool.acquire(), state.escaper, state.largeEvent::serializeJsonData)
         state.bufferPool.release(buffer)
     }
 
@@ -103,8 +102,15 @@ open class CustomSerializerBenchmark {
     fun benchmarkSerializeEventUsingByteBuf(
         state: Simple,
     ) {
-        val buf = state.bufPool.acquire()
-        state.largeEvent.serializeJsonData(create(buf, state.escaper))
+        val buf = serialize(state.bufPool.acquire(), state.escaper, state.largeEvent::serializeJsonData)
         state.bufPool.release(buf)
+    }
+
+    @Benchmark
+    @BenchmarkMode(Mode.Throughput)
+    fun benchmarkCalculateSizeOfSerializeEvent(
+        state: Simple,
+    ) {
+        calculateSize(state.largeEvent::serializeJsonData)
     }
 }
