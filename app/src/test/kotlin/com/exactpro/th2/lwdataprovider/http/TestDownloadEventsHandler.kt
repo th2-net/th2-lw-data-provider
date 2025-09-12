@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2024-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@ import com.exactpro.cradle.testevents.StoredTestEventIdUtils
 import com.exactpro.cradle.utils.CradleStorageException
 import com.exactpro.th2.lwdataprovider.util.CradleResult
 import com.exactpro.th2.lwdataprovider.util.createEventId
-import com.exactpro.th2.lwdataprovider.util.createEventStoredEvent
 import com.exactpro.th2.lwdataprovider.util.createStoredEventSingle
-import com.exactpro.th2.lwdataprovider.util.toStoredEvent
 import io.javalin.http.HttpStatus
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest

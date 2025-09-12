@@ -408,10 +408,10 @@ private class SizeSerializer(
     private var _size: Int = 0
 
     val size: Int
-        get() = (_size * factor).toInt()
+        get() = if (factor == 1.0) _size else (_size * factor).toInt()
 
     init {
-        require(factor > 1.0) {
+        require(factor >= 1.0) {
             "factor '${factor}' can't be less than 1.0"
         }
     }

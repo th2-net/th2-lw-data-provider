@@ -21,20 +21,14 @@ import kotlin.text.toByteArray
 
 interface Escaper {
     fun escape(value: String, hold: Boolean): ByteArray
-    fun escapeStr(value: String, hold: Boolean): String
 }
 
 object DummyEscaper : Escaper {
     override fun escape(value: String, hold: Boolean): ByteArray = jsonEscape(value).toByteArray(UTF_8)
-    override fun escapeStr(value: String, hold: Boolean): String {
-        TODO("Not yet implemented")
-    }
-
 }
 
 class MapEscaper(
     private val holder: MutableMap<String, ByteArray> = mutableMapOf(),
-    private val holder2: MutableMap<String, String> = mutableMapOf()
 ) : Escaper, AutoCloseable {
     override fun escape(value: String, hold: Boolean): ByteArray {
         if (hold) {
@@ -43,15 +37,6 @@ class MapEscaper(
             }
         }
         return jsonEscape(value).toByteArray(UTF_8)
-    }
-
-    override fun escapeStr(value: String, hold: Boolean): String {
-        if (hold) {
-            return holder2.computeIfAbsent(value) {
-                jsonEscape(value)
-            }
-        }
-        return jsonEscape(value)
     }
 
     override fun close() {

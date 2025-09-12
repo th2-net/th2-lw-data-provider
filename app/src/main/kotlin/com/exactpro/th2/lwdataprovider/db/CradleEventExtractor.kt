@@ -249,7 +249,7 @@ class CradleEventExtractor(
             val event = Event(singleEv)
             count.singleEvents++
             count.events++
-            count.totalContentSize += singleEv.content.remaining() + event.attachedMessageIds.size // FIXME: calculate length
+            count.totalContentSize += singleEv.content.remaining()
             sink.onNext(event)
         } else if (testEvent.isLwBatch) {
             count.batches++
@@ -263,7 +263,7 @@ class CradleEventExtractor(
                 val event = Event(batchEvent, batch.id)
 
                 count.events++
-                count.totalContentSize += batchEvent.content.remaining() + event.attachedMessageIds.size // FIXME: calculate length
+                count.totalContentSize += batchEvent.content.remaining()
                 sink.onNext(event)
             }
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,6 @@ import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.StoredTestEventSingle
-import com.exactpro.cradle.testevents.TestEventSingleToStore
 import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
 import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
 import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
@@ -69,25 +67,6 @@ fun createPageInfo(
     if (updated) started else null,
     if (removed) ended else null
 )
-
-fun createEventStoredEvent(
-    eventId: String,
-    start: Instant,
-    end: Instant,
-    parentEventId: StoredTestEventId? = null,
-    name: String = "test_event",
-    type: String = "test",
-    scope: String = "test-scope",
-    book: String = "test"
-): TestEventSingleToStore = TestEventSingleToStore.builder(1)
-    .id(BookId(book), scope, start, eventId)
-    .name(name)
-    .type(type)
-    .parentId(parentEventId)
-    .content(ByteArray(0))
-    .success(true)
-    .endTimestamp(end)
-    .build()
 
 fun createStoredEvent(
     eventId: String,
@@ -152,9 +131,6 @@ fun createStoredEventBatch(
     null,
     null,
 )
-
-fun TestEventSingleToStore.toStoredEvent(pageID: PageId? = null): StoredTestEventSingle =
-    StoredTestEventSingle(this, pageID)
 
 fun createEventId(
     id: String,
@@ -281,13 +257,6 @@ fun createBatches(
             )
         }
     }
-
-@Suppress("TestFunctionName")
-fun GroupBatch(group: String, vararg messages: StoredMessage): StoredGroupedMessageBatch = GroupBatch(
-    group,
-    "test",
-    messages.toList(),
-)
 
 @Suppress("TestFunctionName")
 fun GroupBatch(group: String, book: String? = "test", messages: Collection<StoredMessage>): StoredGroupedMessageBatch =

@@ -135,7 +135,7 @@ class DownloadEventsHandler(
         HeapBufferPool().use { bufferPool ->
             MapEscaper().use { escaper ->
                 val handler = HttpGenericResponseHandler(
-                    queue, sseResponseBuilder.create(bufferPool, escaper), convExecutor, dataMeasurement,
+                    queue, sseResponseBuilder.createWith(bufferPool, escaper), convExecutor, dataMeasurement,
                     Event::eventId,
                     SseResponseBuilder::build
                 )

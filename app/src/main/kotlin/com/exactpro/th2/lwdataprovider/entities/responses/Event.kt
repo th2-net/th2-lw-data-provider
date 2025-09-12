@@ -23,7 +23,6 @@ import com.exactpro.th2.common.event.EventUtils.toEventID
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
 import com.exactpro.th2.common.grpc.EventStatus.SUCCESS
-import com.exactpro.th2.common.grpc.MessageID
 import com.exactpro.th2.common.message.toTimestamp
 import com.exactpro.th2.dataprovider.lw.grpc.EventResponse
 import com.exactpro.th2.lwdataprovider.grpc.toGrpcMessageId
@@ -105,7 +104,5 @@ data class Event(
 
     companion object {
         fun StoredTestEventId.toEventIdProto(): EventID = toEventID(startTimestamp, bookId.name, scope, id)
-
-        fun Set<StoredMessageId>.toMessageIdProto(): List<MessageID> = map { id -> id.toGrpcMessageId() }
     }
 }

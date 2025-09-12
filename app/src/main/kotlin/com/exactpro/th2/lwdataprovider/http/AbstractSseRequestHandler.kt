@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.th2.lwdataprovider.EventType
-import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
 import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
@@ -34,7 +33,6 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
 
         val matchedPath = ctx().matchedPath()
         var dataSent = 0
-        val escaper = MapEscaper()
         try {
             while (true) {
                 val supplier = queue.take()
@@ -60,9 +58,7 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
                     // flush after error to deliver it to the user
                     flush()
                 }
-                K_LOGGER.debug {
-                    "Sent sse event: type ${event.event}, metadata ${event.metadata}" // FIXME: print data
-                }
+                K_LOGGER.debug { "Sent sse event: type ${event.event}, metadata ${event.metadata}" }
                 if (event.event == EventType.CLOSE) {
                     return
                 }

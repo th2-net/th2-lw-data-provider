@@ -111,7 +111,7 @@ class TaskDownloadHandler(
     private fun listOfStatuses(context: Context) {
         LOGGER.info { "Getting possible task statuses" }
         context.status(HttpStatus.OK)
-            .json(TaskStatus.values().map { it.toInfo() })
+            .json(TaskStatus.entries.map { it.toInfo() })
     }
 
     @OpenApi(
@@ -223,7 +223,7 @@ class TaskDownloadHandler(
         LOGGER.info { "Executing task $taskID" }
         HeapBufferPool().use { bufferPool ->
             MapEscaper().use { escaper ->
-                val responseBuilder = sseResponseBuilder.create(bufferPool, escaper)
+                val responseBuilder = sseResponseBuilder.createWith(bufferPool, escaper)
                 val taskState: TaskState = taskManager.execute(taskID) { taskInfo ->
                     if (taskInfo == null) {
                         return@execute TaskState.NotFound
@@ -245,7 +245,7 @@ class TaskDownloadHandler(
 
                         is EventTaskInfo -> {
                             val handler = HttpGenericResponseHandler(
-                                queue, responseBuilder, { it.run() }, dataMeasurement,
+                                queue, responseBuilder, convExecutor, dataMeasurement,
                                 Event::eventId,
                                 SseResponseBuilder::build
                             )
@@ -372,11 +372,13 @@ class TaskDownloadHandler(
         ) : TaskState()
     }
 
+    @Suppress("unused")
     private class TaskIDResponse(
         @get:OpenApiPropertyType(definedBy = String::class)
         val taskID: TaskID,
     )
 
+    @Suppress("unused")
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private class TaskStatusResponse(
         @get:OpenApiPropertyType(definedBy = String::class)
@@ -395,6 +397,7 @@ class TaskDownloadHandler(
         val errors: List<ErrorMessage> = emptyList(),
     )
 
+    @Suppress("unused")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private class StatusInfoResponse(
         val status: TaskStatus,
@@ -541,6 +544,7 @@ class TaskDownloadHandler(
         EVENTS
     }
 
+    @Suppress("unused")
     private class ErrorMessage(
         val error: String,
     )

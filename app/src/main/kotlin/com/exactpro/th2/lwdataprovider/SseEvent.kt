@@ -70,19 +70,19 @@ sealed class SseEvent(
     }
 
     class EventData(
-        private val bufPool: ByteBufferPool,
+        private val bufferPool: ByteBufferPool,
         escaper: Escaper,
         event: Event,
         override val metadata: String,
     ) : SseEvent(EventType.EVENT) {
-        private val buf: ByteBuffer = serialize(bufPool.acquire(calculateSize(event::serializeJsonData)), escaper, event::serializeJsonData)
+        private val buf: ByteBuffer = serialize(bufferPool.acquire(calculateSize(event::serializeJsonData)), escaper, event::serializeJsonData)
 
         override fun writeData(
             out: OutputStream
         ) = try {
                 out.write(buf.array(), buf.arrayOffset() + buf.position(), buf.remaining())
             } finally {
-                this.bufPool.release(buf)
+                this.bufferPool.release(buf)
             }
     }
 

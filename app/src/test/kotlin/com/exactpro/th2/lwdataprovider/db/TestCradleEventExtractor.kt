@@ -88,9 +88,7 @@ internal class TestCradleEventExtractor {
                 createStoredEventBatch(
                     id = batchId,
                     parentEventId = createEventId("batchParent", timestamp = start),
-                    events = listOf(
-                        toStore,
-                    )
+                    events = listOf(toStore)
                 ).let {
                     LwStoredTestEventBatch(it, null)
                 }
@@ -217,9 +215,7 @@ internal class TestCradleEventExtractor {
         val end = Instant.parse("2022-11-14T23:59:59.999999999Z")
         val toStore = createStoredEventSingle(eventId = "test", start, end)
         val eventId = createEventId("test")
-        doReturn(
-            toStore
-        ).whenever(storage).getTestEvent(eq(eventId))
+        doReturn(toStore).whenever(storage).getTestEvent(eq(eventId))
 
         val sink: EventDataSink<Event> = mock { }
         extractor.getSingleEvents(GetEventRequest(null, eventId.toString()), sink)
@@ -243,9 +239,7 @@ internal class TestCradleEventExtractor {
             createStoredEventBatch(
                 id = batchId,
                 parentEventId = createEventId("batchParent", timestamp = start),
-                events = listOf(
-                    toStore,
-                )
+                events = listOf(toStore)
             ).let {
                 LwStoredTestEventBatch(it, null)
             }

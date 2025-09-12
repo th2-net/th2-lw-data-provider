@@ -71,12 +71,10 @@ class Context(
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration.decodingTimeout, "decoding"),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(
         cradleManager,
-//        DataMeasurementHistogram.create(registry, "cradle event")
         DataMeasurementSummary.create(registry, "cradle event")
     ),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(
         cradleManager,
-//        DataMeasurementHistogram.create(registry, "cradle message"),
         DataMeasurementSummary.create(registry, "cradle message"),
         configuration.validateCradleData
     ),
@@ -96,7 +94,6 @@ class Context(
         configuration,
     ),
     val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, execExecutor),
-//    val requestsDataMeasurement: DataMeasurement = DataMeasurementHistogram.create(registry, "message requests"),
     val requestsDataMeasurement: DataMeasurement = DataMeasurementSummary.create(registry, "requests"),
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,

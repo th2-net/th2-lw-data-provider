@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.exactpro.th2.lwdataprovider.entities.responses
+package com.exactpro.th2.lwdataprovider.entities.responses.ser
 
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.PageId
@@ -29,8 +29,9 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArra
 import com.exactpro.th2.lwdataprovider.DummyEscaper
 import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
-import com.exactpro.th2.lwdataprovider.entities.responses.ser.serialize
-import com.exactpro.th2.lwdataprovider.entities.responses.ser.serializeJsonData
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
+import com.exactpro.th2.lwdataprovider.entities.responses.TransportMessageContainer
 import com.fasterxml.jackson.databind.json.JsonMapper
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
@@ -49,13 +50,58 @@ import kotlin.text.Charsets.UTF_8
 
 internal class TestCustomSerializerKt {
     private val mapper = JsonMapper()
+
     @ParameterizedTest(name = "char `{0}` does not cause problems")
     @ValueSource(chars = ['\"', '\\', ':'])
     @MethodSource("controlChars")
     @MethodSource("unicodeChars")
-    fun `writes ProviderMessage53Transport as valid json`(escapeCharacter: Char) {
+    fun `writes ProviderMessage53Transport as valid json (ByteBuf)`(escapeCharacter: Char) {
+        val message = createMessage(escapeCharacter)
+        val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, message::serializeJsonData)
+        assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
+    }
+
+    @ParameterizedTest(name = "char `{0}` does not cause problems")
+    @ValueSource(chars = ['\"', '\\', ':'])
+    @MethodSource("controlChars")
+    @MethodSource("unicodeChars")
+    fun `writes ProviderMessage53Transport as valid json (ByteBuffer)`(escapeCharacter: Char) {
+        val message = createMessage(escapeCharacter)
+        val buffer: ByteBuffer = serialize(ByteBuffer.allocate(calculateSize(message::serializeJsonData)), DummyEscaper, message::serializeJsonData)
+        assertDoesNotThrow { mapper.readTree(buffer.array()) }
+    }
+
+    @ParameterizedTest(name = "char `{0}` does not cause problems")
+    @ValueSource(chars = ['\"', '\\', ':'])
+    @MethodSource("controlChars")
+    @MethodSource("unicodeChars")
+    fun `writes Event as valid json (ByteBuf)`(escapeCharacter: Char) {
+        val event = createEvent(escapeCharacter)
+        val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, event::serializeJsonData)
+        assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
+    }
+
+    @ParameterizedTest(name = "char `{0}` does not cause problems")
+    @ValueSource(chars = ['\"', '\\', ':'])
+    @MethodSource("controlChars")
+    @MethodSource("unicodeChars")
+    fun `writes Event as valid json (ByteBuffer)`(escapeCharacter: Char) {
+        val event = createEvent(escapeCharacter)
+        val buffer: ByteBuffer = serialize(ByteBuffer.allocate(calculateSize(event::serializeJsonData)), DummyEscaper, event::serializeJsonData)
+        assertDoesNotThrow { mapper.readTree(buffer.array()) }
+    }
+
+    @ParameterizedTest(name = "char `{0}` escaped as `{1}`")
+    @MethodSource("escapedResults")
+    fun `test json escape result`(char: Char, escaped: String) {
+        expectThat(MapEscaper().escape("$char", false)).isEqualTo(escaped.toByteArray(UTF_8))
+    }
+
+    private fun createMessage(
+        escapeCharacter: Char
+    ): ProviderMessage53Transport {
         val timestamp = Instant.now()
-        val message = ProviderMessage53Transport(
+        return ProviderMessage53Transport(
             timestamp = timestamp,
             direction = Direction.OUT,
             sessionId = "ses${escapeCharacter}sion",
@@ -92,68 +138,54 @@ internal class TestCustomSerializerKt {
                         ),
                         protocol = "proto${escapeCharacter}col",
                         rawBody = Unpooled.wrappedBuffer(
-                            """{"test":42}""".toByteArray(Charsets.UTF_8)
+                            """{"test":42}""".toByteArray(UTF_8)
                         ),
                     )
                 ),
             ),
         )
-
-        val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, message::serializeJsonData)
-
-        assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
     }
 
-    @ParameterizedTest(name = "char `{0}` does not cause problems")
-    @ValueSource(chars = ['\"', '\\', ':'])
-    @MethodSource("controlChars")
-    @MethodSource("unicodeChars")
-    fun `writes Event as valid json`(escapeCharacter: Char) {
+    private fun createEvent(
+        escapeCharacter: Char,
+    ): Event {
         val timestamp = Instant.now()
         val bookId = BookId("book${escapeCharacter}Id")
         val scope = "scope${escapeCharacter}"
         val eventId = StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id")
         val batchId = StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id")
-        val event = Event(
+        return Event(
             event = LwBatchedStoredTestEvent(
                 eventId,
                 "event${escapeCharacter}Name",
                 "event${escapeCharacter}Type",
                 StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id"),
                 timestamp,
-                    true,
+                true,
                 ByteBuffer.wrap("""[{"body":"test-body"}]""".toByteArray(UTF_8)),
-                    LwStoredTestEventBatch(
-                        batchId,
-                        "test-batch-name",
-                        "test-batch-type",
-                        StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id"),
-                        emptyList<LwBatchedStoredTestEvent>(),
-                        mapOf(
-                            eventId to setOf(
-                                StoredMessageId(bookId, "attachedMessage${escapeCharacter}Id", com.exactpro.cradle.Direction.SECOND,
-                                    timestamp, 0L)
+                LwStoredTestEventBatch(
+                    batchId,
+                    "test-batch-name",
+                    "test-batch-type",
+                    StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id"),
+                    emptyList<LwBatchedStoredTestEvent>(),
+                    mapOf(
+                        eventId to setOf(
+                            StoredMessageId(
+                                bookId, "attachedMessage${escapeCharacter}Id", com.exactpro.cradle.Direction.SECOND,
+                                timestamp, 0L
                             )
-                        ),
-                        PageId(bookId, timestamp, ""),
-                        "",
-                        timestamp
+                        )
                     ),
                     PageId(bookId, timestamp, ""),
+                    "",
+                    timestamp
                 ),
+                PageId(bookId, timestamp, ""),
+            ),
             batchId = batchId,
             parentBatchId = batchId,
         )
-
-        val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, event::serializeJsonData)
-        assertDoesNotThrow { mapper.readTree(buf.toByteArray()) }
-    }
-
-    @ParameterizedTest(name = "char `{0}` escaped as `{1}`")
-    @MethodSource("escapedResults")
-    fun `test json escape result`(char: Char, escaped: String) {
-
-        expectThat(MapEscaper().escape("$char", false)).isEqualTo(escaped.toByteArray(UTF_8))
     }
 
     companion object {

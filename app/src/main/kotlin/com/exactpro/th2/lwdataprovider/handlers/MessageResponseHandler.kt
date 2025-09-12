@@ -86,9 +86,7 @@ abstract class MessageResponseHandler(
 
     override fun handleNext(data: RequestedMessageDetails) {
         streamInfo.registerMessage(data.storedMessage.id, data.storedMessage.timestamp)
-        putQueueMeasurement.start().use {
-            handleNextInternal(data)
-        }
+        putQueueMeasurement.start().use { handleNextInternal(data) }
     }
 
     fun requestReceived() {

@@ -179,9 +179,7 @@ class HttpGenericResponseHandler<T>(
         if (!isAlive) return
         val index = indexer.nextIndex()
         val future: CompletableFuture<SseEvent> = CompletableFuture.supplyAsync({
-            convertToJsonMeasurement.start().use {
-                builder.createEvent(data, index)
-            }
+            convertToJsonMeasurement.start().use { builder.createEvent(data, index) }
         }, executor)
         buffer.put(future::get)
         scannedObjectInfo.update(getId(data).toString(), index)

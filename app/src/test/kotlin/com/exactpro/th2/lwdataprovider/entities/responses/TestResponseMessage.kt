@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMess
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.toByteArray
 import com.exactpro.th2.lwdataprovider.DummyEscaper
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction.IN
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.calculateSize
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.serialize
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.serializeJsonData
 import io.netty.buffer.ByteBuf
@@ -38,6 +39,7 @@ import kotlinx.serialization.json.encodeToStream
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
 import java.time.Instant
 
 private const val TEST_BOOK = "test-book"
@@ -135,9 +137,19 @@ class TestResponseMessage {
     }
 
     @Test
-    fun `custom to byte array message without optional field serialisation`() {
+    fun `custom to byte array message without optional field serialisation (ByteBuf)`() {
         val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, messageWithoutOptionalFields::serializeJsonData)
         assertEquals(jsonMessageWithoutOptionalFields, String(buf.toByteArray()))
+    }
+
+    @Test
+    fun `custom to byte array message without optional field serialisation (ByteBuffer)`() {
+        val buffer: ByteBuffer = serialize(
+            ByteBuffer.allocate(calculateSize(messageWithoutOptionalFields::serializeJsonData)),
+            DummyEscaper,
+            messageWithoutOptionalFields::serializeJsonData
+        )
+        assertEquals(jsonMessageWithoutOptionalFields, String(buffer.toByteArray()))
     }
 
     @Test
@@ -161,8 +173,26 @@ class TestResponseMessage {
     }
 
     @Test
-    fun `custom to byte array full message serialisation`() {
+    fun `custom to byte array full message serialisation (ByteBuf)`() {
         val buf: ByteBuf = serialize(Unpooled.buffer(), DummyEscaper, fullMessage::serializeJsonData)
         assertEquals(jsonFullMessage, String(buf.toByteArray()))
+    }
+
+    @Test
+    fun `custom to byte array full message serialisation (ByteBuffer)`() {
+        val buffer: ByteBuffer = serialize(
+            ByteBuffer.allocate(calculateSize(fullMessage::serializeJsonData)),
+            DummyEscaper,
+            fullMessage::serializeJsonData
+        )
+        assertEquals(jsonFullMessage, String(buffer.toByteArray()))
+    }
+
+    companion object {
+        fun ByteBuffer.toByteArray(): ByteArray = ByteArray(remaining()).apply {
+            mark()
+            get(this)
+            reset()
+        }
     }
 }

@@ -70,7 +70,7 @@ class SseResponseBuilder(
             lastEventId.toString()
         )
 
-    fun create(bufferPool: HeapBufferPool, escaper: Escaper): SseResponseBuilder {
+    fun createWith(bufferPool: HeapBufferPool, escaper: Escaper): SseResponseBuilder {
         return SseResponseBuilder(bufferPool, escaper, jacksonMapper, responseFactory)
     }
 }
