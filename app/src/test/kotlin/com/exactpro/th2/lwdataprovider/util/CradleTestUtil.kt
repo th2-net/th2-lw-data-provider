@@ -25,11 +25,12 @@ import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
+import com.exactpro.cradle.testevents.BatchedStoredTestEvent
+import com.exactpro.cradle.testevents.BatchedStoredTestEventBuilder
+import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
-import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
-import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
-import com.exactpro.cradle.testevents.lw.LwTestEventBatch
+import com.exactpro.cradle.testevents.StoredTestEventSingle
+import com.exactpro.cradle.testevents.TestEventBatch
 import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.function.Supplier
@@ -77,17 +78,15 @@ fun createStoredEvent(
     type: String = "test",
     scope: String = "test-scope",
     book: String = "test"
-): LwBatchedStoredTestEvent = LwBatchedStoredTestEvent(
-    StoredTestEventId(BookId(book), scope, start, eventId),
-    name,
-    type,
-    parentEventId,
-    end,
-    true,
-    ByteBuffer.allocate(0),
-    null,
-    null,
-)
+): BatchedStoredTestEvent = BatchedStoredTestEventBuilder()
+    .setId(StoredTestEventId(BookId(book), scope, start, eventId))
+    .setName(name)
+    .setType(type)
+    .setParentId(parentEventId)
+    .setEndTimestamp(end)
+    .setSuccess(true)
+    .setContent(ByteBuffer.allocate(0))
+    .build()
 
 fun createStoredEventSingle(
     eventId: String,
@@ -99,7 +98,7 @@ fun createStoredEventSingle(
     type: String = "test",
     scope: String = "test-scope",
     book: String = "test"
-): LwStoredTestEventSingle = LwStoredTestEventSingle(
+): StoredTestEventSingle = StoredTestEventSingle(
     StoredTestEventId(BookId(book), scope, start, eventId),
     name,
     type,
@@ -115,12 +114,12 @@ fun createStoredEventSingle(
 
 fun createStoredEventBatch(
     id: StoredTestEventId,
-    events: Collection<LwBatchedStoredTestEvent>,
+    events: Collection<BatchedStoredTestEvent>,
     messages: Map<StoredTestEventId, Set<StoredMessageId>> = emptyMap(),
     parentEventId: StoredTestEventId? = null,
     name: String = "test_event_batch",
     type: String = "test",
-): LwTestEventBatch = LwStoredTestEventBatch(
+): TestEventBatch = StoredTestEventBatch(
     id,
     name,
     type,

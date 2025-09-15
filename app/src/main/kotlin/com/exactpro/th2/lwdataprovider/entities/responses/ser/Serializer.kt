@@ -194,9 +194,7 @@ private class ByteBufferSerializer(
     }
 
     override fun bytes(buffer: ByteBuffer) = this.also {
-        buffer.mark()
         this.buffer.put(buffer)
-        buffer.reset()
     }
 
     override fun bytes(buf: ByteBuf) = this.also {
@@ -317,13 +315,7 @@ private class ByteBufSerializer(
     }
 
     override fun bytes(buffer: ByteBuffer) = this.also {
-        buffer.mark()
-        buf.writeBytes(
-            buffer.array(),
-            buffer.arrayOffset() + buffer.position(),
-            buffer.remaining()
-        )
-        buffer.reset()
+        buf.writeBytes(buffer)
     }
 
     override fun bytes(buf: ByteBuf) = this.also {

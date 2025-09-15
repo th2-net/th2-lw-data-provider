@@ -20,8 +20,9 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.PageId
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
-import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
+import com.exactpro.cradle.testevents.BatchedStoredTestEvent
+import com.exactpro.cradle.testevents.BatchedStoredTestEventBuilder
+import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
@@ -154,21 +155,23 @@ internal class TestCustomSerializerKt {
         val scope = "scope${escapeCharacter}"
         val eventId = StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id")
         val batchId = StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id")
+        val pageId = PageId(bookId, timestamp, "")
         return Event(
-            event = LwBatchedStoredTestEvent(
-                eventId,
-                "event${escapeCharacter}Name",
-                "event${escapeCharacter}Type",
-                StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id"),
-                timestamp,
-                true,
-                ByteBuffer.wrap("""[{"body":"test-body"}]""".toByteArray(UTF_8)),
-                LwStoredTestEventBatch(
+            event = BatchedStoredTestEventBuilder()
+                .setId(eventId)
+                .setName("event${escapeCharacter}Name")
+                .setType("event${escapeCharacter}Type")
+                .setParentId(StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id"))
+                .setEndTimestamp(timestamp)
+                .setSuccess(true)
+                .setContent(ByteBuffer.wrap("""[{"body":"test-body"}]""".toByteArray(UTF_8)))
+                .setBatch(
+                StoredTestEventBatch(
                     batchId,
                     "test-batch-name",
                     "test-batch-type",
                     StoredTestEventId(bookId, scope, timestamp, "event${escapeCharacter}Id"),
-                    emptyList<LwBatchedStoredTestEvent>(),
+                    emptyList<BatchedStoredTestEvent>(),
                     mapOf(
                         eventId to setOf(
                             StoredMessageId(
@@ -177,12 +180,12 @@ internal class TestCustomSerializerKt {
                             )
                         )
                     ),
-                    PageId(bookId, timestamp, ""),
+                    pageId,
                     "",
                     timestamp
-                ),
-                PageId(bookId, timestamp, ""),
-            ),
+                ))
+                .setPageId(pageId)
+                .build(),
             batchId = batchId,
             parentBatchId = batchId,
         )

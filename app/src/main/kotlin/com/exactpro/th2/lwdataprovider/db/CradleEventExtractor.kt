@@ -25,6 +25,7 @@ import com.exactpro.cradle.testevents.StoredTestEvent
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.TestEventFilter
 import com.exactpro.cradle.testevents.TestEventFilterBuilder
+import com.exactpro.cradle.testevents.TestEventSingle
 import com.exactpro.th2.lwdataprovider.db.util.asIterableWithMeasurements
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.db.util.withMeasurements
@@ -113,11 +114,11 @@ class CradleEventExtractor(
                 sink.onError("Event batch is not found with id: '$batchId'", batchId = batchId)
                 return
             }
-            if (testBatch.isLwSingle) {
+            if (testBatch.isSingle) {
                 sink.onError("Event with id: '$batchId' is not a batch. (single event)", id = batchId)
                 return
             }
-            val batch = testBatch.asLwBatch()
+            val batch = testBatch.asBatch()
             val testEvent = batch.getTestEvent(eventId)
             if (testEvent == null) {
                 sink.onError("Event with id: '$eventId' is not found in batch '$batchId'", filter.eventId, batchId)
@@ -131,7 +132,7 @@ class CradleEventExtractor(
                 sink.onError("Event is not found with id: '$eventId'", filter.eventId)
                 return
             }
-            if (testBatch.isLwBatch) {
+            if (testBatch.isBatch) {
                 sink.onError("Event with id: '$eventId' is a batch. (not single event)", filter.eventId)
                 return
             }
@@ -158,10 +159,10 @@ class CradleEventExtractor(
                 { processTestEvent(it, stat, DataFilter.acceptAll(), sink) },
                 { testEvent ->
                     testEvent.run {
-                        if (isLwBatch) {
-                            asLwBatch().testEvents.minOf { it.startTimestamp }
+                        if (isBatch) {
+                            asBatch().testEvents.minOf { it.startTimestamp }
                         } else {
-                            asLwSingle().startTimestamp
+                            asSingle().startTimestamp
                         }
                     }
                 }
@@ -183,21 +184,21 @@ class CradleEventExtractor(
         startTimestamp: Instant,
         endTimestamp: Instant?,
         sink: EventDataSink<Event>,
-        filter: DataFilter<StoredTestEvent>,
+        filter: DataFilter<TestEventSingle>,
         filterSupplier: (Instant, Instant?) -> TestEventFilter,
     ) {
         val counter = ProcessingInfo()
         val startTime = System.currentTimeMillis()
         val cradleFilter = filterSupplier(startTimestamp, endTimestamp)
         val order = requireNotNull(cradleFilter.order) { "order is null" }
-        fun compareStart(event: StoredTestEvent): Boolean {
+        fun compareStart(event: TestEventSingle): Boolean {
             return when (order) {
                 Order.DIRECT -> event.startTimestamp >= startTimestamp
                 Order.REVERSE -> event.startTimestamp <= startTimestamp
             }
         }
 
-        fun compareEnd(event: StoredTestEvent): Boolean {
+        fun compareEnd(event: TestEventSingle): Boolean {
             if (endTimestamp == null) return true
             return when (order) {
                 Order.DIRECT -> event.startTimestamp < endTimestamp
@@ -223,7 +224,7 @@ class CradleEventExtractor(
         testEvents: Iterable<StoredTestEvent>,
         sink: EventDataSink<Event>,
         count: ProcessingInfo,
-        filter: DataFilter<StoredTestEvent>,
+        filter: DataFilter<TestEventSingle>,
     ) {
         for (testEvent in testEvents) {
             processTestEvent(testEvent, count, filter, sink)
@@ -237,11 +238,11 @@ class CradleEventExtractor(
     private fun processTestEvent(
         testEvent: StoredTestEvent,
         count: ProcessingInfo,
-        filter: DataFilter<StoredTestEvent>,
+        filter: DataFilter<TestEventSingle>,
         sink: EventDataSink<Event>
     ) {
-        if (testEvent.isLwSingle) {
-            val singleEv = testEvent.asLwSingle()
+        if (testEvent.isSingle) {
+            val singleEv = testEvent.asSingle()
             count.total++
             if (!filter.match(singleEv)) {
                 return
@@ -249,11 +250,11 @@ class CradleEventExtractor(
             val event = Event(singleEv)
             count.singleEvents++
             count.events++
-            count.totalContentSize += singleEv.content.remaining()
+            count.totalContentSize += singleEv.contentBuffer.remaining()
             sink.onNext(event)
-        } else if (testEvent.isLwBatch) {
+        } else if (testEvent.isBatch) {
             count.batches++
-            val batch = testEvent.asLwBatch()
+            val batch = testEvent.asBatch()
             val eventsList = batch.testEvents
             for (batchEvent in eventsList) {
                 count.total++
@@ -263,7 +264,7 @@ class CradleEventExtractor(
                 val event = Event(batchEvent, batch.id)
 
                 count.events++
-                count.totalContentSize += batchEvent.content.remaining()
+                count.totalContentSize += batchEvent.contentBuffer.remaining()
                 sink.onNext(event)
             }
         }

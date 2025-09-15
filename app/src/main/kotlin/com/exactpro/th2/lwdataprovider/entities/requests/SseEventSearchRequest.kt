@@ -17,7 +17,7 @@
 package com.exactpro.th2.lwdataprovider.entities.requests
 
 import com.exactpro.cradle.BookId
-import com.exactpro.cradle.testevents.StoredTestEvent
+import com.exactpro.cradle.testevents.TestEventSingle
 import com.exactpro.th2.dataprovider.lw.grpc.EventSearchRequest
 import com.exactpro.th2.dataprovider.lw.grpc.TimeRelation.PREVIOUS
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
@@ -36,7 +36,7 @@ class SseEventSearchRequest(
     val searchDirection: SearchDirection,
     val resultCountLimit: Int?,
     endTimestamp: Instant?,
-    val filter: DataFilter<StoredTestEvent> = DataFilter.acceptAll(),
+    val filter: DataFilter<TestEventSingle> = DataFilter.acceptAll(),
     val bookId: BookId,
     val scope: String,
     val rootOnly: Boolean,

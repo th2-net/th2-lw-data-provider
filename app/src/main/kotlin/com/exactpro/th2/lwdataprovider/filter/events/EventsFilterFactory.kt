@@ -16,15 +16,15 @@
 
 package com.exactpro.th2.lwdataprovider.filter.events
 
-import com.exactpro.cradle.testevents.StoredTestEvent
+import com.exactpro.cradle.testevents.TestEventSingle
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.filter.FilterFactory
 import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 import com.exactpro.th2.lwdataprovider.filter.JoinedDataFilter
 import com.exactpro.th2.lwdataprovider.filter.events.impl.EventSimpleFilter
 
-object EventsFilterFactory : FilterFactory<StoredTestEvent> {
-    override fun create(requests: Collection<FilterRequest>): DataFilter<StoredTestEvent> =
+object EventsFilterFactory : FilterFactory<TestEventSingle> {
+    override fun create(requests: Collection<FilterRequest>): DataFilter<TestEventSingle> =
         if (requests.isEmpty()) {
             DataFilter.acceptAll()
         } else {
@@ -32,7 +32,7 @@ object EventsFilterFactory : FilterFactory<StoredTestEvent> {
         }
 }
 
-private fun Collection<FilterRequest>.toFilters(): Collection<DataFilter<StoredTestEvent>> = map {
+private fun Collection<FilterRequest>.toFilters(): Collection<DataFilter<TestEventSingle>> = map {
     when (it.name) {
         "type" -> it.toSimpleFilter { type }
         "name" -> it.toSimpleFilter { name }
@@ -40,5 +40,5 @@ private fun Collection<FilterRequest>.toFilters(): Collection<DataFilter<StoredT
     }
 }
 
-private fun FilterRequest.toSimpleFilter(accessor: StoredTestEvent.() -> String): DataFilter<StoredTestEvent> =
+private fun FilterRequest.toSimpleFilter(accessor: TestEventSingle.() -> String): DataFilter<TestEventSingle> =
     EventSimpleFilter(values, negative, conjunct, accessor)

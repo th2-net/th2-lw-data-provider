@@ -133,8 +133,9 @@ fun Event.serializeJsonData(serializer: Serializer<*>): Unit = with(serializer) 
             }
         }.char(JsonChar.COMMA)
         filed(EntityField.BODY) {
-            if (event.content != null && event.content.remaining() > 0) {
-                body(event.content)
+            val buffer = event.contentBuffer
+            if (buffer != null && buffer.remaining() > 0) {
+                body(buffer)
             } else {
                 arr {  }
             }

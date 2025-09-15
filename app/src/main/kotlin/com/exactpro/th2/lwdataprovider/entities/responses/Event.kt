@@ -18,7 +18,7 @@ package com.exactpro.th2.lwdataprovider.entities.responses
 
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
+import com.exactpro.cradle.testevents.TestEventSingle
 import com.exactpro.th2.common.event.EventUtils.toEventID
 import com.exactpro.th2.common.grpc.EventID
 import com.exactpro.th2.common.grpc.EventStatus.FAILED
@@ -30,7 +30,7 @@ import com.google.protobuf.UnsafeByteOperations
 import com.exactpro.th2.common.grpc.Event as CommonGrpcEvent
 
 data class Event(
-    val event: LwStoredTestEventSingle,
+    val event: TestEventSingle,
     val batchId: StoredTestEventId? = null,
     val parentBatchId: StoredTestEventId? = null,
 ) {
@@ -64,7 +64,7 @@ data class Event(
                 attachedMessageIds.forEach {
                     builder.addAttachedMessageId(it.toGrpcMessageId())
                 }
-                content?.let { builder.body = UnsafeByteOperations.unsafeWrap(it) }
+                contentBuffer?.let { builder.body = UnsafeByteOperations.unsafeWrap(it) }
             }.build()
     }
 
@@ -81,7 +81,7 @@ data class Event(
                 attachedMessageIds.forEach {
                     builder.addAttachedMessageIds(it.toGrpcMessageId())
                 }
-                content?.let { builder.body = UnsafeByteOperations.unsafeWrap(it) }
+                contentBuffer?.let { builder.body = UnsafeByteOperations.unsafeWrap(it) }
             }
             .build()
     }

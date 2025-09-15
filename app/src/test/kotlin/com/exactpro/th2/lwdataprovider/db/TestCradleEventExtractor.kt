@@ -20,9 +20,9 @@ import com.exactpro.cradle.BookId
 import com.exactpro.cradle.CradleManager
 import com.exactpro.cradle.CradleStorage
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
-import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
-import com.exactpro.cradle.testevents.lw.LwStoredTestEventSingle
+import com.exactpro.cradle.testevents.BatchedStoredTestEvent
+import com.exactpro.cradle.testevents.StoredTestEventBatch
+import com.exactpro.cradle.testevents.StoredTestEventSingle
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
@@ -90,7 +90,7 @@ internal class TestCradleEventExtractor {
                     parentEventId = createEventId("batchParent", timestamp = start),
                     events = listOf(toStore)
                 ).let {
-                    LwStoredTestEventBatch(it, null)
+                    StoredTestEventBatch(it, null)
                 }
             ))
         ).whenever(storage).getTestEvents(argThat {
@@ -131,7 +131,7 @@ internal class TestCradleEventExtractor {
                         inRange
                     )
                 ).let {
-                        LwStoredTestEventBatch(it, null)
+                        StoredTestEventBatch(it, null)
                     }
             ))
         ).whenever(storage).getTestEvents(argThat {
@@ -172,7 +172,7 @@ internal class TestCradleEventExtractor {
                         inRange,
                     )
                 ).let {
-                    LwStoredTestEventBatch(it, null)
+                    StoredTestEventBatch(it, null)
                 }
             ))
         ).whenever(storage).getTestEvents(argThat { startTimestampFrom.value == start })
@@ -241,7 +241,7 @@ internal class TestCradleEventExtractor {
                 parentEventId = createEventId("batchParent", timestamp = start),
                 events = listOf(toStore)
             ).let {
-                LwStoredTestEventBatch(it, null)
+                StoredTestEventBatch(it, null)
             }
         ).whenever(storage).getTestEvent(eq(batchId))
 
@@ -271,7 +271,7 @@ internal class TestCradleEventExtractor {
     }
 
     private fun Assertion.Builder<Event>.isEqualTo(
-        toStore: LwBatchedStoredTestEvent,
+        toStore: BatchedStoredTestEvent,
         batchId: StoredTestEventId? = null
     ) {
         get { this.batchId } isEqualTo batchId
@@ -280,11 +280,11 @@ internal class TestCradleEventExtractor {
         get { this.event.name } isEqualTo toStore.name
         get { this.event.type } isEqualTo toStore.type
         get { this.event.isSuccess } isEqualTo toStore.isSuccess
-        get { this.event.content } isEqualTo (toStore.content)
+        get { this.event.contentBuffer } isEqualTo (toStore.contentBuffer)
     }
 
     private fun Assertion.Builder<Event>.isEqualTo(
-        toStore: LwStoredTestEventSingle,
+        toStore: StoredTestEventSingle,
         batchId: StoredTestEventId? = null
     ) {
         get { this.batchId } isEqualTo batchId

@@ -21,8 +21,9 @@ import com.exactpro.cradle.Direction
 import com.exactpro.cradle.PageId
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.testevents.StoredTestEventId
-import com.exactpro.cradle.testevents.lw.LwBatchedStoredTestEvent
-import com.exactpro.cradle.testevents.lw.LwStoredTestEventBatch
+import com.exactpro.cradle.testevents.BatchedStoredTestEvent
+import com.exactpro.cradle.testevents.BatchedStoredTestEventBuilder
+import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.HeapBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.UnpooledBufPool
@@ -51,8 +52,10 @@ open class CustomSerializerBenchmark {
 
         val timestamp: Instant = Instant.now()
         val bookId = BookId("benchmark-batch-id")
-        val msgId = StoredMessageId(bookId, "benchmark-session-alias", Direction.SECOND,
-            timestamp, 0L)
+        val msgId = StoredMessageId(
+            bookId, "benchmark-session-alias", Direction.SECOND,
+            timestamp, 0L
+        )
         lateinit var largeEvent: Event
 
         @Setup
@@ -62,31 +65,39 @@ open class CustomSerializerBenchmark {
             val eventId = StoredTestEventId(bookId, scope, timestamp, "benchmark-event-id")
             val batchId = StoredTestEventId(bookId, scope, timestamp, "benchmark-batch-event-id")
             largeEvent = Event(
-                event = LwBatchedStoredTestEvent(
-                    eventId,
-                    "benchmark-name",
-                    "benchmark-type",
-                    StoredTestEventId(bookId, scope, timestamp, "benchmark-parent-event-id"),
-                    timestamp,
-                    true,
-                    ByteBuffer.wrap("""["body":"{${RandomStringUtils.insecure().nextAlphabetic(600_000)}"}]""".toByteArray(Charsets.UTF_8)),
-                    LwStoredTestEventBatch(
-                        batchId,
-                        "benchmark-batch-name",
-                        "benchmark-batch-type",
-                        StoredTestEventId(bookId, scope, timestamp, "benchmark-batch-parent-event-id"),
-                        emptyList<LwBatchedStoredTestEvent>(),
-                        mapOf(
-                            eventId to setOf(
-                                msgId
-                            )
-                        ),
-                        pageId,
-                        "",
-                        timestamp
-                    ),
-                    pageId,
-                ),
+                event = BatchedStoredTestEventBuilder()
+                    .setId(eventId)
+                    .setName("benchmark-name")
+                    .setType("benchmark-type")
+                    .setParentId(StoredTestEventId(bookId, scope, timestamp, "benchmark-parent-event-id"))
+                    .setEndTimestamp(timestamp)
+                    .setSuccess(true)
+                    .setContent(
+                        ByteBuffer.wrap(
+                            """["body":"{${
+                                RandomStringUtils.insecure().nextAlphabetic(600_000)
+                            }"}]""".toByteArray(Charsets.UTF_8)
+                        )
+                    )
+                    .setBatch(
+                        StoredTestEventBatch(
+                            batchId,
+                            "benchmark-batch-name",
+                            "benchmark-batch-type",
+                            StoredTestEventId(bookId, scope, timestamp, "benchmark-batch-parent-event-id"),
+                            emptyList<BatchedStoredTestEvent>(),
+                            mapOf(
+                                eventId to setOf(
+                                    msgId
+                                )
+                            ),
+                            pageId,
+                            "",
+                            timestamp
+                        )
+                    )
+                    .setPageId(pageId)
+                    .build(),
                 batchId = batchId,
                 parentBatchId = batchId,
             )
@@ -98,7 +109,8 @@ open class CustomSerializerBenchmark {
     fun benchmarkSerializeEventUsingByteBuffer(
         state: Simple,
     ) {
-        val buffer = serialize(state.bufferPool.acquire(1_024 * 1_024), state.escaper, state.largeEvent::serializeJsonData)
+        val buffer =
+            serialize(state.bufferPool.acquire(1_024 * 1_024), state.escaper, state.largeEvent::serializeJsonData)
         state.bufferPool.release(buffer)
     }
 
