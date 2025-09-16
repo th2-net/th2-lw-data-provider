@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import io.github.oshai.kotlinlogging.KLogger
 import io.javalin.http.Context
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
-import org.apache.commons.lang3.StringUtils
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
@@ -41,6 +40,7 @@ fun writeJsonStream(
     dataMeasurement: DataMeasurement,
     logger: KLogger,
     progressListener: ProgressListener = DEFAULT_PROCESS_LISTENER,
+    bufferSize: Int = DEFAULT_BUFFER_SIZE
 ) {
     progressListener.onStart()
 
@@ -59,13 +59,23 @@ fun writeJsonStream(
         }
     }
 
-    val output = ctx.res().outputStream.buffered()
+    val output = ctx.res().outputStream.let {
+        if (bufferSize > 0) {
+            it.buffered(bufferSize)
+        } else {
+            it
+        }
+    }
     try {
+        val awaitConvertToJsonMeasurement = dataMeasurement.child("await_convert_to_json")
+        val awaitNextMeasurement = dataMeasurement.child("await_next_sse_event")
+        val processSseEventMeasurement = dataMeasurement.child("process_sse_event")
+        val writeSseEventMeasurement = dataMeasurement.child("write_sse_event")
         do {
-            dataMeasurement.start("process_sse_event").use {
-                val nextEvent = queue.take()
+            processSseEventMeasurement.start().use {
+                val nextEvent = awaitNextMeasurement.start().use { queue.take() }
                 ResponseQueue.currentSize(matchedPath, queue.size)
-                val sseEvent = dataMeasurement.start("await_convert_to_json").use { nextEvent.get() }
+                val sseEvent = awaitConvertToJsonMeasurement.start().use { nextEvent.get() }
                 if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
                     // something happened during request
                     status = HttpStatus.INTERNAL_SERVER_ERROR
@@ -83,12 +93,12 @@ fun writeJsonStream(
 
                     else -> {
                         logger.debug {
-                            "Write event to output: ${
-                                StringUtils.abbreviate(sseEvent.data.toString(SseEvent.DATA_CHARSET), 100)
-                            }"
+                            "Write event to output: " // FIXME: log data
                         }
-                        output.write(sseEvent.data)
-                        output.write('\n'.code)
+                        writeSseEventMeasurement.start().use {
+                            sseEvent.writeData(output)
+                            output.write('\n'.code)
+                        }
                         dataSent++
                     }
                 }

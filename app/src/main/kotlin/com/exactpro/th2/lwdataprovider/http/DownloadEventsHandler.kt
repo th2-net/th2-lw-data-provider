@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2024-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package com.exactpro.th2.lwdataprovider.http
 
 import com.exactpro.cradle.BookId
+import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
@@ -25,6 +26,8 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.HeapBufferPool
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.EventSchema
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -67,6 +70,8 @@ class DownloadEventsHandler(
                 description = "end timestamp for search. Epoch time in milliseconds"),
             OpenApiParam(PARENT_EVENT_PARAM, type = String::class,
                 description = "parent event id for search", example = "testEventId123"),
+            OpenApiParam(ROOT_ONLY_PARAM, type = Boolean::class,
+                description = "root only event for search. If true, the '$PARENT_EVENT_PARAM' is ignored", example = "false"),
             OpenApiParam(BOOK_ID_PARAM, required = true, example = "bookId123",
                 description = "book ID for requested scope"),
             OpenApiParam(SCOPE_PARAM, type = String::class, required = true,
@@ -96,7 +101,8 @@ class DownloadEventsHandler(
         methods = [HttpMethod.GET],
         responses = [
             OpenApiResponse(status = "200", content = [
-                OpenApiContent(from = Event::class, mimeType = JSON_STREAM_CONTENT_TYPE)
+
+                OpenApiContent(from = EventSchema::class, mimeType = JSON_STREAM_CONTENT_TYPE)
             ])
         ]
     )
@@ -107,6 +113,8 @@ class DownloadEventsHandler(
             .allowNullable().get(),
         parentEvent = ctx.queryParamAsClass<ProviderEventId>(PARENT_EVENT_PARAM)
             .allowNullable().get(),
+        rootOnly = ctx.queryParamAsClass<Boolean>(ROOT_ONLY_PARAM)
+            .getOrDefault(false),
         searchDirection = ctx.queryParamAsClass<SearchDirection>(SEARCH_DIRECTION)
             .getOrDefault(SearchDirection.next),
         resultCountLimit = ctx.queryParamAsClass<Int>(LIMIT)
@@ -124,21 +132,33 @@ class DownloadEventsHandler(
         val request = createRequest(ctx)
 
         val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
-        val handler = HttpGenericResponseHandler(
-            queue, sseResponseBuilder, convExecutor, dataMeasurement,
-            Event::eventId,
-            SseResponseBuilder::build
-        )
-        keepAliveHandler.addKeepAliveData(handler).use {
-            searchEventsHandler.loadEvents(request, handler)
-            writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER)
-            LOGGER.info { "Processing download events request finished" }
+        HeapBufferPool().use { bufferPool ->
+            MapEscaper().use { escaper ->
+                val handler = HttpGenericResponseHandler(
+                    queue, sseResponseBuilder.createWith(bufferPool, escaper), convExecutor, dataMeasurement,
+                    Event::eventId,
+                    SseResponseBuilder::build
+                )
+                keepAliveHandler.addKeepAliveData(handler).use {
+                    searchEventsHandler.loadEvents(request, handler)
+                    writeJsonStream(
+                        ctx,
+                        queue,
+                        handler,
+                        dataMeasurement,
+                        LOGGER,
+                        bufferSize = configuration.responseBufferSize
+                    )
+                    LOGGER.info { "Processing download events request finished" }
+                }
+            }
         }
     }
 
     companion object {
         private const val START_TIMESTAMP_PARAM = "startTimestamp"
         private const val END_TIMESTAMP_PARAM = "endTimestamp"
+        private const val ROOT_ONLY_PARAM = "rootOnly"
         private const val PARENT_EVENT_PARAM = "parentEvent"
         private const val BOOK_ID_PARAM = "bookId"
         private const val SCOPE_PARAM = "scope"

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
+import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
@@ -64,6 +65,8 @@ class HttpMessagesRequestHandler(
 
     private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 
+    private val convertToJsonMeasurement: ChildDataMeasurement = dataMeasurement.child("convert_to_json")
+
     override val lastTimestampMillis: Long
         get() = scannedObjectInfo.timestamp
 
@@ -71,7 +74,7 @@ class HttpMessagesRequestHandler(
         if (!isAlive) return
         val counter = indexer.nextIndex()
         val future: CompletableFuture<SseEvent> = data.completed.thenApplyAsync({ requestedMessage: RequestedMessage ->
-            dataMeasurement.start("convert_to_json").use {
+            convertToJsonMeasurement.start().use {
                 if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
                     builder.codecTimeoutError(requestedMessage.storedMessage.id, counter).also {
                         if (failFast) {
@@ -145,13 +148,15 @@ class HttpGenericResponseHandler<T>(
     private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
     private val executor: Executor,
-    private val dataMeasurement: DataMeasurement,
+    dataMeasurement: DataMeasurement,
     private val getId: (T) -> Any,
     private val createEvent: SseResponseBuilder.(data: T, index: Long) -> SseEvent,
 ) : AbstractCancelableHandler(), ResponseHandler<T>, KeepAliveListener {
     private val indexer = DataIndexer()
 
     private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
+
+    private val convertToJsonMeasurement: ChildDataMeasurement = dataMeasurement.child("convert_to_json")
 
     override val lastTimestampMillis: Long
         get() = scannedObjectInfo.timestamp
@@ -174,9 +179,7 @@ class HttpGenericResponseHandler<T>(
         if (!isAlive) return
         val index = indexer.nextIndex()
         val future: CompletableFuture<SseEvent> = CompletableFuture.supplyAsync({
-            dataMeasurement.start("convert_to_json").use {
-                builder.createEvent(data, index)
-            }
+            convertToJsonMeasurement.start().use { builder.createEvent(data, index) }
         }, executor)
         buffer.put(future::get)
         scannedObjectInfo.update(getId(data).toString(), index)

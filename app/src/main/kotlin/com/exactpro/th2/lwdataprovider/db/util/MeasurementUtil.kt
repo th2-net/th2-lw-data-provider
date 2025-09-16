@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.db.util
 
+import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 
 fun <T> Iterator<T>.asIterableWithMeasurements(type: String, dataMeasurement: DataMeasurement): Iterable<T> =
@@ -27,10 +28,10 @@ fun <T> Iterator<T>.withMeasurements(type: String, dataMeasurement: DataMeasurem
 private class MeasurementIterator<T>(
     private val original: Iterator<T>,
     type: String,
-    private val dataMeasurement: DataMeasurement,
+    dataMeasurement: DataMeasurement,
 ) : Iterator<T> by original {
-    private val actionName: String = "${type}_next_request"
-    override fun hasNext(): Boolean = dataMeasurement.start(actionName).use {
+    private val measurement: ChildDataMeasurement = dataMeasurement.child("${type}_next_request")
+    override fun hasNext(): Boolean = measurement.start().use {
         original.hasNext()
     }
 }

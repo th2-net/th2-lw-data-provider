@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,21 +25,19 @@ import com.exactpro.cradle.testevents.StoredTestEvent
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.TestEventFilter
 import com.exactpro.cradle.testevents.TestEventFilterBuilder
+import com.exactpro.cradle.testevents.TestEventSingle
 import com.exactpro.th2.lwdataprovider.db.util.asIterableWithMeasurements
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.db.util.withMeasurements
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
-import com.exactpro.th2.lwdataprovider.entities.responses.BaseEventEntity
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
-import com.exactpro.th2.lwdataprovider.producers.fromBatchEvent
-import com.exactpro.th2.lwdataprovider.producers.fromSingleEvent
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
 import java.time.Instant
-import java.util.Collections
+import java.util.*
 import kotlin.system.measureTimeMillis
 
 
@@ -75,6 +73,9 @@ class CradleEventExtractor(
                             startTimestampTo().isLessThanOrEqualTo(start)
                             end?.also { startTimestampFrom().isGreaterThan(it) }
                         }
+                    }
+                    if (filter.rootOnly) {
+                        root()
                     }
                 }
                 .order(
@@ -123,9 +124,8 @@ class CradleEventExtractor(
                 sink.onError("Event with id: '$eventId' is not found in batch '$batchId'", filter.eventId, batchId)
                 return
             }
-            val batchEventBody = fromBatchEvent(testEvent, batch)
-
-            sink.onNext(batchEventBody.convertToEvent())
+            val event = Event(testEvent, batch.id)
+            sink.onNext(event)
         } else {
             val testBatch = measure("single_event") { storage.getTestEvent(eventId) }
             if (testBatch == null) {
@@ -184,21 +184,21 @@ class CradleEventExtractor(
         startTimestamp: Instant,
         endTimestamp: Instant?,
         sink: EventDataSink<Event>,
-        filter: DataFilter<BaseEventEntity>,
+        filter: DataFilter<TestEventSingle>,
         filterSupplier: (Instant, Instant?) -> TestEventFilter,
     ) {
         val counter = ProcessingInfo()
         val startTime = System.currentTimeMillis()
         val cradleFilter = filterSupplier(startTimestamp, endTimestamp)
         val order = requireNotNull(cradleFilter.order) { "order is null" }
-        fun compareStart(event: BaseEventEntity): Boolean {
+        fun compareStart(event: TestEventSingle): Boolean {
             return when (order) {
                 Order.DIRECT -> event.startTimestamp >= startTimestamp
                 Order.REVERSE -> event.startTimestamp <= startTimestamp
             }
         }
 
-        fun compareEnd(event: BaseEventEntity): Boolean {
+        fun compareEnd(event: TestEventSingle): Boolean {
             if (endTimestamp == null) return true
             return when (order) {
                 Order.DIRECT -> event.startTimestamp < endTimestamp
@@ -211,7 +211,9 @@ class CradleEventExtractor(
             compareStart(event) && compareEnd(event)
                     && filter.match(event)
         }
-        logger.info { "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms" }
+        logger.info {
+            "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"
+        }
         sink.canceled?.apply {
             logger.info { "Loading events stopped: $message" }
             return
@@ -222,7 +224,7 @@ class CradleEventExtractor(
         testEvents: Iterable<StoredTestEvent>,
         sink: EventDataSink<Event>,
         count: ProcessingInfo,
-        filter: DataFilter<BaseEventEntity>,
+        filter: DataFilter<TestEventSingle>,
     ) {
         for (testEvent in testEvents) {
             processTestEvent(testEvent, count, filter, sink)
@@ -236,34 +238,34 @@ class CradleEventExtractor(
     private fun processTestEvent(
         testEvent: StoredTestEvent,
         count: ProcessingInfo,
-        filter: DataFilter<BaseEventEntity>,
+        filter: DataFilter<TestEventSingle>,
         sink: EventDataSink<Event>
     ) {
         if (testEvent.isSingle) {
             val singleEv = testEvent.asSingle()
-            val event = fromSingleEvent(singleEv)
             count.total++
-            if (!filter.match(event)) {
+            if (!filter.match(singleEv)) {
                 return
             }
+            val event = Event(singleEv)
             count.singleEvents++
             count.events++
-            count.totalContentSize += singleEv.content.size + event.attachedMessageIds.sumOf { it.length }
-            sink.onNext(event.convertToEvent())
+            count.totalContentSize += singleEv.contentBuffer.remaining()
+            sink.onNext(event)
         } else if (testEvent.isBatch) {
             count.batches++
             val batch = testEvent.asBatch()
             val eventsList = batch.testEvents
             for (batchEvent in eventsList) {
-                val batchEventBody = fromBatchEvent(batchEvent, batch)
                 count.total++
-                if (!filter.match(batchEventBody)) {
+                if (!filter.match(batchEvent)) {
                     continue
                 }
+                val event = Event(batchEvent, batch.id)
 
                 count.events++
-                count.totalContentSize += batchEvent.content.size + batchEventBody.attachedMessageIds.sumOf { it.length }
-                sink.onNext(batchEventBody.convertToEvent())
+                count.totalContentSize += batchEvent.contentBuffer.remaining()
+                sink.onNext(event)
             }
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,15 @@ import com.exactpro.cradle.PageInfo
 import com.exactpro.cradle.messages.MessageToStoreBuilder
 import com.exactpro.cradle.messages.StoredGroupedMessageBatch
 import com.exactpro.cradle.messages.StoredMessage
+import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.cradle.resultset.CradleResultSet
+import com.exactpro.cradle.testevents.BatchedStoredTestEvent
+import com.exactpro.cradle.testevents.BatchedStoredTestEventBuilder
+import com.exactpro.cradle.testevents.StoredTestEventBatch
 import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.StoredTestEventSingle
-import com.exactpro.cradle.testevents.TestEventSingleToStore
+import com.exactpro.cradle.testevents.TestEventBatch
+import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.function.Supplier
 
@@ -64,7 +69,7 @@ fun createPageInfo(
     if (removed) ended else null
 )
 
-fun createEventStoredEvent(
+fun createStoredEvent(
     eventId: String,
     start: Instant,
     end: Instant,
@@ -73,18 +78,58 @@ fun createEventStoredEvent(
     type: String = "test",
     scope: String = "test-scope",
     book: String = "test"
-): TestEventSingleToStore = TestEventSingleToStore.builder(1)
-    .id(BookId(book), scope, start, eventId)
-    .name(name)
-    .type(type)
-    .parentId(parentEventId)
-    .content(ByteArray(0))
-    .success(true)
-    .endTimestamp(end)
+): BatchedStoredTestEvent = BatchedStoredTestEventBuilder()
+    .setId(StoredTestEventId(BookId(book), scope, start, eventId))
+    .setName(name)
+    .setType(type)
+    .setParentId(parentEventId)
+    .setEndTimestamp(end)
+    .setSuccess(true)
+    .setContent(ByteBuffer.allocate(0))
     .build()
 
-fun TestEventSingleToStore.toStoredEvent(pageID: PageId? = null): StoredTestEventSingle =
-    StoredTestEventSingle(this, pageID)
+fun createStoredEventSingle(
+    eventId: String,
+    start: Instant,
+    end: Instant,
+    parentEventId: StoredTestEventId? = null,
+    messages: Set<StoredMessageId> = emptySet(),
+    name: String = "test_event",
+    type: String = "test",
+    scope: String = "test-scope",
+    book: String = "test"
+): StoredTestEventSingle = StoredTestEventSingle(
+    StoredTestEventId(BookId(book), scope, start, eventId),
+    name,
+    type,
+    parentEventId,
+    end,
+    true,
+    ByteBuffer.allocate(0),
+    messages,
+    null,
+    null,
+    null,
+)
+
+fun createStoredEventBatch(
+    id: StoredTestEventId,
+    events: Collection<BatchedStoredTestEvent>,
+    messages: Map<StoredTestEventId, Set<StoredMessageId>> = emptyMap(),
+    parentEventId: StoredTestEventId? = null,
+    name: String = "test_event_batch",
+    type: String = "test",
+): TestEventBatch = StoredTestEventBatch(
+    id,
+    name,
+    type,
+    parentEventId,
+    events,
+    messages,
+    null,
+    null,
+    null,
+)
 
 fun createEventId(
     id: String,
@@ -211,13 +256,6 @@ fun createBatches(
             )
         }
     }
-
-@Suppress("TestFunctionName")
-fun GroupBatch(group: String, vararg messages: StoredMessage): StoredGroupedMessageBatch = GroupBatch(
-    group,
-    "test",
-    messages.toList(),
-)
 
 @Suppress("TestFunctionName")
 fun GroupBatch(group: String, book: String? = "test", messages: Collection<StoredMessage>): StoredGroupedMessageBatch =

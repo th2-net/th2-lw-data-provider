@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -149,10 +149,10 @@ class CradleMessageExtractor(
         var prev: StoredGroupedMessageBatch? = null
         var currentBatch: StoredGroupedMessageBatch = iterator.next()
         val buffer: MutableList<StoredMessage> = ArrayList()
+        val measurement = dataMeasurement.child("process_cradle_group_batch")
         while (iterator.hasNext()) {
-            val measurement = dataMeasurement.start("process_cradle_group_batch")
             @Suppress("ConvertTryFinallyToUseCall")
-            try {
+            measurement.start().use {
                 sink.canceled?.apply {
                     logger.info { "canceled because: $message" }
                     return
@@ -180,8 +180,6 @@ class CradleMessageExtractor(
                     }
                     tryDrain(group, buffer, sink)
                 }
-            } finally {
-                measurement.close()
             }
         }
         val remainingMessages = orderStrategy.reorder(currentBatch.filterIfRequired())

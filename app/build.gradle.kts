@@ -5,9 +5,13 @@ plugins {
     alias(libs.plugins.kapt)
     alias(libs.plugins.serialization)
     alias(libs.plugins.th2.component)
+    alias(libs.plugins.jmh)
 }
 
 dependencies {
+    jmh(libs.jmh.core)
+    jmh(libs.jmh.generator.annprocess)
+
     implementation(libs.th2.common) {
         exclude(group = "com.exactpro.th2", module = "cradle-core")
         exclude(group = "com.exactpro.th2", module = "cradle-cassandra")

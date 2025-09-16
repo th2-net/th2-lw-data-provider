@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.metrics
 
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.db.Measurement
+import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.Counter
 import io.prometheus.client.SimpleTimer
@@ -37,9 +38,11 @@ class DataMeasurementImpl private constructor(
     ).labelNames("action")
         .register(registry)
 
-    override fun start(name: String): Measurement {
-        return Timer(stepMetricsCounter.labels(name), stepMetricsSum.labels(name))
-    }
+    override fun start(name: String): Measurement =
+        Timer(stepMetricsCounter.labels(name), stepMetricsSum.labels(name))
+
+    override fun child(name: String): ChildDataMeasurement =
+        ChildDataMeasurementImpl(stepMetricsCounter.labels(name), stepMetricsSum.labels(name))
 
     companion object {
 
@@ -53,11 +56,17 @@ class DataMeasurementImpl private constructor(
         ) : Measurement {
 
             private val start = System.nanoTime()
-            override fun stop() {
+            override fun close() {
                 counter.inc()
                 sum.inc(SimpleTimer.elapsedSecondsFromNanos(start, System.nanoTime()))
             }
+        }
 
+        private class ChildDataMeasurementImpl(
+            private val counter: Counter.Child,
+            private val sum: Counter.Child,
+        ): ChildDataMeasurement {
+            override fun start(): Measurement = Timer(counter, sum)
         }
     }
 }

@@ -1,4 +1,4 @@
-# Lightweight data provider (2.15.0)
+# Lightweight data provider (2.16.0)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -117,6 +117,7 @@ spec:
 #   batchSizeBytes: 256KB # the max size of the batch in bytes. You can use 'MB,KB' suffixes or a plain int value
 #   codecUsePinAttributes: true # send raw message to specified codec (true) or send to all codecs (false) 
 #   responseFormats: string list # resolve data for selected formats only. (allowed values: BASE_64, PARSED)
+#   responseBufferSize: 8192 # output buffer size for download operations
 #   flushSseAfter: 0 # number of SSE emitted before flushing data to the output stream. 0 means flush after each event
 #   gzipCompressionLevel: -1 # integer value of gzip compression level. This option is used when user requests data via HTTP with enabled commpression. 
 #      * -1: default compression level
@@ -223,6 +224,39 @@ spec:
 ```
 
 # Release notes:
+
+## 2.16.0
+
+### Serialization
+* Serialize cradle event instead of prepared internal structure.
+* Refactored serialization logic of ProviderMessage53Transport class
+
+### Prometheus
+* Reused metric child to improve Prometheus measurement performance.
+* Provided new metrics: await_next_sse_event, write_sse_event metrics
+* Used Summary instead of Histogram for measurement
+
+### API
+* Provided `rootOnly` flag for download event REST API and gRPC calls.
+* Event filter works with cradle event instead of prepared internal structure.
+
+### Configuration
+* Added `responseBufferSize` option with default value 0.
+* Changed default `responseQueueSize` from 1000 to 100. 
+  Internal ByteBuffer pool size used for download operations dependents on this parameter
+
+### Update:
+
++ th2 gradle plugin to 0.3.7
++ common to 5.16.0-dev
++ common-utils to 2.4.0-dev
++ grpc-common to 4.7.1
++ cradle to 5.7.0-dev
++ openapi to 6.7.0-1
++ kotlin to 2.2.10
++ kotlinx-serialization to 1.9.0
++ kotlin-logging to 7.0.13
++ micrometer to 1.15.4
 
 ## 2.15.0
 

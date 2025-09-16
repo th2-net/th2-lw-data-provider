@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.http
 
+import com.exactpro.th2.lwdataprovider.Writeable
 import io.javalin.http.Context
 import io.javalin.util.JavalinLogger
 import java.io.Closeable
@@ -75,9 +76,9 @@ class SseClient internal constructor(
         JavalinLogger.info("Sse client ${ctx.url()} has been closed")
     }
 
-    fun sendEvent(event: String, data: ByteArray, id: String? = null) {
+    fun sendEvent(event: String, writeable: Writeable, id: String? = null) {
         if (terminated.get()) return logTerminated()
-        emitter.emit(event, data, id)
+        emitter.emit(event, writeable, id)
         emitted++
         @Suppress("ConvertTwoComparisonsToRangeCheck")
         if (flushAfter > 0 && emitted >= flushAfter) {

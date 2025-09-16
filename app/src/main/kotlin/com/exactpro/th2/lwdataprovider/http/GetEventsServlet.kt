@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.converter.HttpFilterConverter
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.EventSchema
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
@@ -77,6 +78,8 @@ class GetEventsServlet(
                 description = "end timestamp for search", example = HttpServer.TIME_EXAMPLE),
             OpenApiParam("parentEvent", type = String::class,
                 description = "parent event id for search", example = "testEventId123"),
+            OpenApiParam("rootOnly", type = Boolean::class,
+                description = "root only event for search", example = "false"),
             OpenApiParam("searchDirection", type = SearchDirection::class,
                 description = "defines the order of the events", example = "next"),
             OpenApiParam("resultCountLimit", type = Int::class,
@@ -106,7 +109,7 @@ class GetEventsServlet(
             OpenApiResponse(
                 status = "200",
                 content = [
-                    OpenApiContent(from = Event::class, mimeType = "text/event-stream"),
+                    OpenApiContent(from = EventSchema::class, mimeType = "text/event-stream"),
                 ],
                 description = "event entity",
             )
@@ -143,6 +146,8 @@ class GetEventsServlet(
             .allowNullable().get(),
         parentEvent = ctx.queryParamAsClass<ProviderEventId>("parentEvent")
             .allowNullable().get(),
+        rootOnly = ctx.queryParamAsClass<Boolean>("rootOnly")
+            .getOrDefault(false),
         searchDirection = ctx.queryParamAsClass<SearchDirection>("searchDirection")
             .getOrDefault(SearchDirection.next),
         resultCountLimit = ctx.queryParamAsClass<Int>("resultCountLimit")

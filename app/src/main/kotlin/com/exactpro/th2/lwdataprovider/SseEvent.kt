@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,21 +19,26 @@ package com.exactpro.th2.lwdataprovider
 import com.exactpro.cradle.Direction
 import com.exactpro.cradle.messages.StoredMessageId
 import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
-import com.exactpro.th2.lwdataprovider.entities.responses.Event
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.ByteBufferPool
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
+import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
 import com.exactpro.th2.lwdataprovider.entities.responses.ResponseMessage
-import com.exactpro.th2.lwdataprovider.entities.responses.toJSONByteArray
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.calculateSize
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.serialize
+import com.exactpro.th2.lwdataprovider.entities.responses.ser.serializeJsonData
 import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import java.io.ByteArrayOutputStream
+import java.io.OutputStream
+import java.nio.ByteBuffer
 import java.nio.charset.Charset
-import java.util.Locale
+import java.util.*
 
 /**
  * The data class representing an SSE Event that will be sent to the client.
@@ -49,47 +54,127 @@ enum class EventType {
 
 private val EMPTY_DATA: ByteArray = "empty data".toByteArray(DATA_CHARSET)
 
+interface Writeable {
+    fun writeData(out: OutputStream)
+}
+
 sealed class SseEvent(
     val event: EventType,
-) {
-    open val data: ByteArray = EMPTY_DATA
+): Writeable {
     open val metadata: String? = null
 
-    object Closed : SseEvent(EventType.CLOSE)
+    object Closed : SseEvent(EventType.CLOSE) {
+        override fun writeData(
+            out: OutputStream
+        ) { out.write(EMPTY_DATA) }
+    }
 
     class EventData(
-        override val data: ByteArray,
+        private val bufferPool: ByteBufferPool,
+        escaper: Escaper,
+        event: Event,
         override val metadata: String,
-    ) : SseEvent(EventType.EVENT)
+    ) : SseEvent(EventType.EVENT) {
+        private val buf: ByteBuffer = serialize(bufferPool.acquire(calculateSize(event::serializeJsonData)), escaper, event::serializeJsonData)
+
+        override fun writeData(
+            out: OutputStream
+        ) = try {
+                out.write(buf.array(), buf.arrayOffset() + buf.position(), buf.remaining())
+            } finally {
+                this.bufferPool.release(buf)
+            }
+    }
 
     class MessageData(
-        override val data: ByteArray,
+        private val bufferPool: ByteBufferPool,
+        escaper: Escaper,
+        jacksonMapper: ObjectMapper,
+        message: ResponseMessage,
         override val metadata: String,
-    ) : SseEvent(EventType.MESSAGE)
+    ) : SseEvent(EventType.MESSAGE) {
+        private val buf: ByteBuffer?
+        private val array: ByteArray?
+
+        init {
+            when (message) {
+                // FIXME: implement ProviderMessage53
+                is ProviderMessage53 -> {
+                    buf = null
+                    array = JSON.encodeToByteArray(ProviderMessage53.serializer(), message)
+                }
+                is ProviderMessage53Transport -> {
+                    buf = serialize(bufferPool.acquire(calculateSize(message::serializeJsonData)), escaper, message::serializeJsonData)
+                    array = null
+
+                }
+                else -> {
+                    buf = null
+                    array = jacksonMapper.writeValueAsBytes(message)
+                }
+            }
+        }
+
+        override fun writeData(
+            out: OutputStream
+        ) {
+            when {
+                buf != null -> try {
+                    out.write(buf.array(), buf.arrayOffset() + buf.position(), buf.remaining())
+                } finally {
+                    this.bufferPool.release(buf)
+                }
+                array != null -> out.write(array)
+                else -> error("Neither of array or byte buf is provided")
+            }
+        }
+    }
 
     class KeepAliveData(
-        override val data: ByteArray,
+        val data: ByteArray,
         override val metadata: String,
-    ) : SseEvent(EventType.KEEP_ALIVE)
+    ) : SseEvent(EventType.KEEP_ALIVE) {
+        override fun writeData(
+            out: OutputStream
+        ) { out.write(data) }
+    }
 
     class LastMessageIDsData(
-        override val data: ByteArray,
-    ) : SseEvent(EventType.MESSAGE_IDS)
+        val data: ByteArray,
+    ) : SseEvent(EventType.MESSAGE_IDS) {
+        override fun writeData(
+            out: OutputStream
+        ) { out.write(data) }
+    }
 
     class PageInfoData(
-        override val data: ByteArray,
+        val data: ByteArray,
         override val metadata: String,
-    ) : SseEvent(EventType.PAGE_INFO)
+    ) : SseEvent(EventType.PAGE_INFO) {
+        override fun writeData(
+            out: OutputStream
+        ) { out.write(data) }
+    }
 
     sealed class ErrorData : SseEvent(EventType.ERROR) {
+        open val data: ByteArray = EMPTY_DATA
+
         class SimpleError(
             override val data: ByteArray
-        ) : ErrorData()
+        ) : ErrorData() {
+            override fun writeData(
+                out: OutputStream
+            ) { out.write(data) }
+        }
 
         class TimeoutError(
             override val data: ByteArray,
             override val metadata: String,
-        ) : ErrorData()
+        ) : ErrorData() {
+            override fun writeData(
+                out: OutputStream
+            ) { out.write(data) }
+        }
     }
 
     companion object {
@@ -100,21 +185,30 @@ sealed class SseEvent(
             explicitNulls = false
         }
 
-        fun build(event: Event, counter: Long): SseEvent {
+        fun build(
+            bufferPool: ByteBufferPool,
+            escaper: Escaper,
+            event: Event,
+            counter: Long
+        ): SseEvent {
             return EventData(
-                event.toJSONByteArray(),
+                bufferPool, escaper, event,
                 counter.toString(),
             )
         }
 
-        fun build(jacksonMapper: ObjectMapper, message: ResponseMessage, counter: Long): SseEvent {
+        fun build(
+            bufferPool: ByteBufferPool,
+            escaper: Escaper,
+            jacksonMapper: ObjectMapper,
+            message: ResponseMessage,
+            counter: Long
+        ): SseEvent {
             return MessageData(
-                when (message) {
-                    // FIXME: implement ProviderMessage53
-                    is ProviderMessage53 -> JSON.encodeToByteArray(ProviderMessage53.serializer(), message)
-                    is ProviderMessage53Transport -> message.toJSONByteArray()
-                    else -> jacksonMapper.writeValueAsBytes(message)
-                },
+                bufferPool,
+                escaper,
+                jacksonMapper,
+                message,
                 counter.toString(),
             )
         }

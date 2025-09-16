@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import com.exactpro.th2.lwdataprovider.handlers.QueueEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
-import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementHistogram
+import com.exactpro.th2.lwdataprovider.metrics.DataMeasurementSummary
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.workers.TaskManager
 import com.exactpro.th2.lwdataprovider.workers.TimerWatcher
@@ -71,11 +71,11 @@ class Context(
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration.decodingTimeout, "decoding"),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(
         cradleManager,
-        DataMeasurementHistogram.create(registry, "cradle event")
+        DataMeasurementSummary.create(registry, "cradle event")
     ),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(
         cradleManager,
-        DataMeasurementHistogram.create(registry, "cradle message"),
+        DataMeasurementSummary.create(registry, "cradle message"),
         configuration.validateCradleData
     ),
     val generalCradleExtractor: GeneralCradleExtractor = GeneralCradleExtractor(cradleManager),
@@ -94,7 +94,7 @@ class Context(
         configuration,
     ),
     val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, execExecutor),
-    val requestsDataMeasurement: DataMeasurement = DataMeasurementHistogram.create(registry, "message requests"),
+    val requestsDataMeasurement: DataMeasurement = DataMeasurementSummary.create(registry, "requests"),
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,
         protoMessageRouter,
