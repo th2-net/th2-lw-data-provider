@@ -19,7 +19,6 @@ package com.exactpro.th2.lwdataprovider.http.util
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
-import com.exactpro.th2.lwdataprovider.entities.responses.ser.UnpooledBufPool
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
@@ -72,45 +71,43 @@ fun writeJsonStream(
         val awaitNextMeasurement = dataMeasurement.child("await_next_sse_event")
         val processSseEventMeasurement = dataMeasurement.child("process_sse_event")
         val writeSseEventMeasurement = dataMeasurement.child("write_sse_event")
-        UnpooledBufPool().use { bufPool ->
-            do {
-                processSseEventMeasurement.start().use {
-                    val nextEvent = awaitNextMeasurement.start().use { queue.take() }
-                    ResponseQueue.currentSize(matchedPath, queue.size)
-                    val sseEvent = awaitConvertToJsonMeasurement.start().use { nextEvent.get() }
-                    if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
-                        // something happened during request
-                        status = HttpStatus.INTERNAL_SERVER_ERROR
-                    }
-                    writeHeader()
-                    if (sseEvent is SseEvent.ErrorData) {
-                        progressListener.onError(sseEvent)
-                    }
-                    when (sseEvent.event) {
-                        EventType.KEEP_ALIVE -> output.flush()
-                        EventType.CLOSE -> {
-                            logger.info { "Received close event" }
-                            return
-                        }
-
-                        else -> {
-                            logger.debug {
-                                "Write event to output: " // FIXME: log data
-                            }
-                            writeSseEventMeasurement.start().use {
-                                sseEvent.writeData(output)
-                                output.write('\n'.code)
-                            }
-                            dataSent++
-                        }
-                    }
-                    if (queue.isEmpty() && !handler.isAlive) {
-                        logger.info { "Request canceled" }
+        do {
+            processSseEventMeasurement.start().use {
+                val nextEvent = awaitNextMeasurement.start().use { queue.take() }
+                ResponseQueue.currentSize(matchedPath, queue.size)
+                val sseEvent = awaitConvertToJsonMeasurement.start().use { nextEvent.get() }
+                if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
+                    // something happened during request
+                    status = HttpStatus.INTERNAL_SERVER_ERROR
+                }
+                writeHeader()
+                if (sseEvent is SseEvent.ErrorData) {
+                    progressListener.onError(sseEvent)
+                }
+                when (sseEvent.event) {
+                    EventType.KEEP_ALIVE -> output.flush()
+                    EventType.CLOSE -> {
+                        logger.info { "Received close event" }
                         return
                     }
+
+                    else -> {
+                        logger.debug {
+                            "Write event to output: " // FIXME: log data
+                        }
+                        writeSseEventMeasurement.start().use {
+                            sseEvent.writeData(output)
+                            output.write('\n'.code)
+                        }
+                        dataSent++
+                    }
                 }
-            } while (true)
-        }
+                if (queue.isEmpty() && !handler.isAlive) {
+                    logger.info { "Request canceled" }
+                    return
+                }
+            }
+        } while (true)
     } catch (ex: Exception) {
         logger.error(ex) { "cannot process next event" }
         progressListener.onError(ex)

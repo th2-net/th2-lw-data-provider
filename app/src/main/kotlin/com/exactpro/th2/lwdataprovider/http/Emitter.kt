@@ -34,7 +34,7 @@ class Emitter(
     private val autoFlush: Boolean,
 ) {
     private val lock = ReentrantLock()
-    private val outputStream = BufferedOutputStream(response.outputStream)
+    private val outputStream = BufferedOutputStream(response.outputStream) // TODO: buffer can be redundant
 
     var closed = false
         private set

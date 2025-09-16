@@ -60,7 +60,7 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val maxBufferDecodeQueue: Int = VariableBuilder.getVariable(customConfiguration::maxBufferDecodeQueue, 10_000)
     val decodingTimeout: Long = VariableBuilder.getVariable(customConfiguration::decodingTimeout, 60_000)
     val responseQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseQueueSize, 100)
-    val responseBufferSize: Int = VariableBuilder.getVariable(customConfiguration::responseBufferSize, DEFAULT_BUFFER_SIZE)
+    val responseBufferSize: Int = VariableBuilder.getVariable(customConfiguration::responseBufferSize, 0)
     val execThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::execThreadPoolSize, 10)
     val convThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::convThreadPoolSize, 3)
     val batchSize: Int

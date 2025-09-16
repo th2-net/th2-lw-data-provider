@@ -186,26 +186,26 @@ sealed class SseEvent(
         }
 
         fun build(
-            bufPool: ByteBufferPool,
+            bufferPool: ByteBufferPool,
             escaper: Escaper,
             event: Event,
             counter: Long
         ): SseEvent {
             return EventData(
-                bufPool, escaper, event,
+                bufferPool, escaper, event,
                 counter.toString(),
             )
         }
 
         fun build(
-            bufPool: ByteBufferPool,
+            bufferPool: ByteBufferPool,
             escaper: Escaper,
             jacksonMapper: ObjectMapper,
             message: ResponseMessage,
             counter: Long
         ): SseEvent {
             return MessageData(
-                bufPool,
+                bufferPool,
                 escaper,
                 jacksonMapper,
                 message,

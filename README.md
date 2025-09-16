@@ -227,17 +227,36 @@ spec:
 
 ## 2.16.0
 
-Optimized event / message serialisation
-Added `responseBufferSize` option 
+### Serialization
+* Serialize cradle event instead of prepared internal structure.
+* Refactored serialization logic of ProviderMessage53Transport class
+
+### Prometheus
+* Reused metric child to improve Prometheus measurement performance.
+* Provided new metrics: await_next_sse_event, write_sse_event metrics
+* Used Summary instead of Histogram for measurement
+
+### API
+* Provided `rootOnly` flag for download event REST API and gRPC calls.
+* Event filter works with cradle event instead of prepared internal structure.
+
+### Configuration
+* Added `responseBufferSize` option with default value 0.
+* Changed default `responseQueueSize` from 1000 to 100. 
+  Internal ByteBuffer pool size used for download operations dependents on this parameter
 
 ### Update:
 
-+ Updated th2 gradle plugin to 0.3.4
-+ Updated common-utils to 2.4.0-dev
-+ Update cradle to 5.6.0-dev
-+ Update kotlinx-serialization to 1.9.0
-+ Update kotlin-logging to 7.0.12
-+ Update micrometer to 1.15.3
++ th2 gradle plugin to 0.3.7
++ common to 5.16.0-dev
++ common-utils to 2.4.0-dev
++ grpc-common to 4.7.1
++ cradle to 5.7.0-dev
++ openapi to 6.7.0-1
++ kotlin to 2.2.10
++ kotlinx-serialization to 1.9.0
++ kotlin-logging to 7.0.13
++ micrometer to 1.15.4
 
 ## 2.15.0
 

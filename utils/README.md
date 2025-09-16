@@ -1,6 +1,11 @@
-# utils for lw-data-provider (0.0.5)
+# utils for lw-data-provider (0.0.6)
 
 # Release notes:
+
+## 0.0.6
+
+### Updates:
+* grpc-lw-data-provider: `2.5.0`
 
 ## 0.0.5
 + Added EventWaiter class 

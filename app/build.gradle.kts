@@ -69,15 +69,6 @@ dependencies {
     testImplementation("com.datastax.oss:java-driver-core")
 }
 
-jmh {
-    zip64 = true
-    fork = 1
-    iterations = 2
-    warmupForks = 1
-    warmupIterations = 2
-    profilers.add("stack")
-}
-
 application {
     mainClass.set("com.exactpro.th2.lwdataprovider.MainKt")
 }

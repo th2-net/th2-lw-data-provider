@@ -30,7 +30,7 @@ import com.exactpro.th2.lwdataprovider.producers.JsonFormatter
 import com.fasterxml.jackson.databind.ObjectMapper
 
 class SseResponseBuilder(
-    private val bufPool: ByteBufferPool = DummyBufferPool,
+    private val bufferPool: ByteBufferPool = DummyBufferPool,
     private val escaper: Escaper = DummyEscaper,
     private val jacksonMapper: ObjectMapper = ObjectMapper(),
     private val responseFactory: (RequestedMessage, JsonFormatter?, Boolean) -> ResponseMessage,
@@ -42,10 +42,10 @@ class SseResponseBuilder(
         includeRaw: Boolean,
         counter: Long,
     ): SseEvent {
-        return SseEvent.build(bufPool, escaper, jacksonMapper, responseFactory(message, formatter, includeRaw), counter)
+        return SseEvent.build(bufferPool, escaper, jacksonMapper, responseFactory(message, formatter, includeRaw), counter)
     }
     fun build(message: ResponseMessage, counter: Long): SseEvent {
-        return SseEvent.build(bufPool, escaper, jacksonMapper, message, counter)
+        return SseEvent.build(bufferPool, escaper, jacksonMapper, message, counter)
     }
 
     fun build(lastScannedObjectInfo: LastScannedObjectInfo, counter: Long): SseEvent {
@@ -57,7 +57,7 @@ class SseResponseBuilder(
     }
 
     fun build(event: Event, lastEventId: Long): SseEvent {
-        return SseEvent.build(bufPool, escaper, event, lastEventId)
+        return SseEvent.build(bufferPool, escaper, event, lastEventId)
     }
 
     fun build(pageInfo: PageInfo, lastEventId: Long): SseEvent {

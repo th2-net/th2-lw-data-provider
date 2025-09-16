@@ -1,8 +1,17 @@
-# gRPC for lw-data-provider (2.4.0)
+# gRPC for lw-data-provider (2.5.0)
 
 ## Release notes:
 
+### 2.5.0
+
++ th2 gradle plugin `0.3.7`
++ th2 grpc common `4.7.1`
+
+#### Updates:
+
 ### 2.4.0
+
+#### Updates:
 + th2 gradle plugin `0.2.4`
 + th2 grpc common `4.5.0`
 
