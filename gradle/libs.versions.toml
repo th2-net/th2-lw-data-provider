@@ -8,7 +8,7 @@ jmh = "1.37"
 
 [libraries]
 th2-common = { group = "com.exactpro.th2", name = "common", version = "5.16.0-dev" }
-th2-common-utils = { group = "com.exactpro.th2", name = "common-utils", version = "2.4.0-dev" }
+th2-common-utils = { group = "com.exactpro.th2", name = "common-utils", version = "2.4.0-update-workflows-16829058796-b68421f-SNAPSHOT" }
 th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.7.1" }
 cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", version = "5.7.0-dev" }
 lz4 = { group = "org.lz4", name = "lz4-java", version = "1.8.0" }
