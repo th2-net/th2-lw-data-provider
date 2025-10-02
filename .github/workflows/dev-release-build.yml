@@ -79,7 +79,7 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
       - name: Build with Gradle
         run: ./gradlew --info -Pversion_suffix='dev' clean build :grpc-lw-data-provider:publish closeAndReleaseSonatypeStagingRepository
         env:
@@ -119,7 +119,7 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
       - name: Build with Gradle
         run: ./gradlew --info -Pversion_suffix='dev' clean build :lw-data-provider-utils:publish closeAndReleaseSonatypeStagingRepository
         env:
