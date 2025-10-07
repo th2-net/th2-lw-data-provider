@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import com.exactpro.th2.common.metrics.READINESS_MONITOR
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
-import com.exactpro.th2.lwdataprovider.configuration.Mode
 import com.exactpro.th2.lwdataprovider.grpc.GrpcServer
 import com.exactpro.th2.lwdataprovider.http.HttpServer
 import com.exactpro.th2.lwdataprovider.metrics.DecodingMetrics
@@ -91,23 +90,18 @@ class Main {
 
         resources += AutoCloseable {  context.stop() }
 
-        @Suppress("LiftReturnOrAssignment")
-        when (context.configuration.mode) {
-            Mode.HTTP ->  {
-                val httpServer = HttpServer(context)
-                httpServer.run()
-                resources += AutoCloseable { httpServer.stop() }
-            }
-            Mode.GRPC -> {
-                val grpcServer = GrpcServer.createGrpc(context, this.configurationFactory.grpcRouter)
-                resources += AutoCloseable {
-                    grpcServer.stop()
-                    grpcServer.blockUntilShutdown()
-                }
+        if (context.configuration.mode.httpEnabled) {
+            val httpServer = HttpServer(context)
+            httpServer.run()
+            resources += AutoCloseable { httpServer.stop() }
+        }
+        if (context.configuration.mode.grpcEnabled) {
+            val grpcServer = GrpcServer.createGrpc(context, this.configurationFactory.grpcRouter)
+            resources += AutoCloseable {
+                grpcServer.stop()
+                grpcServer.blockUntilShutdown()
             }
         }
-
-
     }
 
     private fun setupMetrics(ctx: Context) {
