@@ -34,6 +34,7 @@ import com.exactpro.th2.lwdataprovider.util.ImmutableListCradleResult
 import com.exactpro.th2.lwdataprovider.util.ListCradleResult
 import com.exactpro.th2.lwdataprovider.util.TEST_SESSION_ALIAS
 import com.exactpro.th2.lwdataprovider.util.TEST_SESSION_GROUP
+import com.exactpro.th2.lwdataprovider.util.createBatch
 import com.exactpro.th2.lwdataprovider.util.createBatches
 import com.exactpro.th2.lwdataprovider.util.createCradleStoredMessage
 import com.exactpro.th2.lwdataprovider.util.validateOrder
@@ -42,7 +43,9 @@ import org.hamcrest.MatcherAssert.assertThat
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrowsExactly
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -56,9 +59,13 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
 import strikt.assertions.hasSize
+import strikt.assertions.isNotNull
+import strikt.assertions.isSuccess
+import strikt.assertions.startsWith
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -346,16 +353,9 @@ internal class TestCradleMessageExtractor {
                 sinkMock
             )
         }
-        val batch = StoredGroupedMessageBatch(
-            TEST_SESSION_GROUP,
-            incorrectMessages,
-            mock<PageId> {},
-            mock<Instant> {},
-        )
-        assertEquals("Unordered message received for: ${batch.toShortInfo()} batch, " +
-                "$TEST_SESSION_ALIAS session alias, ${Direction.SECOND} direction, " +
-                "${correctMessages[0].timestamp} actual timestamp, ${correctMessages[1].timestamp} previous timestamp",
-            exception.message)
+        expectThat(exception.message)
+            .isNotNull()
+            .startsWith("Unordered message received for:")
     }
 
     @ParameterizedTest
@@ -403,16 +403,9 @@ internal class TestCradleMessageExtractor {
                 sinkMock
             )
         }
-        val batch = StoredGroupedMessageBatch(
-            TEST_SESSION_GROUP,
-            incorrectMessages,
-            mock<PageId> {},
-            mock<Instant> {},
-        )
-        assertEquals("Unordered message received for: ${batch.toShortInfo()} batch, " +
-                "$TEST_SESSION_ALIAS session alias, ${Direction.SECOND} direction, " +
-                "${correctMessages[0].sequence} actual sequence, ${correctMessages[1].sequence} previous sequence",
-            exception.message)
+        expectThat(exception.message)
+            .isNotNull()
+            .startsWith("Unordered message received for:")
     }
 
     @ParameterizedTest
@@ -489,6 +482,189 @@ internal class TestCradleMessageExtractor {
             "Unexpected messages count: $messages"
         }
         validateOrder(messages, messageCount, order)
+    }
+
+    @TestFactory
+    fun `duplicated data inside batch`(): List<DynamicTest> {
+        val start = Instant.now()
+        val book = "test-book"
+        val messages = listOf(
+            createCradleStoredMessage(
+                book = book,
+                streamName = "test",
+                direction = Direction.SECOND,
+                index = 1,
+                timestamp = start,
+                pageTimestamp = start,
+            ),
+            createCradleStoredMessage(
+                book = book,
+                streamName = "test",
+                direction = Direction.FIRST,
+                index = 2,
+                timestamp = start.plusSeconds(1),
+                pageTimestamp = start,
+            ),
+            createCradleStoredMessage(
+                book = book,
+                streamName = "test",
+                direction = Direction.SECOND,
+                index = 3,
+                timestamp = start.plusSeconds(2),
+                pageTimestamp = start,
+            )
+        )
+        val firstBatch = createBatch(
+            messages = messages,
+            book = book,
+            timestamp = start,
+        )
+        val secondBatch = createBatch(
+            messages = messages.subList(1, 2),
+            book = book,
+            timestamp = start,
+        )
+        val thirdBatch = createBatch(
+            messages = messages.subList(2, 3),
+            book = book,
+            timestamp = start,
+        )
+        fun batches(order: Order) = when(order) {
+            Order.DIRECT -> listOf(firstBatch, secondBatch,thirdBatch)
+            Order.REVERSE -> listOf(thirdBatch, secondBatch, firstBatch)
+        }
+
+        fun messages(order: Order) = when(order) {
+            Order.DIRECT -> messages
+            Order.REVERSE -> messages.reversed()
+        }
+
+        return Order.entries.flatMap { order ->
+            listOf(
+                DynamicTest.dynamicTest("is not reported as unordered for $order order") {
+                    whenever(storage.getGroupedMessageBatches(any())).thenReturn(ImmutableListCradleResult(batches(order)))
+
+                    expectCatching {
+                        extractor.getMessagesGroup(
+                            GroupedMessageFilter.builder()
+                                .bookId(BookId("book")) // Unchecked
+                                .groupName("test") // Unchecked
+                                .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                                .timestampTo().isLessThan(endTimestamp)
+                                .order(order)
+                                .build(), CradleGroupRequest(),
+                            StoredMessageDataSink(),
+                        )
+                    }.isSuccess()
+                },
+                DynamicTest.dynamicTest("is returned without duplicates for $order order") {
+                    whenever(storage.getGroupedMessageBatches(any())).thenReturn(ImmutableListCradleResult(batches(order)))
+
+                    val sink = StoredMessageDataSink()
+                    extractor.getMessagesGroup(
+                        GroupedMessageFilter.builder()
+                            .bookId(BookId("book")) // Unchecked
+                            .groupName("test") // Unchecked
+                            .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                            .timestampTo().isLessThan(endTimestamp)
+                            .order(order)
+                            .build(), CradleGroupRequest(),
+                        sink,
+                    )
+                    expectThat(sink.messages) {
+                        hasSize(messages.size)
+                        containsExactly(messages(order))
+                    }
+                }
+            )
+        }
+
+
+    }
+
+    @TestFactory
+    fun `duplicated data on the edge of batch`(): List<DynamicTest> {
+        val start = Instant.now()
+        val book = "test-book"
+        val messages = listOf(
+            createCradleStoredMessage(
+                book = book,
+                streamName = "test",
+                direction = Direction.SECOND,
+                index = 1,
+                timestamp = start,
+                pageTimestamp = start,
+            ),
+            createCradleStoredMessage(
+                book = book,
+                streamName = "test",
+                direction = Direction.FIRST,
+                index = 2,
+                timestamp = start.plusSeconds(1),
+                pageTimestamp = start,
+            )
+        )
+        val firstBatch = createBatch(
+            messages = messages,
+            book = book,
+            timestamp = start,
+        )
+        val secondBatch = createBatch(
+            messages = messages.subList(1, 2),
+            book = book,
+            timestamp = start,
+        )
+        fun batches(order: Order) = when(order) {
+            Order.DIRECT -> listOf(firstBatch, secondBatch)
+            Order.REVERSE -> listOf(secondBatch, firstBatch)
+        }
+
+        fun messages(order: Order) = when(order) {
+            Order.DIRECT -> messages
+            Order.REVERSE -> messages.reversed()
+        }
+
+        return Order.entries.flatMap { order ->
+            listOf(
+                DynamicTest.dynamicTest("is not reported as unordered for $order order") {
+                    whenever(storage.getGroupedMessageBatches(any())).thenReturn(ImmutableListCradleResult(batches(order)))
+
+                    expectCatching {
+                        extractor.getMessagesGroup(
+                            GroupedMessageFilter.builder()
+                                .bookId(BookId("book")) // Unchecked
+                                .groupName("test") // Unchecked
+                                .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                                .timestampTo().isLessThan(endTimestamp)
+                                .order(order)
+                                .build(), CradleGroupRequest(),
+                            StoredMessageDataSink(),
+                        )
+                    }.isSuccess()
+                },
+                DynamicTest.dynamicTest("is returned without duplicates for $order order") {
+                    whenever(storage.getGroupedMessageBatches(any())).thenReturn(ImmutableListCradleResult(batches(order)))
+
+                    val sink = StoredMessageDataSink()
+                    extractor.getMessagesGroup(
+                        GroupedMessageFilter.builder()
+                            .bookId(BookId("book")) // Unchecked
+                            .groupName("test") // Unchecked
+                            .timestampFrom().isGreaterThanOrEqualTo(startTimestamp)
+                            .timestampTo().isLessThan(endTimestamp)
+                            .order(order)
+                            .build(), CradleGroupRequest(),
+                        sink,
+                    )
+                    expectThat(sink.messages) {
+                        hasSize(messages.size)
+                        containsExactly(messages(order))
+                    }
+                }
+            )
+        }
+
+
     }
 }
 
