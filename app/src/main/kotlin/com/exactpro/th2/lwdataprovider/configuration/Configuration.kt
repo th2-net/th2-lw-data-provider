@@ -131,6 +131,12 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     }
 }
 
-enum class Mode {
-    HTTP, GRPC
+enum class Mode(
+    val httpEnabled: Boolean,
+    val grpcEnabled: Boolean,
+) {
+    HTTP(httpEnabled = true, grpcEnabled = false),
+    GRPC(httpEnabled = false, grpcEnabled = true),
+    HTTP_GRPC(httpEnabled = true, grpcEnabled = true),
+    GRPC_HTTP(httpEnabled = true, grpcEnabled = true),
 }

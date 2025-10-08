@@ -1,6 +1,9 @@
-# gRPC for lw-data-provider (2.5.0)
+# gRPC for lw-data-provider (2.5.1)
 
 ## Release notes:
+
+### 2.5.1
++ th2 grpc common `4.7.2`
 
 ### 2.5.0
 
