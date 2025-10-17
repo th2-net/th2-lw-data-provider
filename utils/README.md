@@ -1,6 +1,10 @@
-# utils for lw-data-provider (0.0.7)
+# utils for lw-data-provider (0.0.8)
 
 # Release notes:
+
+## 0.0.8
+### Updates:
+* grpc-lw-data-provider: `2.6.0`
 
 ## 0.0.7
 ### Updates:

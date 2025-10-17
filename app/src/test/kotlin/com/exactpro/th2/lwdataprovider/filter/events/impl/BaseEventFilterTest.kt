@@ -1,0 +1,106 @@
+/*
+ * Copyright 2025 Exactpro (Exactpro Systems Limited)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.exactpro.th2.lwdataprovider.filter.events.impl
+
+import com.exactpro.cradle.testevents.TestEventSingle
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
+import org.mockito.kotlin.mock
+
+class BaseEventFilterTest {
+
+    @Test
+    fun `conjunct positive`() {
+        assertAll(
+            {
+                assertTrue(createFilter(values = setOf("test", "name", "-"), conjunct = true, negative = false)
+                    .match(TEST_EVENT_SINGLE))
+            },
+            {
+                assertFalse(createFilter(values = setOf("test", "type", "-"), conjunct = true, negative = false)
+                    .match(TEST_EVENT_SINGLE))
+            },
+        )
+    }
+
+    @Test
+    fun `disjunct positive`() {
+        assertAll(
+            {
+                assertTrue(createFilter(values = setOf("test", "type", "-"), conjunct = false, negative = false)
+                    .match(TEST_EVENT_SINGLE))
+            },
+            {
+                assertFalse(createFilter(values = setOf("test-value", "type", "*-*"), conjunct = false, negative = false)
+                    .match(TEST_EVENT_SINGLE))
+            },
+        )
+    }
+
+    @Test
+    fun `conjunct negative`() {
+        assertAll(
+            {
+                assertTrue(createFilter(values = setOf("test", "type", "-"), conjunct = true, negative = true)
+                    .match(TEST_EVENT_SINGLE))
+            },
+            {
+                assertFalse(createFilter(values = setOf("test", "name", "-"), conjunct = true, negative = true)
+                    .match(TEST_EVENT_SINGLE))
+            },
+        )
+    }
+
+    @Test
+    fun `disjunct negative`() {
+        assertAll(
+            {
+                assertTrue(createFilter(values = setOf("test", "type", "-"), conjunct = false, negative = false)
+                    .match(TEST_EVENT_SINGLE))
+            },
+            {
+                assertFalse(createFilter(values = setOf("test-value", "type", "*-*"), conjunct = false, negative = false)
+                    .match(TEST_EVENT_SINGLE))
+            },
+        )
+    }
+
+    companion object {
+        private val TEST_EVENT_SINGLE = mock<TestEventSingle> {
+            on { name }.thenReturn("test-name")
+            on { type }.thenReturn("test-type")
+        }
+
+        private fun createFilter(
+            values: Collection<String> = emptySet(),
+            negative: Boolean = false,
+            conjunct: Boolean = false,
+            predicate: (value: String, other: String) -> Boolean = { value, other ->
+                value.contains(other, ignoreCase = true)
+            },
+            accessor: TestEventSingle.() -> String = { name },
+        ) = BaseEventFilter(
+            values = values,
+            negative = negative,
+            conjunct = conjunct,
+            predicate = predicate,
+            accessor = accessor,
+        )
+    }
+}

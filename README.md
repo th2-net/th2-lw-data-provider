@@ -1,4 +1,4 @@
-# Lightweight data provider (2.16.1)
+# Lightweight data provider (2.17.0)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -53,6 +53,7 @@ Filter parameters:
 - `<filter_name>-value`|`<filter_name>-values` filter values to apply. Repeatable
 - `<filter_name>-negative` - inverts the filter. _<filter_name>-negative=true_
 - `<filter_name>-conjunct` - if `true` the actual value should match all expected values. _<filter_name>-conjunct=true_
+- `<filter_name>-operator` - matching operator [EQUAL, CONTAIN, START_WITH, END_WITH]. _<filter_name>-operation=EQUAL_
 
 
 
@@ -225,9 +226,10 @@ spec:
 
 # Release notes:
 
-## 2.16.1
+## 2.17.0
 
 ### API
+* [[GH-183] Provided `operator` option to filter for download event REST API and gRPC calls.](https://github.com/th2-net/th2-lw-data-provider/issues/183)
 * Provided `GRPC_HTTP` / `HTTP_GRPC` modes (CR configuration will be supported by infra in future)
 
 ### Update:
@@ -235,6 +237,7 @@ spec:
 * openapi to 6.7.0-2
 * common to 5.16.1-dev
 * grpc-common to 4.7.2
+* micrometer to 1.15.5
 
 ## 2.16.0
 

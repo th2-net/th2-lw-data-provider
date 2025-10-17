@@ -21,7 +21,7 @@ import com.exactpro.th2.lwdataprovider.filter.DataFilter
 import com.exactpro.th2.lwdataprovider.filter.FilterFactory
 import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 import com.exactpro.th2.lwdataprovider.filter.JoinedDataFilter
-import com.exactpro.th2.lwdataprovider.filter.events.impl.EventSimpleFilter
+import com.exactpro.th2.lwdataprovider.filter.events.impl.BaseEventFilter
 
 object EventsFilterFactory : FilterFactory<TestEventSingle> {
     override fun create(requests: Collection<FilterRequest>): DataFilter<TestEventSingle> =
@@ -34,11 +34,11 @@ object EventsFilterFactory : FilterFactory<TestEventSingle> {
 
 private fun Collection<FilterRequest>.toFilters(): Collection<DataFilter<TestEventSingle>> = map {
     when (it.name) {
-        "type" -> it.toSimpleFilter { type }
-        "name" -> it.toSimpleFilter { name }
+        "type" -> it.toBaseFilter { type }
+        "name" -> it.toBaseFilter { name }
         else -> error("unsupported filter ${it.name}")
     }
 }
 
-private fun FilterRequest.toSimpleFilter(accessor: TestEventSingle.() -> String): DataFilter<TestEventSingle> =
-    EventSimpleFilter(values, negative, conjunct, accessor)
+private fun FilterRequest.toBaseFilter(accessor: TestEventSingle.() -> String): DataFilter<TestEventSingle> =
+    BaseEventFilter(values, negative, conjunct, operator.predicate, accessor)

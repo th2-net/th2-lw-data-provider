@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests.converter
 
+import com.exactpro.th2.lwdataprovider.filter.FilterOperator
 import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 
 object HttpFilterConverter {
@@ -30,7 +31,8 @@ object HttpFilterConverter {
                 }.flatMap { it.value }.toList()
             val negative: Boolean = params.getBooleanParam(name, "negative")
             val conjunct: Boolean = params.getBooleanParam(name, "conjunct")
-            FilterRequest(name, values, negative, conjunct)
+            val operator: FilterOperator = params.getFilterOperatorParam(name, "operator")
+            FilterRequest(name, values, negative, conjunct, operator)
         }
     }
 
@@ -42,6 +44,19 @@ object HttpFilterConverter {
                 when (size) {
                     0 -> false
                     1 -> single().toBoolean()
+                    else -> error("only one $filterName-$paramName parameter must be specified")
+                }
+            }
+    }
+
+    private fun Map<String, Collection<String>>.getFilterOperatorParam(filterName: String, paramName: String): FilterOperator {
+        return entries.asSequence()
+            .filter { it.key.equals("$filterName-$paramName", ignoreCase = true) }
+            .flatMap { it.value }
+            .toList().run {
+                when (size) {
+                    0 -> FilterOperator.EQUAL
+                    1 -> FilterOperator.valueOf(single())
                     else -> error("only one $filterName-$paramName parameter must be specified")
                 }
             }

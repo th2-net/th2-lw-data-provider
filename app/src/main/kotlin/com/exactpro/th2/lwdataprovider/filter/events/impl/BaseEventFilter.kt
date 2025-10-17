@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
+ * Copyright 2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,19 @@ package com.exactpro.th2.lwdataprovider.filter.events.impl
 import com.exactpro.cradle.testevents.TestEventSingle
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
 
-class EventSimpleFilter(
-    private val values: Collection<String>,
-    private val negative: Boolean,
-    private val conjunct: Boolean,
+class BaseEventFilter(
+    values: Collection<String>,
+    negative: Boolean,
+    conjunct: Boolean,
+    predicate: (value: String, other: String) -> Boolean,
     private val accessor: TestEventSingle.() -> String,
 ) : DataFilter<TestEventSingle> {
-    override fun match(data: TestEventSingle): Boolean = data.accessor().let { type ->
-        val predicate: (String) -> Boolean = { it.equals(type, ignoreCase = true) }
-        values.run { if (conjunct) all(predicate) else any(predicate) }.xor(negative)
+
+    private val verify: String.() -> Boolean = if (conjunct) {
+        { values.all { predicate(this, it) }.xor(negative) }
+    } else {
+        { values.any { predicate(this, it) }.xor(negative) }
     }
+
+    override fun match(data: TestEventSingle): Boolean = data.accessor().verify()
 }
