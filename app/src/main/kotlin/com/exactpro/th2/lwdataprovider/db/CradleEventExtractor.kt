@@ -50,6 +50,7 @@ class CradleEventExtractor(
     val scopesMeasurement = dataMeasurement.child("scopes")
     val singleEventMeasurement = dataMeasurement.child("single_event")
     val eventFilterMeasurement = dataMeasurement.child("event_filter")
+    val processEventMeasurement = dataMeasurement.child("process_event")
 
     companion object {
         private val logger = KotlinLogging.logger { }
@@ -230,7 +231,7 @@ class CradleEventExtractor(
         filter: DataFilter<TestEventSingle>,
     ) {
         for (testEvent in testEvents) {
-            processTestEvent(testEvent, count, filter, sink)
+            processEventMeasurement.start().use { processTestEvent(testEvent, count, filter, sink) }
             sink.canceled?.apply {
                 logger.info { "events processing canceled: $message" }
                 return
