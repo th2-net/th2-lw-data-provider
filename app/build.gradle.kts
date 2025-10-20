@@ -63,8 +63,8 @@ dependencies {
 
     testImplementation(testFixtures(libs.th2.common))
     testImplementation(platform(libs.testcontainers.bom))
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:cassandra")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-cassandra")
 
     testImplementation("com.datastax.oss:java-driver-core")
 }
