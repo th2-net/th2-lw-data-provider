@@ -65,5 +65,10 @@ subprojects {
         testLogging {
             showStandardStreams = true
         }
+
+        if (Env.isPodmanInstalled) {
+            environment("DOCKER_HOST", "unix:///run/user/${Env.uid}/podman/podman.sock")
+            environment("TESTCONTAINERS_RYUK_DISABLED", "true")
+        }
     }
 }
