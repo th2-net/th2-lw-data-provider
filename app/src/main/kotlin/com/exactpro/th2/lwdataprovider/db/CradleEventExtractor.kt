@@ -46,13 +46,17 @@ class CradleEventExtractor(
     private val dataMeasurement: DataMeasurement,
 ) {
     private val storage: CradleStorage = cradleManager.storage
+    val initRequestMeasurement = dataMeasurement.child("init_request")
+    val scopesMeasurement = dataMeasurement.child("scopes")
+    val singleEventMeasurement = dataMeasurement.child("single_event")
+    val eventFilterMeasurement = dataMeasurement.child("event_filter")
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
 
     fun getAllEventsScopes(bookId: BookId): Set<String> {
-        return measure("scopes") { storage.getScopes(bookId) }.toSet()
+        return scopesMeasurement.start().use { storage.getScopes(bookId) }.toSet()
     }
 
     fun getScopes(bookId: BookId, start: Instant, end: Instant): Iterator<String> {
@@ -109,7 +113,7 @@ class CradleEventExtractor(
         val batchId = filter.batchId
         val eventId = StoredTestEventId.fromString(filter.eventId)
         if (batchId != null) {
-            val testBatch = measure("single_event") { storage.getTestEvent(StoredTestEventId.fromString(batchId)) }
+            val testBatch = singleEventMeasurement.start().use { storage.getTestEvent(StoredTestEventId.fromString(batchId)) }
             if (testBatch == null) {
                 sink.onError("Event batch is not found with id: '$batchId'", batchId = batchId)
                 return
@@ -127,7 +131,7 @@ class CradleEventExtractor(
             val event = Event(testEvent, batch.id)
             sink.onNext(event)
         } else {
-            val testBatch = measure("single_event") { storage.getTestEvent(eventId) }
+            val testBatch = singleEventMeasurement.start().use { storage.getTestEvent(eventId) }
             if (testBatch == null) {
                 sink.onError("Event is not found with id: '$eventId'", filter.eventId)
                 return
@@ -206,10 +210,9 @@ class CradleEventExtractor(
             }
         }
 
-        val testEvents = measure("init_request") { storage.getTestEvents(cradleFilter) }
+        val testEvents = initRequestMeasurement.start().use { storage.getTestEvents(cradleFilter) }
         processEvents(testEvents.asIterableWithMeasurements("event", dataMeasurement), sink, counter) { event ->
-            compareStart(event) && compareEnd(event)
-                    && filter.match(event)
+            eventFilterMeasurement.start().use { compareStart(event) && compareEnd(event) && filter.match(event) }
         }
         logger.info {
             "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"
@@ -269,8 +272,6 @@ class CradleEventExtractor(
             }
         }
     }
-
-    private inline fun <T> measure(name: String, action: () -> T): T = dataMeasurement.start(name).use { action() }
 }
 
 data class ProcessingInfo(

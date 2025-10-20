@@ -221,12 +221,14 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                             "values" to setOf("name-a", "name-b"),
                             "conjunct" to false,
                             "negative" to true,
+                            "operator" to "EQUAL",
                         ),
                         mapOf(
                             "name" to "type",
                             "values" to setOf("type-a", "type-b"),
                             "conjunct" to true,
                             "negative" to false,
+                            "operator" to "EQUAL"
                         ),
                     )
                 ),
@@ -319,12 +321,14 @@ class TestTaskDownloadHandler : AbstractHttpHandlerTest<TaskDownloadHandler>() {
                             "values" to setOf("name-a", "name-b"),
                             "conjunct" to false,
                             "negative" to true,
+                            "operator" to "EQUAL",
                         ),
                         mapOf(
                             "name" to "type",
                             "values" to setOf("type-a", "type-b"),
                             "conjunct" to true,
                             "negative" to false,
+                            "operator" to "EQUAL",
                         ),
                     ),
                 )
