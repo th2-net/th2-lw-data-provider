@@ -233,7 +233,8 @@ spec:
 * Provided `GRPC_HTTP` / `HTTP_GRPC` modes (CR configuration will be supported by infra in future)
 
 ### Update:
-* th2 gradle plugin to 0.3.9
+* th2 gradle plugin to 0.3.10
+* kotlin to 2.2.21
 * openapi to 6.7.0-2
 * common to 5.16.1-dev
 * grpc-common to 4.7.2
