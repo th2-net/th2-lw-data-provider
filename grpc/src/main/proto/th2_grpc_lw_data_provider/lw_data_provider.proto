@@ -124,11 +124,19 @@ message FilterName {
   string name = 1;
 }
 
+enum FilterOperator {
+  EQUAL = 0;
+  CONTAIN = 1;
+  START_WITH = 2;
+  END_WITH = 3;
+}
+
 message Filter {
   FilterName name = 1;
   bool negative = 2;
   repeated string value = 3;
   bool conjunct = 4;
+  FilterOperator operator = 5;
 }
 
 message EventSearchRequest {

@@ -67,6 +67,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-cassandra")
 
     testImplementation("com.datastax.oss:java-driver-core")
+    testImplementation(kotlin("test"))
 }
 
 application {

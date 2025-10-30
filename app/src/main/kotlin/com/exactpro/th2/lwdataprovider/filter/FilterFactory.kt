@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,4 +30,16 @@ data class FilterRequest(
     val negative: Boolean = false,
     @get:OpenApiPropertyType(definedBy = Boolean::class, nullability = Nullability.NULLABLE)
     val conjunct: Boolean = false,
+    @get:OpenApiPropertyType(definedBy = FilterOperator::class, nullability = Nullability.NULLABLE)
+    val operator: FilterOperator = FilterOperator.EQUAL
 )
+
+@Suppress("unused")
+enum class FilterOperator(
+    val predicate: (value: String, other: String) -> Boolean,
+) {
+    EQUAL ({ value, other -> value.equals(other, ignoreCase = true) }),
+    CONTAIN ({ value, other -> value.contains(other, ignoreCase = true) }),
+    START_WITH ({ value, other -> value.startsWith(other, ignoreCase = true) }),
+    END_WITH ({ value, other -> value.endsWith(other, ignoreCase = true) }),
+}

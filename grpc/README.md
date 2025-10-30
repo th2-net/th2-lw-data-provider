@@ -1,6 +1,9 @@
-# gRPC for lw-data-provider (2.5.1)
+# gRPC for lw-data-provider (2.6.0)
 
 ## Release notes:
+
+### 2.6.0
++ [[GH-183] added `operator` field to `Filter` message](https://github.com/th2-net/th2-lw-data-provider/issues/183)
 
 ### 2.5.1
 + th2 grpc common `4.7.2`

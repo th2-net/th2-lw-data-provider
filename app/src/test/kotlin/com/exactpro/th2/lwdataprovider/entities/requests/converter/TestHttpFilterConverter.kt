@@ -16,6 +16,7 @@
 
 package com.exactpro.th2.lwdataprovider.entities.requests.converter
 
+import com.exactpro.th2.lwdataprovider.filter.FilterOperator
 import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -29,7 +30,8 @@ internal class TestHttpFilterConverter {
                 "type-values" to listOf("a", "b", "c"),
                 "type-conjunct" to listOf("true"),
                 "name-value" to listOf("d"),
-                "name-negative" to listOf("true")
+                "name-negative" to listOf("true"),
+                "name-operator" to listOf("CONTAIN")
             )
         )
         assertEquals(2, filterRequests.size) { "unexpected requests $filterRequests" }
@@ -39,6 +41,7 @@ internal class TestHttpFilterConverter {
                 values = listOf("a", "b", "c"),
                 negative = false,
                 conjunct = true,
+                operator = FilterOperator.EQUAL,
             )
         )
         assertFilter(
@@ -46,7 +49,8 @@ internal class TestHttpFilterConverter {
                 name = "name",
                 values = listOf("d"),
                 negative = true,
-                conjunct = false
+                conjunct = false,
+                operator = FilterOperator.CONTAIN,
             )
         )
     }
