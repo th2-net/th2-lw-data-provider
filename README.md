@@ -1,4 +1,4 @@
-# Lightweight data provider (2.17.0)
+# Lightweight data provider (2.17.1)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -225,6 +225,13 @@ spec:
 ```
 
 # Release notes:
+
+## 2.17.1
+
++ Produce multi-platform docker image
+  + migrated to [amazoncorretto:11-alpine-jdk](https://hub.docker.com/layers/library/amazoncorretto/11-alpine-jdk) docker image as base
++ Updated:
+  + micrometer-bom: `1.16.0`
 
 ## 2.17.0
 
