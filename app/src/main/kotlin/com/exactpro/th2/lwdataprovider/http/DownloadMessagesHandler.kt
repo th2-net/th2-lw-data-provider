@@ -27,6 +27,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -182,7 +183,7 @@ class DownloadMessagesHandler(
         )
         keepAliveHandler.addKeepAliveData(handler).use {
             searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
-            writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER, bufferSize = configuration.responseBufferSize)
+            writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER, progressListener = DEFAULT_PROCESS_LISTENER, bufferSize = configuration.responseBufferSize)
             LOGGER.info { "Processing download messages request finished" }
         }
     }

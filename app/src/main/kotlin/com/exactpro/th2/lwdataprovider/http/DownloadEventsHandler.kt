@@ -31,6 +31,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.ser.EventSchema
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
+import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -147,6 +148,7 @@ class DownloadEventsHandler(
                         handler,
                         dataMeasurement,
                         LOGGER,
+                        progressListener = DEFAULT_PROCESS_LISTENER,
                         bufferSize = configuration.responseBufferSize
                     )
                     LOGGER.info { "Processing download events request finished" }

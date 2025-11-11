@@ -18,13 +18,10 @@ package com.exactpro.th2.lwdataprovider.http.util
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
-import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
-import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
 import io.github.oshai.kotlinlogging.KLogger
 import io.javalin.http.Context
 import io.javalin.http.Header
@@ -41,8 +38,8 @@ fun writeJsonStream(
     handler: AbstractCancelableHandler,
     dataMeasurement: DataMeasurement,
     logger: KLogger,
-    progressListener: ProgressListener = DEFAULT_PROCESS_LISTENER,
-    bufferSize: Int = DEFAULT_BUFFER_SIZE
+    progressListener: ProgressListener,
+    bufferSize: Int
 ) {
     progressListener.onStart()
 
@@ -60,30 +57,22 @@ fun writeJsonStream(
         }
     }
     try {
-        val awaitConvertToJsonMeasurement = dataMeasurement.child("await_convert_to_json")
-        val awaitNextMeasurement = dataMeasurement.child("await_next_sse_event")
-        val processSseEventMeasurement = dataMeasurement.child("process_sse_event")
-        val writeSseEventMeasurement = dataMeasurement.child("write_sse_event")
         do {
-            val pseMeasurement = processSseEventMeasurement.start()
-            try {
-                val nextEvent = awaitNextEvent(awaitNextMeasurement, queue)
-                updateQueueMetric(matchedPath, queue)
-                val sseEvent = awaitConver(awaitConvertToJsonMeasurement, nextEvent)
-                writeHeader = writeHeader(writeHeader, sseEvent, status, ctx)
-                processErrorData(sseEvent, progressListener)
-                if (sseEvent.event == EventType.KEEP_ALIVE) {
-                    flush(output)
-                } else if (sseEvent.event == EventType.CLOSE) {
-                    logger.info { "Received close event" }
-                    return
-                } else {
-                    dataSent = write(logger, writeSseEventMeasurement, sseEvent, output, dataSent)
-                }
-                if (!checkStatus(queue, handler, logger)) {
-                    return
-                }
-            } finally { pseMeasurement.close() }
+            val nextEvent = awaitNextEvent(queue)
+            val sseEvent = awaitConver(nextEvent)
+            writeHeader = writeHeader(writeHeader, sseEvent, status, ctx)
+            processErrorData(sseEvent, progressListener)
+            if (sseEvent.event == EventType.KEEP_ALIVE) {
+                flush(output)
+            } else if (sseEvent.event == EventType.CLOSE) {
+                logger.info { "Received close event" }
+                return
+            } else {
+                dataSent = write(logger, sseEvent, output, dataSent)
+            }
+            if (!checkStatus(queue, handler, logger)) {
+                return
+            }
         } while (true)
     } catch (ex: Exception) {
         logger.error(ex) { "cannot process next event" }
@@ -119,24 +108,16 @@ private fun checkStatus(
 
 private fun write(
     logger: KLogger,
-    writeSseEventMeasurement: ChildDataMeasurement,
     sseEvent: SseEvent,
     output: OutputStream,
     dataSent: Int
 ): Int {
-    var dataSent1 = dataSent
     logger.debug {
         "Write event to output: " // FIXME: log data
     }
-    val wseMeasurement = writeSseEventMeasurement.start()
-    try {
-        sseEvent.writeData(output)
-        output.write('\n'.code)
-    } finally {
-        wseMeasurement.close()
-    }
-    dataSent1++
-    return dataSent1
+    sseEvent.writeData(output)
+    output.write('\n'.code)
+    return dataSent + 1
 }
 
 private fun flush(output: OutputStream) {
@@ -172,34 +153,13 @@ private fun writeHeader(
 }
 
 private fun awaitConver(
-    awaitConvertToJsonMeasurement: ChildDataMeasurement,
     nextEvent: Supplier<SseEvent>
 ): SseEvent {
-    val actjMeasurement = awaitConvertToJsonMeasurement.start()
-    val sseEvent = try {
-        nextEvent.get()
-    } finally {
-        actjMeasurement.close()
-    }
-    return sseEvent
-}
-
-private fun updateQueueMetric(
-    matchedPath: String,
-    queue: ArrayBlockingQueue<Supplier<SseEvent>>
-) {
-    ResponseQueue.currentSize(matchedPath, queue.size)
+    return nextEvent.get()
 }
 
 private fun awaitNextEvent(
-    awaitNextMeasurement: ChildDataMeasurement,
     queue: ArrayBlockingQueue<Supplier<SseEvent>>
 ): Supplier<SseEvent> {
-    val anMeasurement = awaitNextMeasurement.start()
-    val nextEvent = try {
-        queue.take()
-    } finally {
-        anMeasurement.close()
-    }
-    return nextEvent
+    return queue.take()
 }

@@ -37,6 +37,7 @@ import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.serializers.CustomMillisOrNanosInstantDeserializer
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
@@ -271,7 +272,7 @@ class TaskDownloadHandler(
                         val (taskInfo, handler, queue) = taskState
                         keepAliveHandler.addKeepAliveData(handler).use {
                             searchMessagesHandler.loadMessageGroups(taskInfo.request, handler, dataMeasurement)
-                            writeJsonStream(context, queue, handler, dataMeasurement, LOGGER, taskInfo)
+                            writeJsonStream(context, queue, handler, dataMeasurement, LOGGER, taskInfo, DEFAULT_BUFFER_SIZE)
                             LOGGER.info { "Message task $taskID completed with status ${taskInfo.status}" }
                         }
                     }
@@ -280,7 +281,7 @@ class TaskDownloadHandler(
                         val (taskInfo, handler, queue) = taskState
                         keepAliveHandler.addKeepAliveData(handler).use {
                             searchEventsHandler.loadEvents(taskInfo.request, handler)
-                            writeJsonStream(context, queue, handler, dataMeasurement, LOGGER)
+                            writeJsonStream(context, queue, handler, dataMeasurement, LOGGER, progressListener = DEFAULT_PROCESS_LISTENER, DEFAULT_BUFFER_SIZE)
                             LOGGER.info { "Event task $taskID completed with status ${taskInfo.status}" }
                         }
                     }
