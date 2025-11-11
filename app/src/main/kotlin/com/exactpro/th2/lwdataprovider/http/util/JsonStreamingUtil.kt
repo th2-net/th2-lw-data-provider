@@ -83,7 +83,6 @@ fun writeJsonStream(
                 if (sseEvent is SseEvent.ErrorData) {
                     progressListener.onError(sseEvent)
                 }
-                logger.info { "EVENT TYPE: ${sseEvent.event}" }
                 if (sseEvent.event == EventType.KEEP_ALIVE) {
                     output.flush()
                 } else if (sseEvent.event == EventType.CLOSE) {
