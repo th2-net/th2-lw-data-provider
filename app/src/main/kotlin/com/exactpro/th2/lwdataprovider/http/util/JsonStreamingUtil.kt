@@ -18,6 +18,7 @@ package com.exactpro.th2.lwdataprovider.http.util
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
+import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
 import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
@@ -28,6 +29,7 @@ import io.github.oshai.kotlinlogging.KLogger
 import io.javalin.http.Context
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
+import java.io.OutputStream
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
@@ -48,7 +50,7 @@ fun writeJsonStream(
     var dataSent = 0
 
     var writeHeader = true
-    var status: HttpStatus = HttpStatus.OK
+    val status: HttpStatus = HttpStatus.OK
 
     val output = ctx.res().outputStream.let {
         if (bufferSize > 0) {
@@ -65,42 +67,20 @@ fun writeJsonStream(
         do {
             val pseMeasurement = processSseEventMeasurement.start()
             try {
-                val anMeasurement = awaitNextMeasurement.start()
-                val nextEvent = try { queue.take() } finally { anMeasurement.close() }
-                ResponseQueue.currentSize(matchedPath, queue.size)
-                val actjMeasurement = awaitConvertToJsonMeasurement.start()
-                val sseEvent = try { nextEvent.get() } finally { actjMeasurement.close() }
-                if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
-                    // something happened during request
-                    status = HttpStatus.INTERNAL_SERVER_ERROR
-                }
-                if (writeHeader) {
-                    ctx.status(status)
-                        .contentType(JSON_STREAM_CONTENT_TYPE)
-                        .header(Header.TRANSFER_ENCODING, "chunked")
-                    writeHeader = false
-                }
-                if (sseEvent is SseEvent.ErrorData) {
-                    progressListener.onError(sseEvent)
-                }
+                val nextEvent = awaitNextEvent(awaitNextMeasurement, queue)
+                updateQueueMetric(matchedPath, queue)
+                val sseEvent = awaitConver(awaitConvertToJsonMeasurement, nextEvent)
+                writeHeader = writeHeader(writeHeader, sseEvent, status, ctx)
+                processErrorData(sseEvent, progressListener)
                 if (sseEvent.event == EventType.KEEP_ALIVE) {
-                    output.flush()
+                    flush(output)
                 } else if (sseEvent.event == EventType.CLOSE) {
                     logger.info { "Received close event" }
                     return
                 } else {
-                    logger.debug {
-                        "Write event to output: " // FIXME: log data
-                    }
-                    val wseMeasurement = writeSseEventMeasurement.start()
-                    try {
-                        sseEvent.writeData(output)
-                        output.write('\n'.code)
-                    } finally { wseMeasurement.close() }
-                    dataSent++
+                    dataSent = write(logger, writeSseEventMeasurement, sseEvent, output, dataSent)
                 }
-                if (queue.isEmpty() && !handler.isAlive) {
-                    logger.info { "Request canceled" }
+                if (!checkStatus(queue, handler, logger)) {
                     return
                 }
             } finally { pseMeasurement.close() }
@@ -118,9 +98,108 @@ fun writeJsonStream(
         }
         HttpWriteMetrics.messageSent(matchedPath, dataSent)
         try {
-            output.flush()
+            flush(output)
         } catch (e: Exception) {
             logger.error(e) { "cannot flush the remaining data when processing is finished" }
         }
     }
+}
+
+private fun checkStatus(
+    queue: ArrayBlockingQueue<Supplier<SseEvent>>,
+    handler: AbstractCancelableHandler,
+    logger: KLogger
+): Boolean {
+    if (queue.isEmpty() && !handler.isAlive) {
+        logger.info { "Request canceled" }
+        return false
+    }
+    return true
+}
+
+private fun write(
+    logger: KLogger,
+    writeSseEventMeasurement: ChildDataMeasurement,
+    sseEvent: SseEvent,
+    output: OutputStream,
+    dataSent: Int
+): Int {
+    var dataSent1 = dataSent
+    logger.debug {
+        "Write event to output: " // FIXME: log data
+    }
+    val wseMeasurement = writeSseEventMeasurement.start()
+    try {
+        sseEvent.writeData(output)
+        output.write('\n'.code)
+    } finally {
+        wseMeasurement.close()
+    }
+    dataSent1++
+    return dataSent1
+}
+
+private fun flush(output: OutputStream) {
+    output.flush()
+}
+
+private fun processErrorData(
+    sseEvent: SseEvent,
+    progressListener: ProgressListener
+) {
+    if (sseEvent is SseEvent.ErrorData) {
+        progressListener.onError(sseEvent)
+    }
+}
+
+private fun writeHeader(
+    writeHeader: Boolean,
+    sseEvent: SseEvent,
+    status: HttpStatus,
+    ctx: Context
+): Boolean {
+    var status1 = status
+    if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
+        // something happened during request
+        status1 = HttpStatus.INTERNAL_SERVER_ERROR
+    }
+    if (writeHeader) {
+        ctx.status(status1)
+            .contentType(JSON_STREAM_CONTENT_TYPE)
+            .header(Header.TRANSFER_ENCODING, "chunked")
+    }
+    return false
+}
+
+private fun awaitConver(
+    awaitConvertToJsonMeasurement: ChildDataMeasurement,
+    nextEvent: Supplier<SseEvent>
+): SseEvent {
+    val actjMeasurement = awaitConvertToJsonMeasurement.start()
+    val sseEvent = try {
+        nextEvent.get()
+    } finally {
+        actjMeasurement.close()
+    }
+    return sseEvent
+}
+
+private fun updateQueueMetric(
+    matchedPath: String,
+    queue: ArrayBlockingQueue<Supplier<SseEvent>>
+) {
+    ResponseQueue.currentSize(matchedPath, queue.size)
+}
+
+private fun awaitNextEvent(
+    awaitNextMeasurement: ChildDataMeasurement,
+    queue: ArrayBlockingQueue<Supplier<SseEvent>>
+): Supplier<SseEvent> {
+    val anMeasurement = awaitNextMeasurement.start()
+    val nextEvent = try {
+        queue.take()
+    } finally {
+        anMeasurement.close()
+    }
+    return nextEvent
 }
