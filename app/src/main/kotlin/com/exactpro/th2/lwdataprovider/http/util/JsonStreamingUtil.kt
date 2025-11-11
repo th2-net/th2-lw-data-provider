@@ -50,15 +50,6 @@ fun writeJsonStream(
     var writeHeader = true
     var status: HttpStatus = HttpStatus.OK
 
-    fun writeHeader() {
-        if (writeHeader) {
-            ctx.status(status)
-                .contentType(JSON_STREAM_CONTENT_TYPE)
-                .header(Header.TRANSFER_ENCODING, "chunked")
-            writeHeader = false
-        }
-    }
-
     val output = ctx.res().outputStream.let {
         if (bufferSize > 0) {
             it.buffered(bufferSize)
@@ -72,41 +63,48 @@ fun writeJsonStream(
         val processSseEventMeasurement = dataMeasurement.child("process_sse_event")
         val writeSseEventMeasurement = dataMeasurement.child("write_sse_event")
         do {
-            processSseEventMeasurement.start().use {
-                val nextEvent = awaitNextMeasurement.start().use { queue.take() }
+            val pseMeasurement = processSseEventMeasurement.start()
+            try {
+                val anMeasurement = awaitNextMeasurement.start()
+                val nextEvent = try { queue.take() } finally { anMeasurement.close() }
                 ResponseQueue.currentSize(matchedPath, queue.size)
-                val sseEvent = awaitConvertToJsonMeasurement.start().use { nextEvent.get() }
+                val actjMeasurement = awaitConvertToJsonMeasurement.start()
+                val sseEvent = try { nextEvent.get() } finally { actjMeasurement.close() }
                 if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
                     // something happened during request
                     status = HttpStatus.INTERNAL_SERVER_ERROR
                 }
-                writeHeader()
+                if (writeHeader) {
+                    ctx.status(status)
+                        .contentType(JSON_STREAM_CONTENT_TYPE)
+                        .header(Header.TRANSFER_ENCODING, "chunked")
+                    writeHeader = false
+                }
                 if (sseEvent is SseEvent.ErrorData) {
                     progressListener.onError(sseEvent)
                 }
-                when (sseEvent.event) {
-                    EventType.KEEP_ALIVE -> output.flush()
-                    EventType.CLOSE -> {
-                        logger.info { "Received close event" }
-                        return
+                logger.info { "EVENT TYPE: ${sseEvent.event}" }
+                if (sseEvent.event == EventType.KEEP_ALIVE) {
+                    output.flush()
+                } else if (sseEvent.event == EventType.CLOSE) {
+                    logger.info { "Received close event" }
+                    return
+                } else {
+                    logger.debug {
+                        "Write event to output: " // FIXME: log data
                     }
-
-                    else -> {
-                        logger.debug {
-                            "Write event to output: " // FIXME: log data
-                        }
-                        writeSseEventMeasurement.start().use {
-                            sseEvent.writeData(output)
-                            output.write('\n'.code)
-                        }
-                        dataSent++
-                    }
+                    val wseMeasurement = writeSseEventMeasurement.start()
+                    try {
+                        sseEvent.writeData(output)
+                        output.write('\n'.code)
+                    } finally { wseMeasurement.close() }
+                    dataSent++
                 }
                 if (queue.isEmpty() && !handler.isAlive) {
                     logger.info { "Request canceled" }
                     return
                 }
-            }
+            } finally { pseMeasurement.close() }
         } while (true)
     } catch (ex: Exception) {
         logger.error(ex) { "cannot process next event" }
@@ -120,7 +118,10 @@ fun writeJsonStream(
             progressListener.onCanceled()
         }
         HttpWriteMetrics.messageSent(matchedPath, dataSent)
-        runCatching { output.flush() }
-            .onFailure { logger.error(it) { "cannot flush the remaining data when processing is finished" } }
+        try {
+            output.flush()
+        } catch (e: Exception) {
+            logger.error(e) { "cannot flush the remaining data when processing is finished" }
+        }
     }
 }
