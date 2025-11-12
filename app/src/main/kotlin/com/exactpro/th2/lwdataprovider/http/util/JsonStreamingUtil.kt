@@ -27,6 +27,7 @@ import io.github.oshai.kotlinlogging.KLogger
 import io.javalin.http.Context
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
+import io.prometheus.client.SimpleTimer
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
@@ -58,15 +59,13 @@ fun writeJsonStream(
         }
     }
     try {
-        val awaitConvertToJsonMetric = metric.child("await_convert_to_json")
-        val awaitNextMetric = metric.child("await_next_sse_event")
         val processSseEventMetric = metric.child("process_sse_event")
-        val writeSseEventMetric = metric.child("write_sse_event")
         do {
-            processSseEventMetric.measure {
-                val nextEvent = awaitNextMetric.measure(queue::take)
+            val startNanos = System.nanoTime()
+            try {
+                val nextEvent = queue.take()
                 queueSizeMetric.set(queue.size.toDouble())
-                val sseEvent = awaitConvertToJsonMetric.measure(nextEvent::get)
+                val sseEvent = nextEvent.get()
                 if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
                     // something happened during request
                     status = HttpStatus.INTERNAL_SERVER_ERROR
@@ -89,16 +88,16 @@ fun writeJsonStream(
                     logger.debug {
                         "Write event to output: " // FIXME: log data
                     }
-                    writeSseEventMetric.measure {
-                        sseEvent.writeData(output)
-                        output.write('\n'.code)
-                    }
+                    sseEvent.writeData(output)
+                    output.write('\n'.code)
                     dataSent++
                 }
                 if (queue.isEmpty() && !handler.isAlive) {
                     logger.info { "Request canceled" }
                     return
                 }
+            } finally {
+                processSseEventMetric.observe(SimpleTimer.elapsedSecondsFromNanos(startNanos, System.nanoTime()))
             }
         } while (true)
     } catch (ex: Exception) {
