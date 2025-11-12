@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package com.exactpro.th2.lwdataprovider.producers
 
 import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53Transport
-import java.util.*
 
 @Deprecated("for 5.3 messages")
 class MessageProducer53Transport {
@@ -29,10 +28,11 @@ class MessageProducer53Transport {
             formatter: JsonFormatter?,
             includeRaw: Boolean,
         ): ProviderMessage53Transport {
-            return ProviderMessage53Transport(
-                rawMessage.storedMessage, rawMessage.sessionGroup,
+            return ProviderMessage53Transport.create(
+                rawMessage.storedMessage,
+                rawMessage.sessionGroup,
                 if (formatter != null) requireNotNull(rawMessage.transportMessage) else null, // FIXME: return only first message instead of merge
-                if (includeRaw) rawMessage.storedMessage.let { Base64.getEncoder().encodeToString(it.content) } else null,
+                if (includeRaw) rawMessage.storedMessage.content else null,
             )
         }
     }

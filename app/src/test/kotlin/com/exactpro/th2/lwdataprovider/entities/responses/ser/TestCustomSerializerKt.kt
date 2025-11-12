@@ -19,10 +19,10 @@ package com.exactpro.th2.lwdataprovider.entities.responses.ser
 import com.exactpro.cradle.BookId
 import com.exactpro.cradle.PageId
 import com.exactpro.cradle.messages.StoredMessageId
-import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.cradle.testevents.BatchedStoredTestEvent
 import com.exactpro.cradle.testevents.BatchedStoredTestEventBuilder
 import com.exactpro.cradle.testevents.StoredTestEventBatch
+import com.exactpro.cradle.testevents.StoredTestEventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.EventId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.MessageId
 import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMessage
@@ -46,7 +46,6 @@ import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import java.nio.ByteBuffer
 import java.time.Instant
-import java.util.*
 import kotlin.text.Charsets.UTF_8
 
 internal class TestCustomSerializerKt {
@@ -109,7 +108,7 @@ internal class TestCustomSerializerKt {
             attachedEventIds = setOf(
                 "eve${escapeCharacter}nt",
             ),
-            bodyBase64 = Base64.getEncoder().encodeToString(byteArrayOf(42, 43)),
+            bodyBytes = byteArrayOf(42, 43),
             messageId = StoredMessageId(
                 BookId("bo${escapeCharacter}ok"),
                 "session${escapeCharacter}Alias",

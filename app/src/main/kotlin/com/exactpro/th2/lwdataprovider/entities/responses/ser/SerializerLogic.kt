@@ -58,8 +58,12 @@ fun ProviderMessage53Transport.serializeJsonData(serializer: Serializer<*>): Uni
         body?.let {
             filed(EntityField.BODY) { body(body) }.char(JsonChar.COMMA)
         }
-        bodyBase64?.let {
-            filedStr(EntityField.BODY_BASE_64) { str(bodyBase64) }.char(JsonChar.COMMA)
+        bodyBytes?.let {
+            filed(EntityField.BODY_BASE_64) {
+                valueStr {
+                    base64Str(it)
+                }
+            }.char(JsonChar.COMMA)
         }
         filedStr(EntityField.MESSAGE_ID) { messageId(messageId) }
     }

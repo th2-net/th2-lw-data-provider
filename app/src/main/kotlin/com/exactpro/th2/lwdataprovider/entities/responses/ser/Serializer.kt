@@ -136,6 +136,7 @@ sealed interface Serializer<S : Serializer<S>> {
     fun numAsStr(value: Int): S
     fun numAsStr(value: Long): S
     fun base64Str(value: ByteBuffer): S
+    fun base64Str(value: ByteArray): S
 
     fun filed(name: SerializableString, value: S.() -> Unit): S
     fun filedStr(name: SerializableString, value: S.() -> Unit): S
@@ -220,6 +221,10 @@ private class ByteBufferSerializer(
     }
 
     override fun base64Str(value: ByteBuffer) = this.also {
+        buffer.put(Base64.getEncoder().encode(value))
+    }
+
+    override fun base64Str(value: ByteArray) = this.also {
         buffer.put(Base64.getEncoder().encode(value))
     }
 
@@ -341,6 +346,10 @@ private class ByteBufSerializer(
     }
 
     override fun base64Str(value: ByteBuffer) = this.also {
+        buf.writeBytes(Base64.getEncoder().encode(value))
+    }
+
+    override fun base64Str(value: ByteArray): ByteBufSerializer = this.also {
         buf.writeBytes(Base64.getEncoder().encode(value))
     }
 
@@ -469,6 +478,10 @@ private class SizeSerializer(
 
     override fun base64Str(value: ByteBuffer) = this.also {
         _size += (4 * ceil((value.remaining() / 3).toDouble())).toInt()
+    }
+
+    override fun base64Str(value: ByteArray) = this.also {
+        _size += (4 * ceil((value.size / 3).toDouble())).toInt()
     }
 
     override fun filed(
