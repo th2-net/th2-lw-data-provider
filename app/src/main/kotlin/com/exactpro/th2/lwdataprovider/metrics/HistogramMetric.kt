@@ -16,41 +16,35 @@
 
 package com.exactpro.th2.lwdataprovider.metrics
 
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
-import com.exactpro.th2.lwdataprovider.db.Measurement
-import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.Histogram
 
-class DataMeasurementHistogram private constructor(
+class HistogramMetric private constructor(
     name: String,
     registry: CollectorRegistry,
     buckets: DoubleArray,
-) : DataMeasurement {
-    private val stepMetrics = Histogram.build(
+) : Metric() {
+    private val histogram = Histogram.build(
         "th2_ldp_${name.replace(' ', '_').lowercase()}_time", "Time spent on each action for $name"
     ).buckets(*(buckets.takeIf { it.isNotEmpty() } ?: DEFAULT_BUCKETS))
         .labelNames("action")
         .register(registry)
 
-    override fun start(name: String): Measurement = MeasurementImpl(name, stepMetrics.labels(name).startTimer())
-
-    override fun child(name: String): ChildDataMeasurement = ChildDataMeasurementHistogram(name, stepMetrics)
+    override fun child(name: String): ChildMetric = HistogramChildMetric(histogram.labels(name))
+    override fun observe(name: String, amt: Double) = histogram.labels(name).observe(amt)
 
     companion object {
         private val DEFAULT_BUCKETS =
             doubleArrayOf(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, 25.0, 50.0, 75.0)
 
         @JvmStatic
-        fun create(registry: CollectorRegistry, name: String, vararg buckets: Double): DataMeasurement =
-            DataMeasurementHistogram(name, registry, buckets)
+        fun create(registry: CollectorRegistry, name: String, vararg buckets: Double): Metric =
+            HistogramMetric(name, registry, buckets)
 
-        private class ChildDataMeasurementHistogram(
-            private val name: String,
-            histogram: Histogram
-        ): ChildDataMeasurement {
-            private val child: Histogram.Child = histogram.labels(name)
-            override fun start(): Measurement = MeasurementImpl(name, child.startTimer())
+        private class HistogramChildMetric(
+            val child: Histogram.Child,
+        ): ChildMetric() {
+            override fun observe(amt: Double) = child.observe(amt)
         }
     }
 }

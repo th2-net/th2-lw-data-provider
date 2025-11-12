@@ -31,9 +31,9 @@ import com.exactpro.th2.lwdataprovider.RequestedMessage
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.configuration.CustomConfigurationClass
-import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.ChildMetric
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
@@ -78,7 +78,7 @@ import strikt.assertions.single
 import strikt.assertions.withElementAt
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.Queue
+import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -91,12 +91,9 @@ internal class TestSearchMessagesHandler {
         on { storage } doReturn storage
     }
 
-    private val childMeasurement: ChildDataMeasurement = mock {
-        on { start() } doReturn mock { }
-    }
-    private val measurement: DataMeasurement = mock {
-        on { child(any()) } doReturn childMeasurement
-        on { start(any()) } doReturn mock { }
+    private val childMetric: ChildMetric = mock { }
+    private val metric: Metric = mock {
+        on { child(any()) } doReturn childMetric
     }
 
     private val decoder = spy(TestDecoder())
@@ -123,7 +120,7 @@ internal class TestSearchMessagesHandler {
             groupName == "test-group"
         })
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement, 4))
+        val handler = spy(MessageResponseHandlerTestImpl(metric, 4))
         searchHandler.loadMessageGroups(
             MessagesGroupRequest(
                 groups = setOf("test-group"),
@@ -137,7 +134,7 @@ internal class TestSearchMessagesHandler {
                 ),
             ),
             handler,
-            measurement,
+            metric,
         )
 
         val messages = argumentCaptor<RequestedMessageDetails>()
@@ -178,7 +175,7 @@ internal class TestSearchMessagesHandler {
             groupName == "test-group"
         })
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement, 4))
+        val handler = spy(MessageResponseHandlerTestImpl(metric, 4))
         searchHandler.loadMessageGroups(
             MessagesGroupRequest(
                 groups = setOf("test-group"),
@@ -190,7 +187,7 @@ internal class TestSearchMessagesHandler {
                 includeStreams = setOf(ProviderMessageStream("test-0", Direction.FIRST)),
             ),
             handler,
-            measurement,
+            metric,
         )
 
         val messages = argumentCaptor<RequestedMessageDetails>()
@@ -221,12 +218,12 @@ internal class TestSearchMessagesHandler {
             sessionAlias == "test-stream" && direction == Direction.FIRST
         })
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement, 4))
+        val handler = spy(MessageResponseHandlerTestImpl(metric, 4))
         val future = taskExecutor.submit {
             searchHandler.loadMessages(
                 createSearchRequest(listOf(ProviderMessageStream("test-stream", Direction.FIRST)), isRawOnly = false),
                 handler,
-                measurement,
+                metric,
             )
         }
 
@@ -272,11 +269,11 @@ internal class TestSearchMessagesHandler {
             sessionAlias == "test-stream" && direction == Direction.FIRST
         })
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        val handler = spy(MessageResponseHandlerTestImpl(metric))
         searchHandler.loadMessages(
             createSearchRequest(listOf(ProviderMessageStream("test-stream", Direction.FIRST)), isRawOnly = false),
             handler,
-            measurement,
+            metric,
         )
 
         verify(decoder, times(2)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), any())
@@ -308,11 +305,11 @@ internal class TestSearchMessagesHandler {
             sessionAlias == "test-stream" && direction == Direction.FIRST
         })
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        val handler = spy(MessageResponseHandlerTestImpl(metric))
         searchHandler.loadMessages(
             createSearchRequest(listOf(ProviderMessageStream("test-stream", Direction.FIRST)), true),
             handler,
-            measurement,
+            metric,
         )
         val messages = argumentCaptor<RequestedMessageDetails>()
         inOrder(handler) {
@@ -335,11 +332,11 @@ internal class TestSearchMessagesHandler {
             sessionAlias == "test-stream" && direction == Direction.FIRST
         })
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        val handler = spy(MessageResponseHandlerTestImpl(metric))
         searchHandler.loadMessages(
             createSearchRequest(listOf(ProviderMessageStream("test-stream", Direction.FIRST)), isRawOnly = false),
             handler,
-            measurement,
+            metric,
         )
 
         verify(handler, never()).complete()
@@ -376,7 +373,7 @@ internal class TestSearchMessagesHandler {
             groupName == group
         })).thenReturn(ImmutableListCradleResult(batches))
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        val handler = spy(MessageResponseHandlerTestImpl(metric))
         val request = MessagesGroupRequest(
             groups = setOf("test"),
             startTimestamp,
@@ -387,7 +384,7 @@ internal class TestSearchMessagesHandler {
         searchHandler.loadMessageGroups(
             request,
             handler,
-            measurement,
+            metric,
         )
 
         verify(handler, never()).complete()
@@ -425,14 +422,14 @@ internal class TestSearchMessagesHandler {
             message
         ).whenever(storage).getMessage(eq(messageId))
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        val handler = spy(MessageResponseHandlerTestImpl(metric))
         searchHandler.loadOneMessage(
             GetMessageRequest(
                 messageId,
                 onlyRaw = false
             ),
             handler,
-            measurement,
+            metric,
         )
 
         verify(handler, never()).complete()
@@ -459,11 +456,11 @@ internal class TestSearchMessagesHandler {
             message,
         ).whenever(storage).getMessage(eq(messageId))
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        val handler = spy(MessageResponseHandlerTestImpl(metric))
         searchHandler.loadOneMessage(
             GetMessageRequest(messageId, onlyRaw = true),
             handler,
-            measurement,
+            metric,
         )
         val messages = argumentCaptor<RequestedMessageDetails>()
         inOrder(handler) {
@@ -528,7 +525,7 @@ internal class TestSearchMessagesHandler {
             limit == 1 && groupName == group
         })).thenReturn(ImmutableListCradleResult(outsideBatches))
 
-        val handler = spy(MessageResponseHandlerTestImpl(measurement))
+        val handler = spy(MessageResponseHandlerTestImpl(metric))
         val request = MessagesGroupRequest(
             groups = setOf("test"),
             startTimestamp,
@@ -537,7 +534,7 @@ internal class TestSearchMessagesHandler {
             BookId("test"),
             responseFormats = setOf(ResponseFormat.BASE_64),
         )
-        searchHandler.loadMessageGroups(request, handler, measurement)
+        searchHandler.loadMessageGroups(request, handler, metric)
 
         val captor = argumentCaptor<RequestedMessageDetails>()
         verify(handler, atMost(messagesCount)).handleNext(captor.capture())
@@ -612,8 +609,8 @@ internal class TestSearchMessagesHandler {
             keepOpen = false,
             bookId = BookId("test"),
         )
-        val handler = spy(MessageResponseHandlerTestImpl(measurement))
-        searchHandler.loadMessageGroups(request, handler, measurement)
+        val handler = spy(MessageResponseHandlerTestImpl(metric))
+        searchHandler.loadMessageGroups(request, handler, metric)
 
         inOrder(decoder) {
             verify(decoder, times(1)).sendBatchMessage(any<MessageGroupBatch.Builder>(), any(), eq("first"))
@@ -694,7 +691,7 @@ private open class TestDecoder(
 }
 
 private open class MessageResponseHandlerTestImpl(
-    measurement: DataMeasurement,
+    measurement: Metric,
     maxQueue: Int = 0,
 ) : MessageResponseHandler(measurement, maxQueue) {
     override fun handleNextInternal(data: RequestedMessageDetails) {

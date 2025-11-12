@@ -19,7 +19,7 @@ package com.exactpro.th2.lwdataprovider.http
 import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.ser.EventSchema
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
@@ -39,7 +39,7 @@ import java.util.function.Supplier
 class GetOneEvent(
     private val sseResponseBuilder: SseResponseBuilder,
     private val searchEventsHandler: SearchEventsHandler,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : AbstractRequestHandler() {
 
     companion object {
@@ -89,7 +89,7 @@ class GetOneEvent(
             queue,
             sseResponseBuilder,
             Runnable::run,
-            dataMeasurement,
+            metric,
             Event::eventId,
             SseResponseBuilder::build
         )

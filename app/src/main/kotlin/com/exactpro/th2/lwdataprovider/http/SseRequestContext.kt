@@ -23,8 +23,8 @@ import com.exactpro.th2.lwdataprovider.ResponseHandler
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseEvent.Companion.DATA_CHARSET
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
-import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.ChildMetric
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.responses.LastScannedObjectInfo
 import com.exactpro.th2.lwdataprovider.failureReason
@@ -48,11 +48,11 @@ class HttpMessagesRequestHandler(
     private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
     private val executor: Executor,
-    dataMeasurement: DataMeasurement,
+    metric: Metric,
     maxMessagesPerRequest: Int = 0,
     responseFormats: Set<ResponseFormat> = EnumSet.of(ResponseFormat.BASE_64, ResponseFormat.PROTO_PARSED),
     private val failFast: Boolean = false,
-) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest), KeepAliveListener {
+) : MessageResponseHandler(metric, maxMessagesPerRequest), KeepAliveListener {
     private val includeRaw: Boolean = responseFormats.isEmpty() || ResponseFormat.BASE_64 in responseFormats
     private val jsonFormatter: JsonFormatter? = (responseFormats - ResponseFormat.BASE_64).run {
         when (size) {
@@ -65,7 +65,7 @@ class HttpMessagesRequestHandler(
 
     private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 
-    private val convertToJsonMeasurement: ChildDataMeasurement = dataMeasurement.child("convert_to_json")
+    private val convertToJsonMetric: ChildMetric = metric.child("convert_to_json")
 
     override val lastTimestampMillis: Long
         get() = scannedObjectInfo.timestamp
@@ -74,7 +74,7 @@ class HttpMessagesRequestHandler(
         if (!isAlive) return
         val counter = indexer.nextIndex()
         val future: CompletableFuture<SseEvent> = data.completed.thenApplyAsync({ requestedMessage: RequestedMessage ->
-            convertToJsonMeasurement.start().use {
+            convertToJsonMetric.measure {
                 if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
                     builder.codecTimeoutError(requestedMessage.storedMessage.id, counter).also {
                         if (failFast) {
@@ -148,7 +148,7 @@ class HttpGenericResponseHandler<T>(
     private val buffer: BlockingQueue<Supplier<SseEvent>>,
     private val builder: SseResponseBuilder,
     private val executor: Executor,
-    dataMeasurement: DataMeasurement,
+    metric: Metric,
     private val getId: (T) -> Any,
     private val createEvent: SseResponseBuilder.(data: T, index: Long) -> SseEvent,
 ) : AbstractCancelableHandler(), ResponseHandler<T>, KeepAliveListener {
@@ -156,7 +156,7 @@ class HttpGenericResponseHandler<T>(
 
     private val scannedObjectInfo: LastScannedObjectInfo = LastScannedObjectInfo()
 
-    private val convertToJsonMeasurement: ChildDataMeasurement = dataMeasurement.child("convert_to_json")
+    private val convertToJsonMetric: ChildMetric = metric.child("convert_to_json")
 
     override val lastTimestampMillis: Long
         get() = scannedObjectInfo.timestamp
@@ -179,7 +179,7 @@ class HttpGenericResponseHandler<T>(
         if (!isAlive) return
         val index = indexer.nextIndex()
         val future: CompletableFuture<SseEvent> = CompletableFuture.supplyAsync({
-            convertToJsonMeasurement.start().use { builder.createEvent(data, index) }
+            convertToJsonMetric.measure { builder.createEvent(data, index) }
         }, executor)
         buffer.put(future::get)
         scannedObjectInfo.update(getId(data).toString(), index)

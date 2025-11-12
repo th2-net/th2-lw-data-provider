@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2021-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import com.exactpro.th2.lwdataprovider.Stream
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
 import com.exactpro.th2.lwdataprovider.db.CradleGroupRequest
 import com.exactpro.th2.lwdataprovider.db.CradleMessageExtractor
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetGroupMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
@@ -78,7 +78,7 @@ class SearchMessagesHandler(
     fun loadMessages(
         request: SseMessageSearchRequest,
         requestContext: MessageResponseHandler,
-        dataMeasurement: DataMeasurement
+        metric: Metric
     ) {
 
         if (request.stream.isNullOrEmpty() && request.resumeFromIdsList.isNullOrEmpty()) {
@@ -153,7 +153,7 @@ class SearchMessagesHandler(
     fun loadOneMessage(
         request: GetMessageRequest,
         requestContext: MessageResponseHandler,
-        dataMeasurement: DataMeasurement
+        metric: Metric
     ) {
         threadPool.execute {
             val rootSink = RootMessagesDataSink(
@@ -192,7 +192,7 @@ class SearchMessagesHandler(
     fun loadOneMessageByGroup(
         request: GetGroupMessageRequest,
         requestContext: MessageResponseHandler,
-        dataMeasurement: DataMeasurement
+        metric: Metric
     ) {
         threadPool.execute {
             val rootSink = RootMessagesDataSink(
@@ -231,7 +231,7 @@ class SearchMessagesHandler(
     fun loadMessageGroups(
         request: MessagesGroupRequest,
         requestContext: MessageResponseHandler,
-        dataMeasurement: DataMeasurement
+        metric: Metric
     ) {
         if (request.groups.isEmpty()) {
             requestContext.complete()

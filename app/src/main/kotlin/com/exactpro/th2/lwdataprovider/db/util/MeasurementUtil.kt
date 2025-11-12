@@ -16,22 +16,20 @@
 
 package com.exactpro.th2.lwdataprovider.db.util
 
-import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.ChildMetric
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 
-fun <T> Iterator<T>.asIterableWithMeasurements(type: String, dataMeasurement: DataMeasurement): Iterable<T> =
+fun <T> Iterator<T>.asIterableWithMeasurements(type: String, dataMeasurement: Metric): Iterable<T> =
     Iterable { MeasurementIterator(this, type, dataMeasurement) }
 
-fun <T> Iterator<T>.withMeasurements(type: String, dataMeasurement: DataMeasurement): Iterator<T> =
+fun <T> Iterator<T>.withMeasurements(type: String, dataMeasurement: Metric): Iterator<T> =
     MeasurementIterator(this, type, dataMeasurement)
 
 private class MeasurementIterator<T>(
     private val original: Iterator<T>,
     type: String,
-    dataMeasurement: DataMeasurement,
+    dataMeasurement: Metric,
 ) : Iterator<T> by original {
-    private val measurement: ChildDataMeasurement = dataMeasurement.child("${type}_next_request")
-    override fun hasNext(): Boolean = measurement.start().use {
-        original.hasNext()
-    }
+    private val childMetric: ChildMetric = dataMeasurement.child("${type}_next_request")
+    override fun hasNext(): Boolean = childMetric.measure(original::hasNext)
 }

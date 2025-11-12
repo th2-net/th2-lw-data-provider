@@ -18,7 +18,7 @@ package com.exactpro.th2.lwdataprovider.http.util
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
@@ -36,7 +36,7 @@ fun writeJsonStream(
     ctx: Context,
     queue: ArrayBlockingQueue<Supplier<SseEvent>>,
     handler: AbstractCancelableHandler,
-    dataMeasurement: DataMeasurement,
+    metric: Metric,
     logger: KLogger,
     progressListener: ProgressListener,
     bufferSize: Int

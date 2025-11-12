@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.requests.SsePageInfosSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.PageInfo
 import com.exactpro.th2.lwdataprovider.handlers.GeneralCradleHandler
@@ -46,7 +46,7 @@ class GetPageInfosServlet(
     private val keepAliveHandler: KeepAliveHandler,
     private val handler: GeneralCradleHandler,
     private val convExecutor: Executor,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : AbstractSseRequestHandler() {
 
     override fun setup(app: Javalin, context: JavalinContext) {
@@ -100,7 +100,7 @@ class GetPageInfosServlet(
             queue,
             sseResponseBuilder,
             convExecutor,
-            dataMeasurement,
+            metric,
             PageInfo::id,
             SseResponseBuilder::build,
         )

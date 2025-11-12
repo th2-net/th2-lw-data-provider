@@ -34,6 +34,7 @@ import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.DataFilter
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
 import java.time.Instant
@@ -43,21 +44,21 @@ import kotlin.system.measureTimeMillis
 
 class CradleEventExtractor(
     cradleManager: CradleManager,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) {
     private val storage: CradleStorage = cradleManager.storage
-    val initRequestMeasurement = dataMeasurement.child("init_request")
-    val scopesMeasurement = dataMeasurement.child("scopes")
-    val singleEventMeasurement = dataMeasurement.child("single_event")
-    val eventFilterMeasurement = dataMeasurement.child("event_filter")
-    val processEventMeasurement = dataMeasurement.child("process_event")
+    val initRequestMetric = metric.child("init_request")
+    val scopesMetric = metric.child("scopes")
+    val singleEventMetric = metric.child("single_event")
+    val eventFilterMetric = metric.child("event_filter")
+    val processEventMetric = metric.child("process_event")
 
     companion object {
         private val logger = KotlinLogging.logger { }
     }
 
     fun getAllEventsScopes(bookId: BookId): Set<String> {
-        return scopesMeasurement.start().use { storage.getScopes(bookId) }.toSet()
+        return scopesMetric.measure { storage.getScopes(bookId) }.toSet()
     }
 
     fun getScopes(bookId: BookId, start: Instant, end: Instant): Iterator<String> {
@@ -114,7 +115,7 @@ class CradleEventExtractor(
         val batchId = filter.batchId
         val eventId = StoredTestEventId.fromString(filter.eventId)
         if (batchId != null) {
-            val testBatch = singleEventMeasurement.start().use { storage.getTestEvent(StoredTestEventId.fromString(batchId)) }
+            val testBatch = singleEventMetric.measure { storage.getTestEvent(StoredTestEventId.fromString(batchId)) }
             if (testBatch == null) {
                 sink.onError("Event batch is not found with id: '$batchId'", batchId = batchId)
                 return
@@ -132,7 +133,7 @@ class CradleEventExtractor(
             val event = Event(testEvent, batch.id)
             sink.onNext(event)
         } else {
-            val testBatch = singleEventMeasurement.start().use { storage.getTestEvent(eventId) }
+            val testBatch = singleEventMetric.measure { storage.getTestEvent(eventId) }
             if (testBatch == null) {
                 sink.onError("Event is not found with id: '$eventId'", filter.eventId)
                 return
@@ -179,7 +180,7 @@ class CradleEventExtractor(
                         .startTimestampFrom().isGreaterThanOrEqualTo(startTimestamp)
                         .startTimestampTo().isLessThan(endTimestamp)
                         .build()
-                ).withMeasurements("event", dataMeasurement)
+                ).withMeasurements("event", metric)
             }
         }
         logger.info { "Loaded events $stat in ${Duration.ofMillis(timeMillis)}" }
@@ -211,9 +212,9 @@ class CradleEventExtractor(
             }
         }
 
-        val testEvents = initRequestMeasurement.start().use { storage.getTestEvents(cradleFilter) }
-        processEvents(testEvents.asIterableWithMeasurements("event", dataMeasurement), sink, counter) { event ->
-            eventFilterMeasurement.start().use { compareStart(event) && compareEnd(event) && filter.match(event) }
+        val testEvents = initRequestMetric.measure { storage.getTestEvents(cradleFilter) }
+        processEvents(testEvents.asIterableWithMeasurements("event", metric), sink, counter) { event ->
+            eventFilterMetric.measure { compareStart(event) && compareEnd(event) && filter.match(event) }
         }
         logger.info {
             "Events for this period loaded. Count: $counter. Time ${System.currentTimeMillis() - startTime} ms"
@@ -231,7 +232,7 @@ class CradleEventExtractor(
         filter: DataFilter<TestEventSingle>,
     ) {
         for (testEvent in testEvents) {
-            processEventMeasurement.start().use { processTestEvent(testEvent, count, filter, sink) }
+            processEventMetric.measure { processTestEvent(testEvent, count, filter, sink) }
             sink.canceled?.apply {
                 logger.info { "events processing canceled: $message" }
                 return

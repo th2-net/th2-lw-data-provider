@@ -39,7 +39,7 @@ import com.exactpro.th2.dataprovider.lw.grpc.PageInfoResponse
 import com.exactpro.th2.lwdataprovider.CancelableResponseHandler
 import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.exceptions.InvalidRequestException
 import com.exactpro.th2.lwdataprovider.entities.requests.GetEventRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.GetMessageRequest
@@ -65,7 +65,7 @@ open class GrpcDataProviderImpl(
     private val searchMessagesHandler: SearchMessagesHandler,
     private val searchEventsHandler: SearchEventsHandler,
     private val generalCradleHandler: GeneralCradleHandler,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : DataProviderGrpc.DataProviderImplBase() {
 
     companion object {
@@ -104,8 +104,8 @@ open class GrpcDataProviderImpl(
         val queue = ArrayBlockingQueue<GrpcEvent>(5)
 
         val requestParams = GetMessageRequest(request)
-        val handler = GrpcMessageResponseHandler(queue, dataMeasurement)
-        searchMessagesHandler.loadOneMessage(requestParams, handler, dataMeasurement)
+        val handler = GrpcMessageResponseHandler(queue, metric)
+        searchMessagesHandler.loadOneMessage(requestParams, handler, metric)
         processSingle(responseObserver, handler, queue) {
             val message = it.message?.get()
             if (message != null && message.hasMessage()) {
@@ -178,12 +178,12 @@ open class GrpcDataProviderImpl(
         LOGGER.info { "Loading messages $requestParams" }
         val handler = GrpcMessageResponseHandler(
             queue,
-            dataMeasurement,
+            metric,
             configuration.bufferPerQuery,
             requestParams.responseFormats ?: configuration.responseFormats
         )
 //        val loadingStep = context.startStep("messages_loading")
-        searchMessagesHandler.loadMessages(requestParams, handler, dataMeasurement)
+        searchMessagesHandler.loadMessages(requestParams, handler, metric)
         try {
             processResponse(responseObserver, queue, handler, { /*finish step*/ }) { it.message?.get() }
         } catch (ex: Exception) {
@@ -199,10 +199,10 @@ open class GrpcDataProviderImpl(
         val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
         val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
         LOGGER.info { "Loading messages groups $requestParams" }
-        val handler = GrpcMessageResponseHandler(queue, dataMeasurement, configuration.bufferPerQuery)
+        val handler = GrpcMessageResponseHandler(queue, metric, configuration.bufferPerQuery)
 //        val loadingStep = context.startStep("messages_group_loading")
         try {
-            searchMessagesHandler.loadMessageGroups(requestParams, handler, dataMeasurement)
+            searchMessagesHandler.loadMessageGroups(requestParams, handler, metric)
             processResponse(responseObserver, queue, handler, { /*finish step*/ }) {
                 it.message?.get()?.apply {
                     LOGGER.trace { "Sending message ${this.message.messageId.toStoredMessageId()}" }

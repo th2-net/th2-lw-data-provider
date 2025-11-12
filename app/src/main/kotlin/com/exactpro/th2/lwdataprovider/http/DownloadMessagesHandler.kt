@@ -20,7 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
@@ -52,7 +52,7 @@ class DownloadMessagesHandler(
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : JavalinHandler {
     override fun setup(app: Javalin, context: JavalinContext) {
         app.get(ROUTE_MESSAGES, this::handleMessage)
@@ -177,13 +177,13 @@ class DownloadMessagesHandler(
             }
         }
         val handler = HttpMessagesRequestHandler(
-            queue, sseResponseBuilder, convExecutor, dataMeasurement,
+            queue, sseResponseBuilder, convExecutor, metric,
             maxMessagesPerRequest = configuration.bufferPerQuery,
             responseFormats = responseFormats ?: configuration.responseFormats
         )
         keepAliveHandler.addKeepAliveData(handler).use {
-            searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
-            writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER, progressListener = DEFAULT_PROCESS_LISTENER, bufferSize = configuration.responseBufferSize)
+            searchMessagesHandler.loadMessageGroups(request, handler, metric)
+            writeJsonStream(ctx, queue, handler, metric, LOGGER, progressListener = DEFAULT_PROCESS_LISTENER, bufferSize = configuration.responseBufferSize)
             LOGGER.info { "Processing download messages request finished" }
         }
     }

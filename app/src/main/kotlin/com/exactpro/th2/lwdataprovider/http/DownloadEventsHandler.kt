@@ -21,7 +21,7 @@ import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
@@ -55,7 +55,7 @@ class DownloadEventsHandler(
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchEventsHandler: SearchEventsHandler,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : JavalinHandler {
     override fun setup(app: Javalin, context: JavalinContext) {
         app.get(ROUTE_DOWNLOAD_EVENTS, this::handleEvent)
@@ -136,7 +136,7 @@ class DownloadEventsHandler(
         HeapBufferPool().use { bufferPool ->
             MapEscaper().use { escaper ->
                 val handler = HttpGenericResponseHandler(
-                    queue, sseResponseBuilder.createWith(bufferPool, escaper), convExecutor, dataMeasurement,
+                    queue, sseResponseBuilder.createWith(bufferPool, escaper), convExecutor, metric,
                     Event::eventId,
                     SseResponseBuilder::build
                 )
@@ -146,7 +146,7 @@ class DownloadEventsHandler(
                         ctx,
                         queue,
                         handler,
-                        dataMeasurement,
+                        metric,
                         LOGGER,
                         progressListener = DEFAULT_PROCESS_LISTENER,
                         bufferSize = configuration.responseBufferSize

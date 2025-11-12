@@ -20,7 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
@@ -51,7 +51,7 @@ class GetEventsServlet(
     private val keepAliveHandler: KeepAliveHandler,
     private val searchEventsHandler: SearchEventsHandler,
     private val convExecutor: Executor,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : AbstractSseRequestHandler() {
 
     companion object {
@@ -127,7 +127,7 @@ class GetEventsServlet(
             queue,
             sseResponseBuilder,
             convExecutor,
-            dataMeasurement,
+            metric,
             Event::eventId,
             SseResponseBuilder::build
         )

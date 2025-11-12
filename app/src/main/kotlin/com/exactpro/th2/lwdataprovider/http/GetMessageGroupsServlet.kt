@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
@@ -50,7 +50,7 @@ class GetMessageGroupsServlet(
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : AbstractSseRequestHandler() {
 
     override fun setup(app: Javalin, context: JavalinContext) {
@@ -165,13 +165,13 @@ class GetMessageGroupsServlet(
             }
         }
         val handler = HttpMessagesRequestHandler(
-            queue, sseResponseBuilder, convExecutor, dataMeasurement,
+            queue, sseResponseBuilder, convExecutor, metric,
             maxMessagesPerRequest = configuration.bufferPerQuery,
             responseFormats = responseFormats ?: configuration.responseFormats
         )
         sseClient.onClose(handler::cancel)
         keepAliveHandler.addKeepAliveData(handler).use {
-            searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
+            searchMessagesHandler.loadMessageGroups(request, handler, metric)
             sseClient.waitAndWrite(queue)
             LOGGER.info { "Processing search sse messages group request finished" }
         }

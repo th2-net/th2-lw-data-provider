@@ -20,8 +20,8 @@ import com.exactpro.cradle.Direction
 import com.exactpro.th2.lwdataprovider.ProviderStreamInfo
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
 import com.exactpro.th2.lwdataprovider.ResponseHandler
-import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.ChildMetric
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
@@ -29,14 +29,14 @@ import javax.annotation.concurrent.GuardedBy
 import kotlin.concurrent.withLock
 
 abstract class MessageResponseHandler(
-    dataMeasurement: DataMeasurement,
+    metric: Metric,
     private val maxMessagesPerRequest: Int = 0,
 ) : AbstractCancelableHandler(), ResponseHandler<RequestedMessageDetails> {
     private val lock: ReentrantLock = ReentrantLock()
     private val condition: Condition = lock.newCondition()
     val streamInfo: ProviderStreamInfo = ProviderStreamInfo()
-    private val putQueueMeasurement: ChildDataMeasurement = dataMeasurement.child("put_queue")
-    private val awaitDecodeQueueMeasurement: ChildDataMeasurement = dataMeasurement.child("await_decode_queue")
+    private val putQueueMetric: ChildMetric = metric.child("put_queue")
+    private val awaitDecodeQueueMetric: ChildMetric = metric.child("await_decode_queue")
 
     @GuardedBy("lock")
     private var messagesInProcess: Int = 0
@@ -53,8 +53,8 @@ abstract class MessageResponseHandler(
     }
 
     fun checkAndWaitForRequestLimit(msgBufferCount: Int) {
-        var submitted = false
-        awaitDecodeQueueMeasurement.start().use {
+            var submitted = false
+        awaitDecodeQueueMetric.measure {
             do {
                 lock.withLock {
                     val expectedSize = messagesInProcess + msgBufferCount
@@ -86,7 +86,7 @@ abstract class MessageResponseHandler(
 
     override fun handleNext(data: RequestedMessageDetails) {
         streamInfo.registerMessage(data.storedMessage.id, data.storedMessage.timestamp)
-        putQueueMeasurement.start().use { handleNextInternal(data) }
+        putQueueMetric.measure { handleNextInternal(data) }
     }
 
     fun requestReceived() {
