@@ -18,15 +18,15 @@ package com.exactpro.th2.lwdataprovider.http.util
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
+import com.exactpro.th2.lwdataprovider.metrics.Metric
+import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
 import io.github.oshai.kotlinlogging.KLogger
 import io.javalin.http.Context
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
-import java.io.OutputStream
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
@@ -47,7 +47,7 @@ fun writeJsonStream(
     var dataSent = 0
 
     var writeHeader = true
-    val status: HttpStatus = HttpStatus.OK
+    var status: HttpStatus = HttpStatus.OK
 
     val output = ctx.res().outputStream.let {
         if (bufferSize > 0) {
@@ -57,21 +57,50 @@ fun writeJsonStream(
         }
     }
     try {
+        val awaitConvertToJsonMetric = metric.child("await_convert_to_json")
+        val awaitNextMetric = metric.child("await_next_sse_event")
+        val processSseEventMetric = metric.child("process_sse_event")
+        val writeSseEventMetric = metric.child("write_sse_event")
         do {
-            val nextEvent = awaitNextEvent(queue)
-            val sseEvent = awaitConver(nextEvent)
-            writeHeader = writeHeader(writeHeader, sseEvent, status, ctx)
-            processErrorData(sseEvent, progressListener)
-            if (sseEvent.event == EventType.KEEP_ALIVE) {
-                flush(output)
-            } else if (sseEvent.event == EventType.CLOSE) {
+            processSseEventMetric.measure {
+                val nextEvent = awaitNextMetric.measure(queue::take)
+                ResponseQueue.currentSize(matchedPath, queue.size)
+                val sseEvent = awaitConvertToJsonMetric.measure(nextEvent::get)
+                if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
+                    // something happened during request
+                    status = HttpStatus.INTERNAL_SERVER_ERROR
+                }
+                if (writeHeader) {
+                    ctx.status(status)
+                        .contentType(JSON_STREAM_CONTENT_TYPE)
+                        .header(Header.TRANSFER_ENCODING, "chunked")
+                    writeHeader = false
+                }
+                if (sseEvent is SseEvent.ErrorData) {
+                    progressListener.onError(sseEvent)
+                }
+                when (sseEvent.event) {
+                    EventType.KEEP_ALIVE -> output.flush()
+                    EventType.CLOSE -> {
                 logger.info { "Received close event" }
                 return
-            } else {
-                dataSent = write(logger, sseEvent, output, dataSent)
+                    }
+
+                    else -> {
+                        logger.debug {
+                            "Write event to output: " // FIXME: log data
+                        }
+                        writeSseEventMetric.measure {
+                            sseEvent.writeData(output)
+                            output.write('\n'.code)
+                        }
+                        dataSent++
             }
-            if (!checkStatus(queue, handler, logger)) {
+                }
+                if (queue.isEmpty() && !handler.isAlive) {
+                    logger.info { "Request canceled" }
                 return
+            }
             }
         } while (true)
     } catch (ex: Exception) {
@@ -86,80 +115,7 @@ fun writeJsonStream(
             progressListener.onCanceled()
         }
         HttpWriteMetrics.messageSent(matchedPath, dataSent)
-        try {
-            flush(output)
-        } catch (e: Exception) {
-            logger.error(e) { "cannot flush the remaining data when processing is finished" }
-        }
+        runCatching { output.flush() }
+            .onFailure { logger.error(it) { "cannot flush the remaining data when processing is finished" } }
     }
-}
-
-private fun checkStatus(
-    queue: ArrayBlockingQueue<Supplier<SseEvent>>,
-    handler: AbstractCancelableHandler,
-    logger: KLogger
-): Boolean {
-    if (queue.isEmpty() && !handler.isAlive) {
-        logger.info { "Request canceled" }
-        return false
-    }
-    return true
-}
-
-private fun write(
-    logger: KLogger,
-    sseEvent: SseEvent,
-    output: OutputStream,
-    dataSent: Int
-): Int {
-    logger.debug {
-        "Write event to output: " // FIXME: log data
-    }
-    sseEvent.writeData(output)
-    output.write('\n'.code)
-    return dataSent + 1
-}
-
-private fun flush(output: OutputStream) {
-    output.flush()
-}
-
-private fun processErrorData(
-    sseEvent: SseEvent,
-    progressListener: ProgressListener
-) {
-    if (sseEvent is SseEvent.ErrorData) {
-        progressListener.onError(sseEvent)
-    }
-}
-
-private fun writeHeader(
-    writeHeader: Boolean,
-    sseEvent: SseEvent,
-    status: HttpStatus,
-    ctx: Context
-): Boolean {
-    var status1 = status
-    if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
-        // something happened during request
-        status1 = HttpStatus.INTERNAL_SERVER_ERROR
-    }
-    if (writeHeader) {
-        ctx.status(status1)
-            .contentType(JSON_STREAM_CONTENT_TYPE)
-            .header(Header.TRANSFER_ENCODING, "chunked")
-    }
-    return false
-}
-
-private fun awaitConver(
-    nextEvent: Supplier<SseEvent>
-): SseEvent {
-    return nextEvent.get()
-}
-
-private fun awaitNextEvent(
-    queue: ArrayBlockingQueue<Supplier<SseEvent>>
-): Supplier<SseEvent> {
-    return queue.take()
 }
