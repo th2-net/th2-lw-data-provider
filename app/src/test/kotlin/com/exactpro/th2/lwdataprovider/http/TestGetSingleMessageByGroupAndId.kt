@@ -43,7 +43,7 @@ class TestGetSingleMessageByGroupAndId : AbstractHttpHandlerTest<GetSingleMessag
             configuration = configuration,
             sseResponseBuilder = sseResponseBuilder,
             convExecutor = context.convExecutor,
-            dataMeasurement = context.requestsDataMeasurement,
+            metric = context.requestsDataMeasurement,
         )
     }
 
