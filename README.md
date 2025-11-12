@@ -231,6 +231,9 @@ spec:
 + Optimized message download call
   + Serialize base64 bytes of raw message instead of string
   + Optimized measurement by metrics
+  + `responseQueueSize` option is deprecated (currently used as default value for `responseMessageQueueSize` and `responseEventQueueSize` options)
+    + added `responseMessageQueueSize` (default: 10000)
+    + added `responseEventQueueSize` (default: 100)
 
 ## 2.17.1
 

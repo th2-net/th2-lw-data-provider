@@ -32,7 +32,10 @@ class CustomConfigurationClass(
     val keepAliveTimeout: Long? = null,
     val maxBufferDecodeQueue: Int? = null,
     val decodingTimeout: Long? = null,
+    @Deprecated("Please use responseMessageQueueSize and responseEventQueueSize")
     val responseQueueSize: Int? = null,
+    val responseMessageQueueSize: Int? = null,
+    val responseEventQueueSize: Int? = null,
     val responseBufferSize: Int? = null,
     val execThreadPoolSize: Int? = null,
     val convThreadPoolSize: Int? = null,
@@ -59,11 +62,15 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
     val keepAliveTimeout: Long = VariableBuilder.getVariable(customConfiguration::keepAliveTimeout, 5000)
     val maxBufferDecodeQueue: Int = VariableBuilder.getVariable(customConfiguration::maxBufferDecodeQueue, 10_000)
     val decodingTimeout: Long = VariableBuilder.getVariable(customConfiguration::decodingTimeout, 60_000)
+    @Deprecated("Please use responseMessageQueueSize and responseEventQueueSize")
     val responseQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseQueueSize, 100)
+    val responseMessageQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseMessageQueueSize, customConfiguration.responseQueueSize ?: 10000)
+    val responseEventQueueSize: Int = VariableBuilder.getVariable(customConfiguration::responseEventQueueSize, customConfiguration.responseQueueSize ?: 100)
     val responseBufferSize: Int = VariableBuilder.getVariable(customConfiguration::responseBufferSize, 0)
     val execThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::execThreadPoolSize, 10)
     val convThreadPoolSize: Int = VariableBuilder.getVariable(customConfiguration::convThreadPoolSize, 3)
-    val batchSize: Int
+    val messageBatchSize: Int
+    val evntBatchSize: Int
     val mode: Mode = VariableBuilder.getVariable(customConfiguration::mode, Mode.HTTP) {
         it.let { Mode.valueOf(it.uppercase(Locale.getDefault())) }
     }
@@ -88,7 +95,8 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
         val batchBoundary = bufferPerQuery.takeIf { it > 0 } ?: maxBufferDecodeQueue
         // Max batch size in order to meet the queue limits
         // We also should meet response queue limits - the batch size cannot be greater than the response queue size
-        batchSize = min(batchBoundary, responseQueueSize)
+        messageBatchSize = min(batchBoundary, responseMessageQueueSize)
+        evntBatchSize = min(batchBoundary, responseEventQueueSize)
         if (mode != Mode.GRPC && grpcBackPressure) {
             LOGGER.warn { "gRPC backpressure works only with ${Mode.GRPC} mode but current mode is $mode" }
         }
@@ -112,9 +120,12 @@ class Configuration(customConfiguration: CustomConfigurationClass) {
                 "maxBufferDecodeQueue=$maxBufferDecodeQueue, " +
                 "decodingTimeout=$decodingTimeout, " +
                 "responseQueueSize=$responseQueueSize, " +
+                "responseMessageQueueSize=$responseMessageQueueSize, " +
+                "responseEventQueueSize=$responseEventQueueSize, " +
                 "execThreadPoolSize=$execThreadPoolSize, " +
                 "convThreadPoolSize=$convThreadPoolSize, " +
-                "batchSize=$batchSize, " +
+                "messageBatchSize=$messageBatchSize, " +
+                "evntBatchSize=$evntBatchSize, " +
                 "mode=$mode, " +
                 "grpcBackPressure=$grpcBackPressure, " +
                 "bufferPerQuery=$bufferPerQuery, " +

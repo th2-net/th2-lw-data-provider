@@ -98,14 +98,14 @@ class Context(
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,
         protoMessageRouter,
-        configuration.batchSize,
+        configuration.messageBatchSize,
         configuration.codecUsePinAttributes,
         execExecutor,
     ),
     val queueEventsHandler: QueueEventsHandler = QueueEventsHandler(
         cradleEventExtractor,
         eventRouter,
-        configuration.batchSize,
+        configuration.evntBatchSize,
         execExecutor,
     ),
     val generalCradleHandler: GeneralCradleHandler = GeneralCradleHandler(generalCradleExtractor, execExecutor),

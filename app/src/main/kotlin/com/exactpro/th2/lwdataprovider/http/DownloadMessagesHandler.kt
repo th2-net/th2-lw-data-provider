@@ -168,7 +168,7 @@ class DownloadMessagesHandler(
                 .getOrDefault(SearchDirection.next),
         )
 
-        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseMessageQueueSize)
         val responseFormats: Set<ResponseFormat>? = request.responseFormats.let { formats ->
             if (ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER).getOrDefault(false)) {
                 formats?.let { it + ResponseFormat.BASE_64 } ?: setOf(ResponseFormat.BASE_64)

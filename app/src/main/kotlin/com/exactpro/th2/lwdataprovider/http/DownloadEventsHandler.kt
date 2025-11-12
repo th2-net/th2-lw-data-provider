@@ -132,7 +132,7 @@ class DownloadEventsHandler(
     private fun handleEvent(ctx: Context) {
         val request = createRequest(ctx)
 
-        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseEventQueueSize)
         HeapBufferPool().use { bufferPool ->
             MapEscaper().use { escaper ->
                 val handler = HttpGenericResponseHandler(

@@ -122,7 +122,7 @@ class GetEventsServlet(
             "request was not created in before handler"
         }
 
-        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseEventQueueSize)
         val reqContext = HttpGenericResponseHandler(
             queue,
             sseResponseBuilder,

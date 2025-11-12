@@ -154,7 +154,7 @@ class GetMessagesServlet(
             "request was not created in before handler"
         }
 
-        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseMessageQueueSize)
         val handler = HttpMessagesRequestHandler(
             queue, sseResponseBuilder, convExecutor, metric,
             maxMessagesPerRequest = configuration.bufferPerQuery,

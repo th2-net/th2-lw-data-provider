@@ -95,14 +95,14 @@ class SearchMessagesHandler(
                         TransportParsedStoredMessageHandler(
                             requestContext,
                             decoder,
-                            configuration.batchSize,
+                            configuration.messageBatchSize,
                             configuration.batchSizeBytes,
                         )
                     } else {
                         ProtoParsedStoredMessageHandler(
                             requestContext,
                             decoder,
-                            configuration.batchSize,
+                            configuration.messageBatchSize,
                             configuration.batchSizeBytes,
                         )
                     }
@@ -165,14 +165,14 @@ class SearchMessagesHandler(
                         TransportParsedStoredMessageHandler(
                             requestContext,
                             decoder,
-                            configuration.batchSize,
+                            configuration.messageBatchSize,
                             configuration.batchSizeBytes,
                         )
                     } else {
                         ProtoParsedStoredMessageHandler(
                             requestContext,
                             decoder,
-                            configuration.batchSize,
+                            configuration.messageBatchSize,
                             configuration.batchSizeBytes,
                         )
                     }
@@ -204,14 +204,14 @@ class SearchMessagesHandler(
                         TransportParsedStoredMessageHandler(
                             requestContext,
                             decoder,
-                            configuration.batchSize,
+                            configuration.messageBatchSize,
                             configuration.batchSizeBytes,
                         )
                     } else {
                         ProtoParsedStoredMessageHandler(
                             requestContext,
                             decoder,
-                            configuration.batchSize,
+                            configuration.messageBatchSize,
                             configuration.batchSizeBytes,
                         )
                     }
@@ -248,7 +248,7 @@ class SearchMessagesHandler(
                         TransportParsedStoredMessageHandler(
                             requestContext,
                             decoder,
-                            configuration.batchSize,
+                            configuration.messageBatchSize,
                             configuration.batchSizeBytes,
                             markerAsGroup = true
                         )
@@ -256,7 +256,7 @@ class SearchMessagesHandler(
                         ProtoParsedStoredMessageHandler(
                             requestContext,
                             decoder,
-                            configuration.batchSize,
+                            configuration.messageBatchSize,
                             configuration.batchSizeBytes,
                             markerAsGroup = true
                         )

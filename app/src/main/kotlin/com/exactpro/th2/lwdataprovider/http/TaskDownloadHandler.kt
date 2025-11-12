@@ -77,6 +77,7 @@ import io.javalin.openapi.OpenApiRequestBody
 import io.javalin.openapi.OpenApiResponse
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.BlockingQueue
 import java.util.concurrent.Executor
 import java.util.function.Supplier
 
@@ -229,10 +230,11 @@ class TaskDownloadHandler(
                     if (taskInfo == null) {
                         return@execute TaskState.NotFound
                     }
-                    val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+                    val queue: BlockingQueue<Supplier<SseEvent>>
 
                     when (taskInfo) {
                         is MessageTaskInfo -> {
+                            queue = ArrayBlockingQueue(configuration.responseMessageQueueSize)
                             val handler = HttpMessagesRequestHandler(
                                 queue, responseBuilder, convExecutor, metric,
                                 maxMessagesPerRequest = configuration.bufferPerQuery,
@@ -245,6 +247,7 @@ class TaskDownloadHandler(
                         }
 
                         is EventTaskInfo -> {
+                            queue = ArrayBlockingQueue(configuration.responseEventQueueSize)
                             val handler = HttpGenericResponseHandler(
                                 queue, responseBuilder, convExecutor, metric,
                                 Event::eventId,

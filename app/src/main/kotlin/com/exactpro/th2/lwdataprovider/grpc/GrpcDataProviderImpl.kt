@@ -132,7 +132,7 @@ open class GrpcDataProviderImpl(
 
     override fun searchEvents(request: EventSearchRequest, responseObserver: StreamObserver<EventSearchResponse>) {
 
-        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseEventQueueSize)
         val requestParams = SseEventSearchRequest(request)
         LOGGER.info { "Loading events $requestParams" }
 
@@ -173,7 +173,7 @@ open class GrpcDataProviderImpl(
         responseObserver: StreamObserver<MessageSearchResponse>
     ) {
 
-        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseMessageQueueSize)
         val requestParams = SseMessageSearchRequest(request)
         LOGGER.info { "Loading messages $requestParams" }
         val handler = GrpcMessageResponseHandler(
@@ -196,7 +196,7 @@ open class GrpcDataProviderImpl(
         request: MessageGroupsSearchRequest,
         responseObserver: StreamObserver<MessageSearchResponse>
     ) {
-        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseMessageQueueSize)
         val requestParams = MessagesGroupRequest.fromGrpcRequest(request)
         LOGGER.info { "Loading messages groups $requestParams" }
         val handler = GrpcMessageResponseHandler(queue, metric, configuration.bufferPerQuery)
@@ -215,7 +215,7 @@ open class GrpcDataProviderImpl(
     }
 
     override fun getPageInfo(request: PageInfoRequest, responseObserver: StreamObserver<PageInfoResponse>) {
-        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<GrpcEvent>(configuration.responseEventQueueSize)
         try {
             val internalRequest = request.run {
                 SsePageInfosSearchRequest(
