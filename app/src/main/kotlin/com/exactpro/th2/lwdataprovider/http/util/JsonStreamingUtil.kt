@@ -80,23 +80,20 @@ fun writeJsonStream(
                 if (sseEvent is SseEvent.ErrorData) {
                     progressListener.onError(sseEvent)
                 }
-                when (sseEvent.event) {
-                    EventType.KEEP_ALIVE -> output.flush()
-                    EventType.CLOSE -> {
-                        logger.info { "Received close event" }
-                        return
+                if (sseEvent.event == EventType.KEEP_ALIVE) {
+                    output.flush()
+                } else if (sseEvent.event == EventType.CLOSE) {
+                    logger.info { "Received close event" }
+                    return
+                } else {
+                    logger.debug {
+                        "Write event to output: " // FIXME: log data
                     }
-
-                    else -> {
-                        logger.debug {
-                            "Write event to output: " // FIXME: log data
-                        }
-                        writeSseEventMetric.measure {
+                    writeSseEventMetric.measure {
                         sseEvent.writeData(output)
                         output.write('\n'.code)
-                        }
-                        dataSent++
                     }
+                    dataSent++
                 }
                 if (queue.isEmpty() && !handler.isAlive) {
                     logger.info { "Request canceled" }
@@ -116,7 +113,10 @@ fun writeJsonStream(
             progressListener.onCanceled()
         }
         HttpWriteMetrics.messageSent(matchedPath, dataSent)
-        runCatching { output.flush() }
-            .onFailure { logger.error(it) { "cannot flush the remaining data when processing is finished" } }
+        try {
+            output.flush()
+        } catch (e: Exception) {
+            logger.error(e) { "cannot flush the remaining data when processing is finished" }
+        }
     }
 }
