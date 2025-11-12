@@ -275,7 +275,7 @@ class TaskDownloadHandler(
                         val (taskInfo, handler, queue) = taskState
                         keepAliveHandler.addKeepAliveData(handler).use {
                             searchMessagesHandler.loadMessageGroups(taskInfo.request, handler, metric)
-                            writeJsonStream(context, queue, handler, metric, LOGGER, taskInfo, DEFAULT_BUFFER_SIZE)
+                            writeJsonStream(context, queue, handler, metric, LOGGER, taskInfo, configuration.responseBufferSize)
                             LOGGER.info { "Message task $taskID completed with status ${taskInfo.status}" }
                         }
                     }
@@ -284,7 +284,7 @@ class TaskDownloadHandler(
                         val (taskInfo, handler, queue) = taskState
                         keepAliveHandler.addKeepAliveData(handler).use {
                             searchEventsHandler.loadEvents(taskInfo.request, handler)
-                            writeJsonStream(context, queue, handler, metric, LOGGER, progressListener = DEFAULT_PROCESS_LISTENER, DEFAULT_BUFFER_SIZE)
+                            writeJsonStream(context, queue, handler, metric, LOGGER, taskInfo, configuration.responseBufferSize)
                             LOGGER.info { "Event task $taskID completed with status ${taskInfo.status}" }
                         }
                     }
