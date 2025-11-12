@@ -44,6 +44,7 @@ fun writeJsonStream(
     progressListener.onStart()
 
     val matchedPath = ctx.matchedPath()
+    val queueSizeMetric = ResponseQueue.queueSizeMetric(matchedPath)
     var dataSent = 0
 
     var writeHeader = true
@@ -64,7 +65,7 @@ fun writeJsonStream(
         do {
             processSseEventMetric.measure {
                 val nextEvent = awaitNextMetric.measure(queue::take)
-                ResponseQueue.currentSize(matchedPath, queue.size)
+                queueSizeMetric.set(queue.size.toDouble())
                 val sseEvent = awaitConvertToJsonMetric.measure(nextEvent::get)
                 if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
                     // something happened during request
@@ -82,8 +83,8 @@ fun writeJsonStream(
                 when (sseEvent.event) {
                     EventType.KEEP_ALIVE -> output.flush()
                     EventType.CLOSE -> {
-                logger.info { "Received close event" }
-                return
+                        logger.info { "Received close event" }
+                        return
                     }
 
                     else -> {
@@ -91,16 +92,16 @@ fun writeJsonStream(
                             "Write event to output: " // FIXME: log data
                         }
                         writeSseEventMetric.measure {
-                            sseEvent.writeData(output)
-                            output.write('\n'.code)
+                        sseEvent.writeData(output)
+                        output.write('\n'.code)
                         }
                         dataSent++
-            }
+                    }
                 }
                 if (queue.isEmpty() && !handler.isAlive) {
                     logger.info { "Request canceled" }
-                return
-            }
+                    return
+                }
             }
         } while (true)
     } catch (ex: Exception) {

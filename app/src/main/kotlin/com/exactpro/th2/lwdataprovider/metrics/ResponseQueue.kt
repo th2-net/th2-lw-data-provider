@@ -24,7 +24,5 @@ object ResponseQueue {
         "the current size of the response queue"
     ).labelNames("uri").register()
 
-    fun currentSize(path: String, size: Int) {
-        responseQueueSize.labels(path).set(size.toDouble())
-    }
+    fun queueSizeMetric(path: String): Gauge.Child = responseQueueSize.labels(path)
 }
