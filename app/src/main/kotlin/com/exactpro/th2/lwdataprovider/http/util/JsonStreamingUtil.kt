@@ -52,13 +52,16 @@ fun writeJsonStream(
     var status: HttpStatus = HttpStatus.OK
 
     val output = ctx.res().apply {
+        logger.info { "before ${this.bufferSize}" }
         if (bufferSize > 0) {
             this.bufferSize = bufferSize
         }
+        logger.info { "after ${this.bufferSize}" }
     }.outputStream
 
     try {
         val processSseEventMetric = metric.child("process_sse_event")
+        val writeSseEventMeasurement = metric.child("write_sse_event")
         do {
             val startNanos = System.nanoTime()
             try {
@@ -87,9 +90,14 @@ fun writeJsonStream(
                     logger.debug {
                         "Write event to output: " // FIXME: log data
                     }
-                    sseEvent.writeData(output)
-                    output.write('\n'.code)
-                    dataSent++
+                    val startWrite = System.nanoTime()
+                    try {
+                        sseEvent.writeData(output)
+                        output.write('\n'.code)
+                        dataSent++
+                    } finally {
+                        writeSseEventMeasurement.observe(SimpleTimer.elapsedSecondsFromNanos(startWrite, System.nanoTime()))
+                    }
                 }
                 if (queue.isEmpty() && !handler.isAlive) {
                     logger.info { "Request canceled" }
