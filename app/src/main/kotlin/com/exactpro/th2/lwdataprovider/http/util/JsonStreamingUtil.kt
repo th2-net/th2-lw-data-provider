@@ -27,6 +27,7 @@ import io.github.oshai.kotlinlogging.KLogger
 import io.javalin.http.Context
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
+import io.prometheus.client.SimpleTimer
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
@@ -51,34 +52,24 @@ fun writeJsonStream(
     var status: HttpStatus = HttpStatus.OK
 
     val output = ctx.res().apply {
-        logger.info { "before ${this.bufferSize}" }
         if (bufferSize > 0) {
             this.bufferSize = bufferSize
         }
-        logger.info { "after ${this.bufferSize}" }
     }.outputStream
 
     try {
         val processSseEventMetric = metric.child("process_sse_event")
-        val awaitConvertToJsonMetric = metric.child("await_convert_to_json")
-        val updateQueueSizeMetric = metric.child("update_queue_size")
-        val checkEmptyQueueMetric = metric.child("check_empty_queue")
-        val awaitNextMetric = metric.child("await_next_sse_event")
-        val writeSseEventMetric = metric.child("write_sse_event")
         do {
-            processSseEventMetric.measure {
-                val nextEvent = awaitNextMetric.measure(queue::take)
-                updateQueueSizeMetric.measure { queueSizeMetric.set(queue.size.toDouble()) }
-                val sseEvent = awaitConvertToJsonMetric.measure(nextEvent::get)
+            val startNanos = System.nanoTime()
+            try {
+                val nextEvent = queue.take()
+                queueSizeMetric.set(queue.size.toDouble())
+                val sseEvent = nextEvent.get()
                 if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
                     // something happened during request
                     status = HttpStatus.INTERNAL_SERVER_ERROR
                 }
                 if (writeHeader) {
-                    if (sseEvent is SseEvent.ErrorData.SimpleError) {
-                        // something happened during request
-                        status = HttpStatus.INTERNAL_SERVER_ERROR
-                    }
                     ctx.status(status)
                         .contentType(JSON_STREAM_CONTENT_TYPE)
                         .header(Header.TRANSFER_ENCODING, "chunked")
@@ -96,18 +87,16 @@ fun writeJsonStream(
                     logger.debug {
                         "Write event to output: " // FIXME: log data
                     }
-                    writeSseEventMetric.measure {
-                        sseEvent.writeData(output)
-                        output.write('\n'.code)
-                        dataSent++
-                    }
+                    sseEvent.writeData(output)
+                    output.write('\n'.code)
+                    dataSent++
                 }
-                checkEmptyQueueMetric.measure {
-                    if (queue.isEmpty() && !handler.isAlive) {
-                        logger.info { "Request canceled" }
-                        return
-                    }
+                if (queue.isEmpty() && !handler.isAlive) {
+                    logger.info { "Request canceled" }
+                    return
                 }
+            } finally {
+                processSseEventMetric.observe(SimpleTimer.elapsedSecondsFromNanos(startNanos, System.nanoTime()))
             }
         } while (true)
     } catch (ex: Exception) {
