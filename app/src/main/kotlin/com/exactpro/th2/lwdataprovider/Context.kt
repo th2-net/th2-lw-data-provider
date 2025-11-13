@@ -31,8 +31,8 @@ import com.exactpro.th2.lwdataprovider.handlers.QueueEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.QueueMessagesHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.metrics.ImplMetric
 import com.exactpro.th2.lwdataprovider.metrics.Metric
-import com.exactpro.th2.lwdataprovider.metrics.SummaryMetric
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
 import com.exactpro.th2.lwdataprovider.workers.TaskManager
 import com.exactpro.th2.lwdataprovider.workers.TimerWatcher
@@ -71,11 +71,11 @@ class Context(
     val timeoutHandler: TimerWatcher = TimerWatcher(mqDecoder, configuration.decodingTimeout, "decoding"),
     val cradleEventExtractor: CradleEventExtractor = CradleEventExtractor(
         cradleManager,
-        SummaryMetric.create(registry, "cradle event")
+        ImplMetric.create(registry, "cradle event")
     ),
     val cradleMsgExtractor: CradleMessageExtractor = CradleMessageExtractor(
         cradleManager,
-        SummaryMetric.create(registry, "cradle message"),
+        ImplMetric.create(registry, "cradle message"),
         configuration.validateCradleData
     ),
     val generalCradleExtractor: GeneralCradleExtractor = GeneralCradleExtractor(cradleManager),
@@ -94,7 +94,7 @@ class Context(
         configuration,
     ),
     val searchEventsHandler: SearchEventsHandler = SearchEventsHandler(cradleEventExtractor, execExecutor),
-    val requestsDataMeasurement: Metric = SummaryMetric.create(registry, "requests"),
+    val requestsDataMeasurement: Metric = ImplMetric.create(registry, "requests"),
     val queueMessageHandler: QueueMessagesHandler = QueueMessagesHandler(
         cradleMsgExtractor,
         protoMessageRouter,
