@@ -51,11 +51,13 @@ fun writeJsonStream(
     var writeHeader = true
     var status: HttpStatus = HttpStatus.OK
 
-    val output = ctx.res().apply {
+    val output = ctx.res().outputStream.let {
         if (bufferSize > 0) {
-            this.bufferSize = bufferSize
+            it.buffered(bufferSize)
+        } else {
+            it
         }
-    }.outputStream
+    }
 
     try {
         val processSseEventMetric = metric.child("process_sse_event")
