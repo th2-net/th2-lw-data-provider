@@ -73,28 +73,28 @@ class HttpMessagesRequestHandler(
     override fun handleNextInternal(data: RequestedMessageDetails) {
         if (!isAlive) return
         val counter = indexer.nextIndex()
-        val future: CompletableFuture<SseEvent> = data.completed.thenApplyAsync({ requestedMessage: RequestedMessage ->
-            convertToJsonMetric.measure {
-                if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
-                    builder.codecTimeoutError(requestedMessage.storedMessage.id, counter).also {
-                        if (failFast) {
-                            LOGGER.warn { "Codec timeout. Canceling processing due to fail-fast strategy" }
-                            // note that this might not stop the processing right away
-                            // this is called on a different thread
-                            // so some messages might be loaded before the processing is canceled
-                            fail()
-                        }
+        val future: CompletableFuture<SseEvent> = data.completed.thenApply { requestedMessage: RequestedMessage ->
+//            convertToJsonMetric.measure {
+            if (jsonFormatter != null && requestedMessage.protoMessage == null && requestedMessage.transportMessage == null) {
+                builder.codecTimeoutError(requestedMessage.storedMessage.id, counter).also {
+                    if (failFast) {
+                        LOGGER.warn { "Codec timeout. Canceling processing due to fail-fast strategy" }
+                        // note that this might not stop the processing right away
+                        // this is called on a different thread
+                        // so some messages might be loaded before the processing is canceled
+                        fail()
                     }
-                } else {
-                    builder.build(
-                        requestedMessage, jsonFormatter, includeRaw,
-                        counter,
-                    )
-                }.also {
-                    HttpWriteMetrics.incConverted()
                 }
+            } else {
+                builder.build(
+                    requestedMessage, jsonFormatter, includeRaw,
+                    counter,
+                )
+            }.also {
+                HttpWriteMetrics.incConverted()
             }
-        }, executor)
+//            }
+        }
         buffer.put(future::get)
     }
 

@@ -88,45 +88,59 @@ sealed class SseEvent(
 
     class MessageData(
         private val bufferPool: ByteBufferPool,
-        escaper: Escaper,
-        jacksonMapper: ObjectMapper,
-        message: ResponseMessage,
+        private val escaper: Escaper,
+        private val jacksonMapper: ObjectMapper,
+        private val message: ResponseMessage,
         override val metadata: String,
     ) : SseEvent(EventType.MESSAGE) {
-        private val buf: ByteBuffer?
-        private val array: ByteArray?
-
-        init {
-            when (message) {
-                // FIXME: implement ProviderMessage53
-                is ProviderMessage53 -> {
-                    buf = null
-                    array = JSON.encodeToByteArray(ProviderMessage53.serializer(), message)
-                }
-                is ProviderMessage53Transport -> {
-                    buf = serialize(bufferPool.acquire(calculateSize(message::serializeJsonData)), escaper, message::serializeJsonData)
-                    array = null
-
-                }
-                else -> {
-                    buf = null
-                    array = jacksonMapper.writeValueAsBytes(message)
-                }
-            }
-        }
+//        private val buf: ByteBuffer?
+//        private val array: ByteArray?
+//
+//        init {
+//            when (message) {
+//                // FIXME: implement ProviderMessage53
+//                is ProviderMessage53 -> {
+//                    buf = null
+//                    array = JSON.encodeToByteArray(ProviderMessage53.serializer(), message)
+//                }
+//                is ProviderMessage53Transport -> {
+//                    buf = serialize(bufferPool.acquire(calculateSize(message::serializeJsonData)), escaper, message::serializeJsonData)
+//                    array = null
+//
+//                }
+//                else -> {
+//                    buf = null
+//                    array = jacksonMapper.writeValueAsBytes(message)
+//                }
+//            }
+//        }
 
         override fun writeData(
             out: OutputStream
         ) {
-            when {
-                buf != null -> try {
-                    out.write(buf.array(), buf.arrayOffset() + buf.position(), buf.remaining())
-                } finally {
-                    this.bufferPool.release(buf)
+            when (message) {
+                // FIXME: implement ProviderMessage53
+                is ProviderMessage53 -> {
+                    JSON.encodeToStream(ProviderMessage53.serializer(), message, out)
                 }
-                array != null -> out.write(array)
-                else -> error("Neither of array or byte buf is provided")
+                is ProviderMessage53Transport -> {
+                    serialize(out, escaper, message::serializeJsonData)
+
+                }
+                else -> {
+                    jacksonMapper.writeValue(out, message)
+                }
             }
+
+//            when {
+//                buf != null -> try {
+//                    out.write(buf.array(), buf.arrayOffset() + buf.position(), buf.remaining())
+//                } finally {
+//                    this.bufferPool.release(buf)
+//                }
+//                array != null -> out.write(array)
+//                else -> error("Neither of array or byte buf is provided")
+//            }
         }
     }
 
