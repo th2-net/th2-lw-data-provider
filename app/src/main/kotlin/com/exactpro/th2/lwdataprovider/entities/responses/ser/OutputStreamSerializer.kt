@@ -97,7 +97,20 @@ private class OutputStreamSerializer(
     }
 
     override fun base64Str(value: ByteBuffer) = this.also {
-        base64Output.write(value.array())
+        val position = value.position()
+        try {
+            if (value.hasArray()) {
+                val offset = value.arrayOffset() + value.position()
+                val length = value.remaining()
+                base64Output.write(value.array(), offset, length)
+            } else {
+                val temp = ByteArray(value.remaining())
+                value.get(temp)
+                base64Output.write(temp)
+            }
+        } finally {
+            value.position(position)
+        }
     }
 
     override fun base64Str(value: ByteArray) = this.also {

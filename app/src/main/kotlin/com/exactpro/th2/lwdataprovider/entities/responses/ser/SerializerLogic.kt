@@ -58,7 +58,7 @@ fun ProviderMessage53Transport.serializeJsonData(serializer: Serializer<*>): Uni
         body?.let {
             filed(EntityField.BODY) { body(body) }.char(JsonChar.COMMA)
         }
-        bodyBytes?.let {
+        bodyBuffer?.let {
             filed(EntityField.BODY_BASE_64) {
                 valueStr {
                     base64Str(it)

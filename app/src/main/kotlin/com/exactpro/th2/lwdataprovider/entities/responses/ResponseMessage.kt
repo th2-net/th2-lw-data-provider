@@ -45,6 +45,7 @@ import kotlinx.serialization.json.JsonUnquotedLiteral
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
 import kotlinx.serialization.serializer
+import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.*
 
@@ -245,5 +246,29 @@ object ByteArrayAsBase64Serializer : KSerializer<ByteArray> {
     override fun deserialize(decoder: Decoder): ByteArray {
         val base64 = decoder.decodeString()
         return Base64.getDecoder().decode(base64)
+    }
+}
+
+object ByteBufferAsBase64Serializer : KSerializer<ByteBuffer> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("ByteArrayAsBase64", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: ByteBuffer) {
+        val array = if (value.remaining() == value.limit()) {
+            value.array()
+        } else {
+            value.array().copyOfRange(
+                value.arrayOffset() + value.position(),
+                value.arrayOffset() + value.limit()
+            )
+        }
+        val base64 = Base64.getEncoder().encodeToString(array)
+        encoder.encodeString(base64)
+    }
+
+    override fun deserialize(decoder: Decoder): ByteBuffer {
+        val base64 = decoder.decodeString()
+
+        return ByteBuffer.wrap(Base64.getDecoder().decode(base64))
     }
 }

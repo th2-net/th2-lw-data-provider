@@ -108,7 +108,7 @@ internal class TestCustomSerializerKt {
             attachedEventIds = setOf(
                 "eve${escapeCharacter}nt",
             ),
-            bodyBytes = byteArrayOf(42, 43),
+            bodyBuffer = ByteBuffer.wrap(byteArrayOf(42, 43)),
             messageId = StoredMessageId(
                 BookId("bo${escapeCharacter}ok"),
                 "session${escapeCharacter}Alias",

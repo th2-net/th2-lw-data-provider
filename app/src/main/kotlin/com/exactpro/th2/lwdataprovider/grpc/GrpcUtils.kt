@@ -92,7 +92,7 @@ fun StoredMessage.toProtoRawMessage(): RawMessage {
             id = message.id.toGrpcMessageId()
             protocol = message.protocol ?: ""
         }.build()
-        body = UnsafeByteOperations.unsafeWrap(message.content)
+        body = UnsafeByteOperations.unsafeWrap(message.contentBuffer)
     }.build()
 }
 

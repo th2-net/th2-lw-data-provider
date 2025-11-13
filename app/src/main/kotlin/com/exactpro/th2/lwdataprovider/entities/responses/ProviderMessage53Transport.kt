@@ -23,6 +23,7 @@ import com.exactpro.th2.common.schema.message.impl.rabbitmq.transport.ParsedMess
 import com.exactpro.th2.lwdataprovider.entities.internal.Direction
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.*
 
@@ -40,8 +41,8 @@ data class ProviderMessage53Transport(
     val body: List<TransportMessageContainer>?,
 
     @SerialName("bodyBase64")
-    @Serializable(with = ByteArrayAsBase64Serializer::class)
-    val bodyBytes: ByteArray? = null,
+    @Serializable(with = ByteBufferAsBase64Serializer::class)
+    val bodyBuffer: ByteBuffer? = null,
 
     @Serializable(with = StoredMessageIdSerializer::class)
     val messageId: StoredMessageId,
@@ -51,13 +52,13 @@ data class ProviderMessage53Transport(
         if (this === other) return true
         if (other !is ProviderMessage53Transport) return false
 
+        if (messageId != other.messageId) return false
+        if (sessionId != other.sessionId) return false
         if (timestamp != other.timestamp) return false
         if (direction != other.direction) return false
-        if (sessionId != other.sessionId) return false
         if (attachedEventIds != other.attachedEventIds) return false
+        if (!Objects.equals(bodyBuffer, other.bodyBuffer)) return false
         if (body != other.body) return false
-        if (!bodyBytes.contentEquals(other.bodyBytes)) return false
-        if (messageId != other.messageId) return false
 
         return true
     }
@@ -68,7 +69,7 @@ data class ProviderMessage53Transport(
         result = 31 * result + sessionId.hashCode()
         result = 31 * result + attachedEventIds.hashCode()
         result = 31 * result + (body?.hashCode() ?: 0)
-        result = 31 * result + (bodyBytes?.contentHashCode() ?: 0)
+        result = 31 * result + (bodyBuffer?.hashCode() ?: 0)
         result = 31 * result + messageId.hashCode()
         return result
     }
@@ -78,7 +79,7 @@ data class ProviderMessage53Transport(
             rawStoredMessage: StoredMessage,
             sessionGroup: String,
             body: List<ParsedMessage>?,
-            bodyBytes: ByteArray?,
+            bodyBuffer: ByteBuffer?,
             events: Set<String> = Collections.emptySet()
         ): ProviderMessage53Transport {
             return ProviderMessage53Transport(
@@ -88,7 +89,7 @@ data class ProviderMessage53Transport(
 //        messageType = body?.type,
                 attachedEventIds = events,
                 body = body?.map { TransportMessageContainer(sessionGroup, it) },
-                bodyBytes = bodyBytes,
+                bodyBuffer = bodyBuffer,
                 messageId = rawStoredMessage.id
             )
         }

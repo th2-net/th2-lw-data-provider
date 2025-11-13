@@ -2,6 +2,10 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
+        maven {
+            name = "Sonatype_snapshot"
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        }
     }
 }
 

@@ -32,7 +32,7 @@ class MessageProducer53Transport {
                 rawMessage.storedMessage,
                 rawMessage.sessionGroup,
                 if (formatter != null) requireNotNull(rawMessage.transportMessage) else null, // FIXME: return only first message instead of merge
-                if (includeRaw) rawMessage.storedMessage.content else null,
+                if (includeRaw) rawMessage.storedMessage.contentBuffer else null,
             )
         }
     }

@@ -99,7 +99,7 @@ class TestResponseMessage {
                 }
             )
         ),
-        Base64.decode("dGVzdC1yYXctYm9keQ=="),
+        ByteBuffer.wrap(Base64.decode("dGVzdC1yYXctYm9keQ==")),
         StoredMessageId(BookId(TEST_BOOK), TEST_SESSION_ALIAS, FIRST, timestamp, 1)
     )
 
