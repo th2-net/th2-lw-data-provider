@@ -28,6 +28,7 @@ class HistogramMetric private constructor(
         "th2_ldp_${name.replace(' ', '_').lowercase()}_time", "Time spent on each action for $name"
     ).buckets(*(buckets.takeIf { it.isNotEmpty() } ?: DEFAULT_BUCKETS))
         .labelNames("action")
+        .withoutExemplars()
         .register(registry)
 
     override fun child(name: String): ChildMetric = HistogramChildMetric(histogram.labels(name))

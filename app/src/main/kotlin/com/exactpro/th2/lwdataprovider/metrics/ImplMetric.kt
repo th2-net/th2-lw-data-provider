@@ -27,11 +27,13 @@ class ImplMetric private constructor(
     private val counter = Counter.build(
         "th2_ldp_${name.replace(' ', '_').lowercase()}_time_count", "Number of measurement on each action for $name"
     ).labelNames("action")
+        .withoutExemplars()
         .register(registry)
 
     private val sum = Counter.build(
         "th2_ldp_${name.replace(' ', '_').lowercase()}_time_sum", "Sum time of measurement on each action for $name"
     ).labelNames("action")
+        .withoutExemplars()
         .register(registry)
 
     override fun child(name: String): ChildMetric =
