@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import io.prometheus.client.Histogram
 object DecodingMetrics {
     private val decoded = Counter.build(
         "th2_ldp_decoded_total", "Number decoded messages"
-    ).register()
+    ).withoutExemplars().register()
 
     private val messagesWaiting: Gauge = Gauge.build(
         "th2_ldp_wait_decode",
@@ -45,6 +45,7 @@ object DecodingMetrics {
         "how long the messages were decoded by codecs"
     ).labelNames("marker")
         .buckets(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 75.0)
+        .withoutExemplars()
         .register()
 
     fun setMaxDecodeTimeout(seconds: Int) {
