@@ -53,6 +53,7 @@ fun writeJsonStream(
 
     val output = ctx.res().outputStream.let {
         if (bufferSize > 0) {
+            logger.info { "apply buffer: $bufferSize" }
             it.buffered(bufferSize)
         } else {
             it
