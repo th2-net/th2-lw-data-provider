@@ -23,7 +23,7 @@ import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
@@ -37,6 +37,7 @@ import com.exactpro.th2.lwdataprovider.filter.FilterRequest
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.serializers.CustomMillisOrNanosInstantDeserializer
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
@@ -76,6 +77,7 @@ import io.javalin.openapi.OpenApiRequestBody
 import io.javalin.openapi.OpenApiResponse
 import java.time.Instant
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.BlockingQueue
 import java.util.concurrent.Executor
 import java.util.function.Supplier
 
@@ -86,7 +88,7 @@ class TaskDownloadHandler(
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
     private val searchEventsHandler: SearchEventsHandler,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
     private val taskManager: TaskManager,
 ) : JavalinHandler {
 
@@ -228,12 +230,13 @@ class TaskDownloadHandler(
                     if (taskInfo == null) {
                         return@execute TaskState.NotFound
                     }
-                    val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+                    val queue: BlockingQueue<Supplier<SseEvent>>
 
                     when (taskInfo) {
                         is MessageTaskInfo -> {
+                            queue = ArrayBlockingQueue(configuration.responseMessageQueueSize)
                             val handler = HttpMessagesRequestHandler(
-                                queue, responseBuilder, convExecutor, dataMeasurement,
+                                queue, responseBuilder, convExecutor, metric,
                                 maxMessagesPerRequest = configuration.bufferPerQuery,
                                 responseFormats = taskInfo.request.responseFormats
                                     ?: configuration.responseFormats,
@@ -244,8 +247,9 @@ class TaskDownloadHandler(
                         }
 
                         is EventTaskInfo -> {
+                            queue = ArrayBlockingQueue(configuration.responseEventQueueSize)
                             val handler = HttpGenericResponseHandler(
-                                queue, responseBuilder, convExecutor, dataMeasurement,
+                                queue, responseBuilder, convExecutor, metric,
                                 Event::eventId,
                                 SseResponseBuilder::build
                             )
@@ -270,8 +274,8 @@ class TaskDownloadHandler(
                     is TaskState.MessagesReady -> {
                         val (taskInfo, handler, queue) = taskState
                         keepAliveHandler.addKeepAliveData(handler).use {
-                            searchMessagesHandler.loadMessageGroups(taskInfo.request, handler, dataMeasurement)
-                            writeJsonStream(context, queue, handler, dataMeasurement, LOGGER, taskInfo)
+                            searchMessagesHandler.loadMessageGroups(taskInfo.request, handler, metric)
+                            writeJsonStream(context, queue, handler, metric, LOGGER, taskInfo, configuration.responseBufferSize)
                             LOGGER.info { "Message task $taskID completed with status ${taskInfo.status}" }
                         }
                     }
@@ -280,7 +284,7 @@ class TaskDownloadHandler(
                         val (taskInfo, handler, queue) = taskState
                         keepAliveHandler.addKeepAliveData(handler).use {
                             searchEventsHandler.loadEvents(taskInfo.request, handler)
-                            writeJsonStream(context, queue, handler, dataMeasurement, LOGGER)
+                            writeJsonStream(context, queue, handler, metric, LOGGER, taskInfo, configuration.responseBufferSize)
                             LOGGER.info { "Event task $taskID completed with status ${taskInfo.status}" }
                         }
                     }

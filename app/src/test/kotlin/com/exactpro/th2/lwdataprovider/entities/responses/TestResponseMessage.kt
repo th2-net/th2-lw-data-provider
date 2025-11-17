@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.time.Instant
+import kotlin.io.encoding.Base64
 
 private const val TEST_BOOK = "test-book"
 private const val TEST_SESSION_ALIAS = "test-session-alias"
@@ -98,7 +99,7 @@ class TestResponseMessage {
                 }
             )
         ),
-        "dGVzdC1yYXctYm9keQ==",
+        ByteBuffer.wrap(Base64.decode("dGVzdC1yYXctYm9keQ==")),
         StoredMessageId(BookId(TEST_BOOK), TEST_SESSION_ALIAS, FIRST, timestamp, 1)
     )
 

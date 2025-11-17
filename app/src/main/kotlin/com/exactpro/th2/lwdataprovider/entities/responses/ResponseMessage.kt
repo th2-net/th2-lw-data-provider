@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2023 Exactpro (Exactpro Systems Limited)
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,9 +45,9 @@ import kotlinx.serialization.json.JsonUnquotedLiteral
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
 import kotlinx.serialization.serializer
+import java.nio.ByteBuffer
 import java.time.Instant
-import kotlin.math.ceil
-import kotlin.math.log10
+import java.util.*
 
 /**
  * Marker interface to specify the message what can be sent in response to message request
@@ -231,5 +231,44 @@ object UnwrappingJsonListSerializer :
             return JsonUnquotedLiteral(element.content)
         }
         return element
+    }
+}
+
+object ByteArrayAsBase64Serializer : KSerializer<ByteArray> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("ByteArrayAsBase64", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: ByteArray) {
+        val base64 = Base64.getEncoder().encodeToString(value)
+        encoder.encodeString(base64)
+    }
+
+    override fun deserialize(decoder: Decoder): ByteArray {
+        val base64 = decoder.decodeString()
+        return Base64.getDecoder().decode(base64)
+    }
+}
+
+object ByteBufferAsBase64Serializer : KSerializer<ByteBuffer> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("ByteArrayAsBase64", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: ByteBuffer) {
+        val array = if (value.remaining() == value.limit()) {
+            value.array()
+        } else {
+            value.array().copyOfRange(
+                value.arrayOffset() + value.position(),
+                value.arrayOffset() + value.limit()
+            )
+        }
+        val base64 = Base64.getEncoder().encodeToString(array)
+        encoder.encodeString(base64)
+    }
+
+    override fun deserialize(decoder: Decoder): ByteBuffer {
+        val base64 = decoder.decodeString()
+
+        return ByteBuffer.wrap(Base64.getDecoder().decode(base64))
     }
 }

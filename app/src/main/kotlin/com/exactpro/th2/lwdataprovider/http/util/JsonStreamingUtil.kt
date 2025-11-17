@@ -18,16 +18,16 @@ package com.exactpro.th2.lwdataprovider.http.util
 
 import com.exactpro.th2.lwdataprovider.EventType
 import com.exactpro.th2.lwdataprovider.SseEvent
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
 import com.exactpro.th2.lwdataprovider.handlers.AbstractCancelableHandler
-import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.listener.ProgressListener
 import com.exactpro.th2.lwdataprovider.metrics.HttpWriteMetrics
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.metrics.ResponseQueue
 import io.github.oshai.kotlinlogging.KLogger
 import io.javalin.http.Context
 import io.javalin.http.Header
 import io.javalin.http.HttpStatus
+import io.prometheus.client.SimpleTimer
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.function.Supplier
 
@@ -37,75 +37,69 @@ fun writeJsonStream(
     ctx: Context,
     queue: ArrayBlockingQueue<Supplier<SseEvent>>,
     handler: AbstractCancelableHandler,
-    dataMeasurement: DataMeasurement,
+    metric: Metric,
     logger: KLogger,
-    progressListener: ProgressListener = DEFAULT_PROCESS_LISTENER,
-    bufferSize: Int = DEFAULT_BUFFER_SIZE
+    progressListener: ProgressListener,
+    bufferSize: Int
 ) {
     progressListener.onStart()
 
     val matchedPath = ctx.matchedPath()
+    val queueSizeMetric = ResponseQueue.queueSizeMetric(matchedPath)
     var dataSent = 0
 
     var writeHeader = true
     var status: HttpStatus = HttpStatus.OK
 
-    fun writeHeader() {
-        if (writeHeader) {
-            ctx.status(status)
-                .contentType(JSON_STREAM_CONTENT_TYPE)
-                .header(Header.TRANSFER_ENCODING, "chunked")
-            writeHeader = false
-        }
-    }
-
     val output = ctx.res().outputStream.let {
         if (bufferSize > 0) {
+            logger.info { "apply buffer: $bufferSize" }
             it.buffered(bufferSize)
         } else {
             it
         }
     }
+
     try {
-        val awaitConvertToJsonMeasurement = dataMeasurement.child("await_convert_to_json")
-        val awaitNextMeasurement = dataMeasurement.child("await_next_sse_event")
-        val processSseEventMeasurement = dataMeasurement.child("process_sse_event")
-        val writeSseEventMeasurement = dataMeasurement.child("write_sse_event")
+        val processSseEventMetric = metric.child("process_sse_event")
         do {
-            processSseEventMeasurement.start().use {
-                val nextEvent = awaitNextMeasurement.start().use { queue.take() }
-                ResponseQueue.currentSize(matchedPath, queue.size)
-                val sseEvent = awaitConvertToJsonMeasurement.start().use { nextEvent.get() }
+            val startNanos = System.nanoTime()
+            try {
+                val nextEvent = queue.take()
+                queueSizeMetric.set(queue.size.toDouble())
+                val sseEvent = nextEvent.get()
                 if (writeHeader && sseEvent is SseEvent.ErrorData.SimpleError) {
                     // something happened during request
                     status = HttpStatus.INTERNAL_SERVER_ERROR
                 }
-                writeHeader()
+                if (writeHeader) {
+                    ctx.status(status)
+                        .contentType(JSON_STREAM_CONTENT_TYPE)
+                        .header(Header.TRANSFER_ENCODING, "chunked")
+                    writeHeader = false
+                }
                 if (sseEvent is SseEvent.ErrorData) {
                     progressListener.onError(sseEvent)
                 }
-                when (sseEvent.event) {
-                    EventType.KEEP_ALIVE -> output.flush()
-                    EventType.CLOSE -> {
-                        logger.info { "Received close event" }
-                        return
+                if (sseEvent.event == EventType.KEEP_ALIVE) {
+                    output.flush()
+                } else if (sseEvent.event == EventType.CLOSE) {
+                    logger.info { "Received close event" }
+                    return
+                } else {
+                    logger.debug {
+                        "Write event to output: " // FIXME: log data
                     }
-
-                    else -> {
-                        logger.debug {
-                            "Write event to output: " // FIXME: log data
-                        }
-                        writeSseEventMeasurement.start().use {
-                            sseEvent.writeData(output)
-                            output.write('\n'.code)
-                        }
-                        dataSent++
-                    }
+                    sseEvent.writeData(output)
+                    output.write('\n'.code)
+                    dataSent++
                 }
                 if (queue.isEmpty() && !handler.isAlive) {
                     logger.info { "Request canceled" }
                     return
                 }
+            } finally {
+                processSseEventMetric.observe(SimpleTimer.elapsedSecondsFromNanos(startNanos, System.nanoTime()))
             }
         } while (true)
     } catch (ex: Exception) {
@@ -120,7 +114,10 @@ fun writeJsonStream(
             progressListener.onCanceled()
         }
         HttpWriteMetrics.messageSent(matchedPath, dataSent)
-        runCatching { output.flush() }
-            .onFailure { logger.error(it) { "cannot flush the remaining data when processing is finished" } }
+        try {
+            output.flush()
+        } catch (e: Exception) {
+            logger.error(e) { "cannot flush the remaining data when processing is finished" }
+        }
     }
 }

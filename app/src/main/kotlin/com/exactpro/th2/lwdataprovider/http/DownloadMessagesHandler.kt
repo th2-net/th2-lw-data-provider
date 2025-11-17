@@ -20,13 +20,14 @@ import com.exactpro.cradle.BookId
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.MessagesGroupRequest
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.util.convertToMessageStreams
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
 import com.exactpro.th2.lwdataprovider.handlers.SearchMessagesHandler
+import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -51,7 +52,7 @@ class DownloadMessagesHandler(
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchMessagesHandler: SearchMessagesHandler,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : JavalinHandler {
     override fun setup(app: Javalin, context: JavalinContext) {
         app.get(ROUTE_MESSAGES, this::handleMessage)
@@ -167,7 +168,7 @@ class DownloadMessagesHandler(
                 .getOrDefault(SearchDirection.next),
         )
 
-        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseMessageQueueSize)
         val responseFormats: Set<ResponseFormat>? = request.responseFormats.let { formats ->
             if (ctx.queryParamAsClass<Boolean>(RAW_ONLY_PARAMETER).getOrDefault(false)) {
                 formats?.let { it + ResponseFormat.BASE_64 } ?: setOf(ResponseFormat.BASE_64)
@@ -176,13 +177,13 @@ class DownloadMessagesHandler(
             }
         }
         val handler = HttpMessagesRequestHandler(
-            queue, sseResponseBuilder, convExecutor, dataMeasurement,
+            queue, sseResponseBuilder, convExecutor, metric,
             maxMessagesPerRequest = configuration.bufferPerQuery,
             responseFormats = responseFormats ?: configuration.responseFormats
         )
         keepAliveHandler.addKeepAliveData(handler).use {
-            searchMessagesHandler.loadMessageGroups(request, handler, dataMeasurement)
-            writeJsonStream(ctx, queue, handler, dataMeasurement, LOGGER, bufferSize = configuration.responseBufferSize)
+            searchMessagesHandler.loadMessageGroups(request, handler, metric)
+            writeJsonStream(ctx, queue, handler, metric, LOGGER, progressListener = DEFAULT_PROCESS_LISTENER, bufferSize = configuration.responseBufferSize)
             LOGGER.info { "Processing download messages request finished" }
         }
     }

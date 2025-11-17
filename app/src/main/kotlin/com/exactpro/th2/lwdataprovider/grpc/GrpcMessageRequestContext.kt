@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright 2022 Exactpro (Exactpro Systems Limited)
+/*
+ * Copyright 2022-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 
 package com.exactpro.th2.lwdataprovider.grpc
 
@@ -20,7 +20,7 @@ import com.exactpro.th2.dataprovider.lw.grpc.MessageSearchResponse
 import com.exactpro.th2.dataprovider.lw.grpc.MessageStreamPointers
 import com.exactpro.th2.lwdataprovider.GrpcEvent
 import com.exactpro.th2.lwdataprovider.RequestedMessageDetails
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.exceptions.HandleDataException
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.handlers.MessageResponseHandler
@@ -29,10 +29,10 @@ import java.util.concurrent.BlockingQueue
 
 class GrpcMessageResponseHandler(
     private val buffer: BlockingQueue<GrpcEvent>,
-    dataMeasurement: DataMeasurement,
+    metric: Metric,
     maxMessagesPerRequest: Int = 0,
     private val responseFormats: Set<ResponseFormat> = emptySet(),
-) : MessageResponseHandler(dataMeasurement, maxMessagesPerRequest) {
+) : MessageResponseHandler(metric, maxMessagesPerRequest) {
     override fun handleNextInternal(data: RequestedMessageDetails) {
         if (!isAlive) return
         buffer.put(GrpcEvent(message = {

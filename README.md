@@ -1,4 +1,4 @@
-# Lightweight data provider (2.17.1)
+# Lightweight data provider (2.17.2)
 
 # Overview
 This component serves as a data provider for [th2-data-services](https://github.com/th2-net/th2-data-services). It will connect to the cassandra database via [cradle api](https://github.com/th2-net/cradleapi) and expose the data stored in there as REST resources.
@@ -225,6 +225,15 @@ spec:
 ```
 
 # Release notes:
+
+## 2.17.2
+
++ Optimized message download call
+  + Serialize base64 bytes of raw message instead of string
+  + Optimized measurement by metrics
+  + `responseQueueSize` option is deprecated (currently used as default value for `responseMessageQueueSize` and `responseEventQueueSize` options)
+    + added `responseMessageQueueSize` (default: 10000)
+    + added `responseEventQueueSize` (default: 100)
 
 ## 2.17.1
 

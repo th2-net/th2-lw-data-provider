@@ -36,6 +36,7 @@ import com.exactpro.th2.lwdataprovider.db.OrderStrategy.Companion.toOrderStrateg
 import com.exactpro.th2.lwdataprovider.db.util.getGenericWithSyncInterval
 import com.exactpro.th2.lwdataprovider.db.util.withMeasurements
 import com.exactpro.th2.lwdataprovider.handlers.util.BookGroup
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.toReportId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
@@ -44,7 +45,7 @@ import kotlin.system.measureTimeMillis
 
 class CradleMessageExtractor(
     cradleManager: CradleManager,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
     private val validateCradleData: Boolean
 ) {
 
@@ -54,7 +55,7 @@ class CradleMessageExtractor(
         private val logger = KotlinLogging.logger { }
     }
 
-    fun getAllGroups(bookId: BookId): Set<String> = measure("groups") { storage.getGroups(bookId) }.toSet()
+    fun getAllGroups(bookId: BookId): Set<String> = metric.measure("groups") { storage.getGroups(bookId) }.toSet()
 
     fun getGroups(bookId: BookId, from: Instant, to: Instant): Iterator<String> =
         storage.getSessionGroups(bookId, Interval(from, to))
@@ -96,8 +97,8 @@ class CradleMessageExtractor(
     fun getMessages(filter: MessageFilter, sink: MessageDataSink<String, StoredMessage>) {
 
         logger.info { "Executing query $filter" }
-        val iterable = measure("init_messages") { storage.getMessages(filter) }
-            .withMeasurements("messages", dataMeasurement)
+        val iterable = metric.measure("init_messages") { storage.getMessages(filter) }
+            .withMeasurements("messages", metric)
         for (storedMessage: StoredMessage in iterable) {
 
             sink.canceled?.apply {
@@ -120,9 +121,9 @@ class CradleMessageExtractor(
         val end = filter.to.value
         val orderStrategy = filter.order?.toOrderStrategy() ?: OrderStrategy.DIRECT
         val iterator: Iterator<StoredGroupedMessageBatch> =
-            measure("init_groups") { storage.getGroupedMessageBatches(filter) }
+            metric.measure("init_groups") { storage.getGroupedMessageBatches(filter) }
                 .withCheck(validateCradleData)
-                .withMeasurements("groups", dataMeasurement)
+                .withMeasurements("groups", metric)
         if (!iterator.hasNext()) {
             logger.info { "Empty response received from cradle" }
             return
@@ -149,10 +150,10 @@ class CradleMessageExtractor(
         var prev: StoredGroupedMessageBatch? = null
         var currentBatch: StoredGroupedMessageBatch = iterator.next()
         val buffer: MutableList<StoredMessage> = ArrayList()
-        val measurement = dataMeasurement.child("process_cradle_group_batch")
+        val measurement = metric.child("process_cradle_group_batch")
         while (iterator.hasNext()) {
             @Suppress("ConvertTryFinallyToUseCall")
-            measurement.start().use {
+            measurement.measure {
                 sink.canceled?.apply {
                     logger.info { "canceled because: $message" }
                     return
@@ -232,7 +233,7 @@ class CradleMessageExtractor(
 
         val time = measureTimeMillis {
             logger.info { "Extracting message: $msgId" }
-            val message = measure("single_message") { storage.getMessage(msgId) }
+            val message = metric.measure("single_message") { storage.getMessage(msgId) }
 
             if (message == null) {
                 sink.onError("Message with id $msgId not found", msgId.toReportId())
@@ -250,7 +251,7 @@ class CradleMessageExtractor(
     fun getMessage(group: String, msgId: StoredMessageId, sink: MessageDataSink<String, StoredMessage>) {
         val time = measureTimeMillis {
             logger.info { "Extracting message: $msgId from group $group" }
-            val batches = measure("group_message") {
+            val batches = metric.measure("group_message") {
                 storage.getGroupedMessageBatches(
                     GroupedMessageFilter.builder()
                         .groupName(group)
@@ -294,8 +295,8 @@ class CradleMessageExtractor(
             { sink.onNext(it.sessionAlias, it) },
             { it.timestamp },
         ) {
-            measure("init_messages") { storage.getMessages(it) }
-                .withMeasurements("messages", dataMeasurement)
+            metric.measure("init_messages") { storage.getMessages(it) }
+                .withMeasurements("messages", metric)
         }
     }
 
@@ -325,12 +326,10 @@ class CradleMessageExtractor(
             },
             { it.firstTimestamp },
         ) { (_, params) ->
-            measure("init_groups") { storage.getGroupedMessageBatches(params.first) }
-                .withMeasurements("groups", dataMeasurement)
+            metric.measure("init_groups") { storage.getGroupedMessageBatches(params.first) }
+                .withMeasurements("groups", metric)
         }
     }
-
-    private inline fun <T> measure(name: String, action: () -> T): T = dataMeasurement.start(name).use { action() }
 }
 
 internal class GroupBatchCheckIterator(
@@ -372,9 +371,6 @@ private val MIN_STREAM_METADATA = StreamMetadata(Instant.MIN, Long.MIN_VALUE)
 
 fun StoredGroupedMessageBatch.toShortInfo(): String =
     "${group}:${firstMessage.sequence}..${lastMessage.sequence} ($firstTimestamp..$lastTimestamp)"
-
-fun StoredMessage.toShortInfo(): String =
-    "${sessionAlias}:${sequence} ($timestamp)"
 
 data class CradleGroupRequest(
     val preFilter: ((StoredMessage) -> Boolean)? = null,
@@ -422,7 +418,7 @@ private enum class OrderStrategy {
     abstract fun <T>reorder(collection: Collection<T>): Collection<T>
 
     companion object {
-        internal fun Order.toOrderStrategy(): OrderStrategy = when(this) {
+        fun Order.toOrderStrategy(): OrderStrategy = when(this) {
             Order.DIRECT -> DIRECT
             Order.REVERSE -> REVERSE
         }

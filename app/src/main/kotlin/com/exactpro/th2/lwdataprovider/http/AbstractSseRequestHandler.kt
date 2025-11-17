@@ -32,11 +32,12 @@ abstract class AbstractSseRequestHandler : Consumer<SseClient>, JavalinHandler {
     ) {
 
         val matchedPath = ctx().matchedPath()
+        val queueSizeMetric = ResponseQueue.queueSizeMetric(matchedPath)
         var dataSent = 0
         try {
             while (true) {
                 val supplier = queue.take()
-                ResponseQueue.currentSize(matchedPath, queue.size)
+                queueSizeMetric.set(queue.size.toDouble())
                 val event = supplier.get()
                 if (terminated()) {
                     K_LOGGER.info { "Request is terminated. Clear queue and stop processing" }

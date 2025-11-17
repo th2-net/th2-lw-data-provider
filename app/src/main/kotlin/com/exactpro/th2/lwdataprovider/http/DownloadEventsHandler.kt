@@ -21,7 +21,7 @@ import com.exactpro.th2.lwdataprovider.MapEscaper
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ProviderEventId
 import com.exactpro.th2.lwdataprovider.entities.requests.SearchDirection
 import com.exactpro.th2.lwdataprovider.entities.requests.SseEventSearchRequest
@@ -31,6 +31,7 @@ import com.exactpro.th2.lwdataprovider.entities.responses.ser.EventSchema
 import com.exactpro.th2.lwdataprovider.entities.responses.Event
 import com.exactpro.th2.lwdataprovider.filter.events.EventsFilterFactory
 import com.exactpro.th2.lwdataprovider.handlers.SearchEventsHandler
+import com.exactpro.th2.lwdataprovider.http.listener.DEFAULT_PROCESS_LISTENER
 import com.exactpro.th2.lwdataprovider.http.util.JSON_STREAM_CONTENT_TYPE
 import com.exactpro.th2.lwdataprovider.http.util.writeJsonStream
 import com.exactpro.th2.lwdataprovider.workers.KeepAliveHandler
@@ -54,7 +55,7 @@ class DownloadEventsHandler(
     private val sseResponseBuilder: SseResponseBuilder,
     private val keepAliveHandler: KeepAliveHandler,
     private val searchEventsHandler: SearchEventsHandler,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : JavalinHandler {
     override fun setup(app: Javalin, context: JavalinContext) {
         app.get(ROUTE_DOWNLOAD_EVENTS, this::handleEvent)
@@ -131,11 +132,11 @@ class DownloadEventsHandler(
     private fun handleEvent(ctx: Context) {
         val request = createRequest(ctx)
 
-        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseQueueSize)
+        val queue = ArrayBlockingQueue<Supplier<SseEvent>>(configuration.responseEventQueueSize)
         HeapBufferPool().use { bufferPool ->
             MapEscaper().use { escaper ->
                 val handler = HttpGenericResponseHandler(
-                    queue, sseResponseBuilder.createWith(bufferPool, escaper), convExecutor, dataMeasurement,
+                    queue, sseResponseBuilder.createWith(bufferPool, escaper), convExecutor, metric,
                     Event::eventId,
                     SseResponseBuilder::build
                 )
@@ -145,8 +146,9 @@ class DownloadEventsHandler(
                         ctx,
                         queue,
                         handler,
-                        dataMeasurement,
+                        metric,
                         LOGGER,
+                        progressListener = DEFAULT_PROCESS_LISTENER,
                         bufferSize = configuration.responseBufferSize
                     )
                     LOGGER.info { "Processing download events request finished" }

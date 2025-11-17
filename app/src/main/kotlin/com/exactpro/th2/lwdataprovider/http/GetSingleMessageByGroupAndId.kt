@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Exactpro (Exactpro Systems Limited)
+ * Copyright 2023-2025 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import com.exactpro.th2.lwdataprovider.ExceptionInfo
 import com.exactpro.th2.lwdataprovider.SseEvent
 import com.exactpro.th2.lwdataprovider.SseResponseBuilder
 import com.exactpro.th2.lwdataprovider.configuration.Configuration
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 import com.exactpro.th2.lwdataprovider.entities.internal.ResponseFormat
 import com.exactpro.th2.lwdataprovider.entities.requests.GetGroupMessageRequest
 import com.exactpro.th2.lwdataprovider.entities.responses.ProviderMessage53
@@ -45,7 +45,7 @@ class GetSingleMessageByGroupAndId(
     private val configuration: Configuration,
     private val sseResponseBuilder: SseResponseBuilder,
     private val convExecutor: Executor,
-    private val dataMeasurement: DataMeasurement,
+    private val metric: Metric,
 ) : AbstractRequestHandler() {
     override fun setup(app: Javalin, context: JavalinContext) {
         app.get(ROUTE, this)
@@ -104,7 +104,7 @@ class GetSingleMessageByGroupAndId(
 
         val handler = HttpMessagesRequestHandler(
             queue, sseResponseBuilder, convExecutor,
-            dataMeasurement,
+            metric,
             responseFormats = responseFormats,
         )
         val newMsgId: StoredMessageId = parseMessageId(msgId)
@@ -117,7 +117,7 @@ class GetSingleMessageByGroupAndId(
                 rawOnly = responseFormats.run { size == 1 && contains(ResponseFormat.BASE_64) },
             )
 
-            searchHandler.loadOneMessageByGroup(request, handler, dataMeasurement)
+            searchHandler.loadOneMessageByGroup(request, handler, metric)
         } catch (ex: Exception) {
             LOGGER.error(ex) { "cannot load message $msgId for group $groupName" }
             handler.writeErrorMessage(ex.message ?: ex.toString())

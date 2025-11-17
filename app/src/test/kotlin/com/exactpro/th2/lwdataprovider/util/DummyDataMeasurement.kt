@@ -16,20 +16,15 @@
 
 package com.exactpro.th2.lwdataprovider.util
 
-import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
-import com.exactpro.th2.lwdataprovider.db.Measurement
+import com.exactpro.th2.lwdataprovider.metrics.ChildMetric
+import com.exactpro.th2.lwdataprovider.metrics.Metric
 
-object DummyDataMeasurement : DataMeasurement {
-    override fun start(name: String): Measurement = object : Measurement {
-        override fun close() = Unit
-    }
+object DummyDataMeasurement : Metric() {
+    override fun observe(name: String, amt: Double) { }
 
-    override fun child(name: String): ChildDataMeasurement {
-        return object : ChildDataMeasurement {
-            override fun start(): Measurement = object : Measurement {
-                override fun close() = Unit
-            }
+    override fun child(name: String): ChildMetric {
+        return object : ChildMetric() {
+            override fun observe(amt: Double) { }
         }
     }
 }

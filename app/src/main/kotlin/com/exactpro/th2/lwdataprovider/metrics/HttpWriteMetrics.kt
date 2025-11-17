@@ -22,19 +22,20 @@ import io.prometheus.client.Histogram
 object HttpWriteMetrics {
     private val converted = Counter.build(
         "th2_ldp_sse_converted_total", "Number converted messages from requested message details to SSE event"
-    ).register()
+    ).withoutExemplars().register()
 
     private val writingHistogram: Histogram = Histogram.build(
         "th2_ldp_sse_write_time",
         "time spent to write a response to the output"
     ).labelNames("uri")
         .exponentialBuckets(0.000000001, 10.0, 10)
+        .withoutExemplars()
         .register()
 
     private val messagesSent: Counter = Counter.build(
         "th2_ldp_sse_events_count",
         "number of events sent into individual path"
-    ).labelNames("uri").register()
+    ).labelNames("uri").withoutExemplars().register()
 
     inline fun measureWrite(path: String, action: () -> Unit) {
         startTimer(path).use {

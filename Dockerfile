@@ -1,4 +1,4 @@
-FROM amazoncorretto:11-alpine-jdk
+FROM azul/zulu-openjdk-alpine:21-latest
 WORKDIR /home
 COPY ./app/build/docker .
 ENTRYPOINT ["/home/service/bin/service"]

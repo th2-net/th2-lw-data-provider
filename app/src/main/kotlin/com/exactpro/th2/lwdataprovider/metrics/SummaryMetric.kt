@@ -16,36 +16,29 @@
 
 package com.exactpro.th2.lwdataprovider.metrics
 
-import com.exactpro.th2.lwdataprovider.db.ChildDataMeasurement
-import com.exactpro.th2.lwdataprovider.db.DataMeasurement
-import com.exactpro.th2.lwdataprovider.db.Measurement
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.Summary
 
-class DataMeasurementSummary private constructor(
+class SummaryMetric private constructor(
     name: String,
     registry: CollectorRegistry,
-) : DataMeasurement {
-    private val stepMetrics = Summary.build(
+) : Metric() {
+    private val summary = Summary.build(
         "th2_ldp_${name.replace(' ', '_').lowercase()}_time", "Time spent on each action for $name"
     ).labelNames("action")
         .register(registry)
 
-    override fun start(name: String): Measurement = MeasurementImpl(name, stepMetrics.labels(name).startTimer())
-
-    override fun child(name: String): ChildDataMeasurement = ChildDataMeasurementSummary(name,stepMetrics)
+    override fun child(name: String): ChildMetric = SummaryChildMetric(summary.labels(name))
+    override fun observe(name: String, amt: Double) = summary.labels(name).observe(amt)
 
     companion object {
         @JvmStatic
-        fun create(registry: CollectorRegistry, name: String): DataMeasurement =
-            DataMeasurementSummary(name, registry)
+        fun create(registry: CollectorRegistry, name: String): Metric = SummaryMetric(name, registry)
 
-        private class ChildDataMeasurementSummary(
-            private val name: String,
-            summary: Summary
-        ): ChildDataMeasurement {
-            private val child: Summary.Child = summary.labels(name)
-            override fun start(): Measurement = MeasurementImpl(name, child.startTimer())
+        private class SummaryChildMetric(
+            val child: Summary.Child,
+        ): ChildMetric() {
+            override fun observe(amt: Double) = child.observe(amt)
         }
     }
 }
