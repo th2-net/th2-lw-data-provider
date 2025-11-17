@@ -71,7 +71,7 @@ fun StoredMessage.toTransportRawMessage(): RawMessage {
         null,
         metadata.toMap(),
         protocol ?: "",
-        Unpooled.wrappedBuffer(content)
+        Unpooled.wrappedBuffer(contentBuffer)
     )
 }
 
