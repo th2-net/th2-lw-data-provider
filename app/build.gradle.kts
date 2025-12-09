@@ -40,9 +40,6 @@ dependencies {
     }
 
     implementation(libs.cradle.cassandra)
-    implementation(libs.lz4) {
-        because("cassandra driver requires lz4 impl in classpath for compression")
-    }
     implementation(project(":grpc-lw-data-provider"))
 
     implementation("io.prometheus:simpleclient") {
