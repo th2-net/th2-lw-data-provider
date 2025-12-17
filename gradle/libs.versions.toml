@@ -15,7 +15,7 @@ cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", vers
 kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.13" }
 kotlinx-serialization-json-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json-jvm", version = "1.9.0" }
 
-testcontainers-bom = { group = "org.testcontainers", name = "testcontainers-bom", version = "2.0.2" }
+testcontainers-bom = { group = "org.testcontainers", name = "testcontainers-bom", version = "2.0.3" }
 junit-bom = { group = "org.junit", name = "junit-bom", version = "5.14.1" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "6.1.0" }
 strikt-core = { group = "io.strikt", name = "strikt-core", version.ref = "strikt" }
