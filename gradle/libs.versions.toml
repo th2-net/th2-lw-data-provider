@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.3.0"
-th2-plugin = "0.3.11"
+th2-plugin = "0.3.14"
 strikt = "0.34.1"
 javalin = "6.7.0"
 openapi = "6.7.0-5"
@@ -9,7 +9,7 @@ jmh = "1.37"
 [libraries]
 th2-common = { group = "com.exactpro.th2", name = "common", version = "5.17.1-dev" }
 th2-common-utils = { group = "com.exactpro.th2", name = "common-utils", version = "2.4.0-dev" }
-th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.7.2" }
+th2-grpc-common = { group = "com.exactpro.th2", name = "grpc-common", version = "4.7.4" }
 cradle-cassandra = { group = "com.exactpro.th2", name = "cradle-cassandra", version = "5.7.1-dev" }
 
 kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version = "7.0.14" }
