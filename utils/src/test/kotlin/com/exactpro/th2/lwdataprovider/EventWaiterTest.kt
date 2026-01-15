@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Exactpro (Exactpro Systems Limited)
+ * Copyright 2025-2026 Exactpro (Exactpro Systems Limited)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,9 @@ class EventWaiterTest {
 
     @Test
     fun `wait event null result when gRPC throws exception`() {
-        whenever(service.getEvent(EVENT_ID)).doThrow(EXCEPTION)
+        // doThrow uses `inside Mockito's invocation wrapper (async-safe)` as result we have large latency
+        // thenAnswer call answer directly in your thread
+        whenever(service.getEvent(EVENT_ID)).thenAnswer { throw EXCEPTION }
         assertNull(waiter.waitEventResponseOrNull(EVENT_ID, Duration.ofMillis(100), Duration.ofMillis(10)))
         verify(service, atLeast(2)).getEvent(EVENT_ID)
     }
