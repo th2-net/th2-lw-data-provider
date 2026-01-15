@@ -64,7 +64,10 @@ class EventWaiterTest {
 
     @Test
     fun `wait event null result when gRPC throws exception`() {
-        whenever(service.getEvent(EVENT_ID)).doThrow(EXCEPTION)
+        // mockito:6.+
+        // doThrow uses `inside Mockito's invocation wrapper (async-safe)` as result we have large latency
+        // thenAnswer call answer directly in your thread
+        whenever(service.getEvent(EVENT_ID)).thenAnswer { throw EXCEPTION }
         assertNull(waiter.waitEventResponseOrNull(EVENT_ID, Duration.ofMillis(100), Duration.ofMillis(10)))
         verify(service, atLeast(2)).getEvent(EVENT_ID)
     }
