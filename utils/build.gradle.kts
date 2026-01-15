@@ -15,4 +15,5 @@ dependencies {
 
     testImplementation(libs.mockito.kotlin)
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testRuntimeOnly(libs.kotlinx.coroutines.core)
 }

@@ -48,6 +48,7 @@ subprojects {
         testImplementation(rootProject.libs.strikt.core)
         testImplementation(rootProject.libs.strikt.jackson)
 
+        testRuntimeOnly(rootProject.libs.kotlinx.coroutines.core)
         testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     }
 
