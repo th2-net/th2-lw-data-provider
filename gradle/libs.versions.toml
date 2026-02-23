@@ -2,7 +2,7 @@
 kotlin = "2.3.10"
 th2-plugin = "0.3.14"
 strikt = "0.34.1"
-javalin = "6.7.0"
+javalin = "7.0.0"
 openapi = "6.7.0-5"
 jmh = "1.37"
 
